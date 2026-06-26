@@ -1,0 +1,29 @@
+default_profile: openrouter_mimo
+profiles:
+  openrouter_mimo:
+    provider: openrouter
+    model_id: xiaomi/mimo-v2.5
+    supports_vision: true
+    params:
+      max_tokens: 4096
+      temperature: 0.5
+  openrouter_kimi:
+    provider: openrouter
+    model_id: xiaomi/mimo-v2.5
+    supports_vision: true
+    params:
+      max_tokens: 4096
+      temperature: 0.7
+  openrouter_fast:
+    provider: openrouter
+    model_id: google/gemini-2.0-flash-001
+    params:
+      max_tokens: 4096
+      temperature: 0.5
+  openrouter_vision:
+    provider: openrouter
+    model_id: xiaomi/mimo-v2.5
+    supports_vision: true
+    params:
+      max_tokens: 4096
+      temperature: 0.5
