@@ -1,0 +1,9 @@
+# Model profiles (template)
+# TODO: wire via project_core.models.loader
+
+profiles:
+  openrouter_default:
+    provider: openrouter
+    model: anthropic/claude-sonnet-4
+    env_api_key: OPENROUTER_API_KEY
+    env_base_url: OPENROUTER_BASE_URL

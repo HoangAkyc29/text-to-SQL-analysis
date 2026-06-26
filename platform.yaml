@@ -1,0 +1,37 @@
+# Platform config template — TODO: customize per multi-agent project
+# See docs/SCAFFOLD_GUIDE.md
+
+memory:
+  stm:
+    backend: file
+    dir: ./data/stm
+    # TODO: switch to redis — backend: redis, url_env: REDIS_URL
+  ltm:
+    backend: sqlite
+    db_path: ./data/ltm.db
+    # TODO: switch to mongodb — backend: mongodb, uri_env: MONGODB_URI
+  checkpoint_db_path: ./data/checkpoints.db
+
+mcp_servers:
+  base-mcp:
+    prefix: base
+    transport: sse
+    url_env: BASE_MCP_SERVER_URL
+    command: uv
+    args: ["run", "base-mcp-server"]
+    # TODO: add more MCP servers (data, tools, integrations, …)
+
+agents:
+  base-agent:
+    capabilities: [template]
+    factory: base_agent.service:build_service
+    mcp_servers: [base-mcp]
+    skill: default
+    endpoint_env: BASE_AGENT_URL
+    # TODO: add more agents (analyst, executor, router, …)
+
+orchestration:
+  type: graph
+  entry: base-agent
+  graph: []
+  # TODO: add edges, e.g. { from: my-analyst, to: my-synthesizer }

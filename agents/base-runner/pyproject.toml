@@ -1,0 +1,23 @@
+[project]
+name = "base-runner"
+version = "0.1.0"
+description = "Template platform runner — executes agent graph on demand or on a poll interval"
+requires-python = ">=3.11"
+dependencies = [
+    "platform-core",
+    "project-core",
+    "base-agent",
+]
+
+[project.scripts]
+base-runner = "base_runner.runner:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/base_runner"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

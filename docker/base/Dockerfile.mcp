@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+# Extends project-base with mcp-core. Image: abstract-base/mcp-base:local
+# TODO: rebuild when docker-mcp group changes
+ARG PROJECT_BASE=abstract-base/project-base:local
+FROM ${PROJECT_BASE}
+WORKDIR /app
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --only-group docker-mcp --no-dev

@@ -1,0 +1,87 @@
+# Multi-agent topology — example platform profile
+#
+# Graph skeleton: parallel workers → debate → decision maker.
+# Copy agents/base-agent/ for each role and implement decide().
+#
+# See docs/GRAPH_ORCHESTRATION.md for node kinds, shared state, and debate.
+# TODO: add integration tests under packages/project-test/fixtures/
+
+memory:
+  stm_dir: ./data/stm
+  ltm_db_path: ./data/ltm.db
+  checkpoint_db_path: ./data/checkpoints.db
+
+mcp_servers:
+  data-tools:
+    prefix: data
+    command: uv
+    args: ["run", "base-mcp-server"]
+    tool_filters: [base_ping]
+    # TODO: implement data-tools MCP with domain-specific tools
+
+agents:
+  # TODO: replace factory with dedicated agent packages per role
+  researcher-a:
+    capabilities: [research]
+    factory: base_agent.service:build_service
+    mcp_servers: [data-tools]
+    skill: default
+  researcher-b:
+    capabilities: [research]
+    factory: base_agent.service:build_service
+    skill: default
+  synthesizer:
+    capabilities: [synthesize]
+    factory: base_agent.service:build_service
+    skill: default
+  advocate-pro:
+    capabilities: [debate]
+    factory: base_agent.service:build_service
+    skill: default
+  advocate-con:
+    capabilities: [debate]
+    factory: base_agent.service:build_service
+    skill: default
+  moderator:
+    capabilities: [facilitate]
+    factory: base_agent.service:build_service
+    skill: default
+  decision-maker:
+    capabilities: [decide]
+    factory: base_agent.service:build_service
+    skill: default
+
+orchestration:
+  type: graph
+  entry: researchers
+  state:
+    channels:
+      report_a: { reducer: last_write }
+      report_b: { reducer: last_write }
+      debate_transcript: { reducer: append }
+      debate_decision: { reducer: last_write }
+      final_decision: { reducer: last_write }
+  graph:
+    - from: researchers
+      to: debate
+    - from: debate
+      to: synthesizer
+    - from: synthesizer
+      to: decision-maker
+  nodes:
+    researchers:
+      type: parallel
+      agents:
+        - researcher-a
+        - researcher-b
+      merge: state_map
+      state_map:
+        researcher-a: report_a
+        researcher-b: report_b
+    debate:
+      type: debate
+      participants: [advocate-pro, advocate-con]
+      facilitator: moderator
+      max_rounds: 2
+      transcript_channel: debate_transcript
+      output_channel: debate_decision

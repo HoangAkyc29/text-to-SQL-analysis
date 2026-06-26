@@ -1,0 +1,28 @@
+[project]
+name = "agent-core"
+version = "0.1.0"
+description = "Shared abstract building blocks for Strands-based agents (items 1-36)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "commons",
+    "strands-agents>=0.1.0",
+    "pydantic>=2",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=5"]
+mongodb = ["pymongo>=4"]
+rag = ["numpy>=1.26", "openai>=1.0"]
+chroma = ["chromadb>=0.5"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_core"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

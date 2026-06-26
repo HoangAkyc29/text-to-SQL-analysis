@@ -1,0 +1,16 @@
+# Project domain config (template)
+# TODO: implement load_project_config() in project_core.config
+
+app_name: my-multi-agent-app
+default_goal: "Run the configured agent graph"
+
+# Poll interval for base-runner --loop (duration string: 30s, 5m, 1h)
+poll_interval: 60s
+
+# Paths (relative to AGENT_ROOT_DIR)
+state_db_path: data/state/project_state.db
+audit_log_path: data/state/audit.jsonl
+
+# TODO: feature flags, rate limits, external service URLs
+# enable_llm: true
+# max_concurrent_runs: 1

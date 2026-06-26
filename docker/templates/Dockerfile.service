@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1
+# Generic thin service layer — copy to your service and set ARG defaults.
+# Requires a pre-built base image (see docs/DOCKER_BUILD.md).
+ARG BASE_IMAGE=abstract-base/agent-base:local
+ARG UV_PACKAGE=base-agent
+FROM ${BASE_IMAGE}
+ARG UV_PACKAGE
+WORKDIR /app
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --package ${UV_PACKAGE} --no-dev
+# ENV UV_NO_DEV=1
+# ENV UV_NO_SYNC=1
+# TODO: add service-specific ENV, EXPOSE, CMD

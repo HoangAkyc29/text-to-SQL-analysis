@@ -1,0 +1,37 @@
+# Docker image manifest — maps services to base tiers and uv packages.
+# See docs/DOCKER_BUILD.md when adding a new image.
+# Image prefix: abstract-base/
+
+bases:
+  project:
+    image: abstract-base/project-base:local
+    dockerfile: docker/base/Dockerfile.project
+    group: docker-project
+  mcp:
+    image: abstract-base/mcp-base:local
+    dockerfile: docker/base/Dockerfile.mcp
+    group: docker-mcp
+    from: project
+  agent:
+    image: abstract-base/agent-base:local
+    dockerfile: docker/base/Dockerfile.agent
+    group: docker-agent
+    from: project
+
+services:
+  base-mcp-server:
+    base: mcp
+    package: base-mcp-server
+    dockerfile: mcp-servers/base-mcp-server/Dockerfile
+    port: 8100
+    # TODO: add domain-specific MCP servers
+  base-agent:
+    base: agent
+    package: base-agent
+    dockerfile: agents/base-agent/Dockerfile
+    port: 8200
+  base-runner:
+    base: agent
+    package: base-runner
+    dockerfile: agents/base-runner/Dockerfile
+    compose_profile: runner

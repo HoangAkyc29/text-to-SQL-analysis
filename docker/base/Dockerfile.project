@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# Shared project-core closure (pandas, numpy, matplotlib, strands, …).
+# Image: abstract-base/project-base:local
+# TODO: rebuild when docker-project group changes
+FROM python:3.12-slim-bookworm
+WORKDIR /app
+RUN pip install --no-cache-dir uv
+ENV UV_LINK_MODE=copy UV_NO_DEV=1
+
+COPY pyproject.toml uv.lock ./
+COPY libs/commons/pyproject.toml libs/commons/
+COPY libs/agent-core/pyproject.toml libs/agent-core/
+COPY libs/mcp-core/pyproject.toml libs/mcp-core/
+COPY libs/platform-core/pyproject.toml libs/platform-core/
+COPY packages/project-core/pyproject.toml packages/project-core/
+COPY packages/project-test/pyproject.toml packages/project-test/
+COPY agents/base-agent/pyproject.toml agents/base-agent/
+COPY agents/base-runner/pyproject.toml agents/base-runner/
+COPY mcp-servers/base-mcp-server/pyproject.toml mcp-servers/base-mcp-server/
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --only-group docker-project --no-dev --no-install-project --no-install-workspace
+
+COPY . /app
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --only-group docker-project --no-dev
