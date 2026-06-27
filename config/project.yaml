@@ -1,16 +1,52 @@
-# Project domain config (template)
-# TODO: implement load_project_config() in project_core.config
+app_name: supermarket-analysis-agent
 
-app_name: my-multi-agent-app
-default_goal: "Run the configured agent graph"
+pipeline:
+  max_sql_queries_per_plan: 6
+  max_sql_retries: 3
+  max_risk_retries: 2
+  max_clarify_rounds: 3
+  max_sync_seconds: 120
+  iv_max_steps: 8
+  poll_enabled: true
+  workflow_stale_ttl_seconds: 900
+  workflow_steps_max: 200
+  workflow_steps_scope: analysis
 
-# Poll interval for base-runner --loop (duration string: 30s, 5m, 1h)
-poll_interval: 60s
+clarification:
+  hard_enforce: true
+  bridge_min_confidence: 0.75
 
-# Paths (relative to AGENT_ROOT_DIR)
-state_db_path: data/state/project_state.db
-audit_log_path: data/state/audit.jsonl
+rag:
+  clarify_min_score: 0.72
+  top_k: 5
 
-# TODO: feature flags, rate limits, external service URLs
-# enable_llm: true
-# max_concurrent_runs: 1
+budget:
+  agent_caps:
+    I: 5
+    II: 6
+    III: 18
+    IV: 4
+  max_tokens_per_trace: 200000
+
+policy:
+  max_rows: 50000
+  max_join_depth: 5
+  default_schema: dbo
+
+artifacts:
+  base_dir: data/artifacts
+  ttl_days: 7
+  max_bytes_per_trace: 52428800
+
+stm:
+  session_ttl_days: 30
+
+roles:
+  store_manager:
+    allowed_tables: [sales, inventory, stores, customers, transactions, products]
+    denied_columns: [cost_price, margin_pct]
+    store_filter_required: true
+  hq_analyst:
+    allowed_tables: [sales, inventory, stores, customers, transactions, products, promotions, loyalty_tier]
+    denied_columns: []
+    store_filter_required: false

@@ -1,7 +1,7 @@
 [project]
 name = "project-core"
 version = "0.1.0"
-description = "Shared project domain logic for multi-agent projects (scaffold)"
+description = "Supermarket analysis multi-agent domain logic"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,6 +15,16 @@ dependencies = [
     "requests",
     "python-dotenv",
     "strands-agents>=0.1.0",
+    "sqlglot>=25",
+    "pymongo>=4.6",
+    "pyodbc>=5.1",
+    "openpyxl>=3.1",
+    "structlog>=24",
+    "tenacity>=8.2",
+    "redis>=5.0",
+    "httpx>=0.27",
+    "platform-core",
+    "pyarrow>=15",
 ]
 
 [build-system]

@@ -1,0 +1,23 @@
+[project]
+name = "sql-gateway"
+version = "0.1.0"
+description = "SQL gateway MCP — validate, explain, execute readonly"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp-core",
+    "project-core",
+    "pyodbc>=5.1",
+]
+
+[project.scripts]
+sql-gateway = "sql_gateway.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sql_gateway"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

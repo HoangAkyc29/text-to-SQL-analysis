@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from platform_core.config.schema import AgentSpec, PlatformConfig
+from platform_core.service.base import DecisionContext
+
+from project_core.domain.clarification.bridge import ClarificationBridge
+from project_core.domain.contracts.brief import AnalysisBrief
+from project_core.domain.contracts.clarification import ClarificationRequest
+from project_core.domain.feedback.satisfaction_rules import detect_satisfaction
+from project_core.llm.openrouter_client import OpenRouterClient
+from project_core.models.loader import agent_profile
+from project_core.service.supermarket_agent import SupermarketAgentService
+
+
+class ConversationalRouterService(SupermarketAgentService):
+    def decide(self, ctx: DecisionContext) -> Any:
+        mode = (ctx.request.metadata or {}).get("mode", "ingress")
+        if mode == "clarification_bridge":
+            return self._clarification_bridge(ctx)
+        if mode == "clarify":
+            return self._clarify(ctx)
+        if mode == "synthesize":
+            return self._synthesize(ctx)
+        return self._ingress(ctx)
+
+    def _ingress(self, ctx: DecisionContext):
+        text = ctx.request.goal or ""
+        satisfaction = detect_satisfaction(text)
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            route = "analysis" if any(k in text.lower() for k in ("vip", "doanh", "bán", "chart", "điểm")) else "chitchat"
+            brief = AnalysisBrief(intent=text, metrics=["points"], output_format=["chart"]) if route == "analysis" else None
+            payload = {
+                "route": route,
+                "user_message": "Đã nhận yêu cầu phân tích." if route == "analysis" else "Xin chào, tôi có thể giúp gì?",
+                "brief": brief.model_dump() if brief else None,
+                "satisfaction_signal": satisfaction,
+            }
+            return self.json_response(ctx, payload)
+        client = OpenRouterClient()
+        result = client.chat(
+            profile_name=agent_profile("router"),
+            messages=[
+                {"role": "system", "content": "You are Agent I ingress router. Return JSON only."},
+                {"role": "user", "content": text},
+            ],
+            response_format={"type": "json_object"},
+        )
+        payload = json.loads(result.content)
+        if satisfaction:
+            payload["satisfaction_signal"] = satisfaction
+        return self.json_response(ctx, payload)
+
+    def _clarification_bridge(self, ctx: DecisionContext):
+        meta = ctx.request.metadata or {}
+        request = ClarificationRequest.model_validate(meta["clarification_request"])
+        transcript = meta.get("transcript") or []
+        bridge = ClarificationBridge()
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            from project_core.domain.memory.session_bundle import TranscriptTurn
+
+            turns = [TranscriptTurn.model_validate(t) if isinstance(t, dict) else t for t in transcript]
+            result = bridge.from_transcript_heuristic(request, turns)
+        else:
+            client = OpenRouterClient()
+            llm = client.chat(
+                profile_name=agent_profile("router"),
+                messages=[
+                    {"role": "system", "content": "Resolve clarification from transcript or ask_user."},
+                    {"role": "user", "content": json.dumps({"request": request.model_dump(), "transcript": transcript})},
+                ],
+                response_format={"type": "json_object"},
+            )
+            result = ClarificationBridge.parse_llm_bridge(llm.content, request)
+        return self.json_response(ctx, result.model_dump())
+
+    def _clarify(self, ctx: DecisionContext):
+        meta = ctx.request.metadata or {}
+        request = ClarificationRequest.model_validate(meta["clarification_request"])
+        payload = {
+            "user_message": "Vui lòng chọn thêm thông tin để tiếp tục phân tích.",
+            "clarification": request.model_dump(),
+        }
+        return self.json_response(ctx, payload)
+
+    def _synthesize(self, ctx: DecisionContext):
+        meta = ctx.request.metadata or {}
+        summary = meta.get("technical_summary") or {}
+        payload = {
+            "user_message": f"Kết quả: {summary.get('outcome', 'done')}.",
+            "artifacts": summary.get("artifact_urls") or [],
+        }
+        return self.json_response(ctx, payload)
+
+
+def build_service(config: PlatformConfig, spec: AgentSpec) -> ConversationalRouterService:
+    skills_root = Path(__file__).resolve().parent / "skills"
+    return ConversationalRouterService(config, spec, skills_root=skills_root, agent_key="I")

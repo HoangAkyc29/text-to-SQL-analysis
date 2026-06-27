@@ -1,0 +1,18 @@
+[project]
+name = "conversational-router"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["platform-core", "project-core", "fastapi", "uvicorn[standard]", "openai>=1.0"]
+
+[project.scripts]
+conversational-router = "conversational_router.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/conversational_router"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

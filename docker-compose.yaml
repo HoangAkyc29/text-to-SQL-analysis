@@ -1,134 +1,66 @@
-# Base monorepo stack: template MCP + agent + optional runner
-# Build bases first: docker compose --profile docker-bases build
-# See docs/DOCKER_BUILD.md
-
-x-mcp-build: &mcp-build
-  context: .
-  args:
-    BASE_IMAGE: abstract-base/mcp-base:local
-
-x-agent-build: &agent-build
-  context: .
-  args:
-    BASE_IMAGE: abstract-base/agent-base:local
-
 services:
-  project-base:
-    profiles: [docker-bases]
-    image: abstract-base/project-base:local
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  mongodb:
+    image: mongo:7
+    ports: ["27017:27017"]
+
+  sql-gateway:
     build:
       context: .
-      dockerfile: docker/base/Dockerfile.project
-
-  mcp-base:
-    profiles: [docker-bases]
-    image: abstract-base/mcp-base:local
-    build:
-      context: .
-      dockerfile: docker/base/Dockerfile.mcp
-      args:
-        PROJECT_BASE: abstract-base/project-base:local
-
-  agent-base:
-    profiles: [docker-bases]
-    image: abstract-base/agent-base:local
-    build:
-      context: .
-      dockerfile: docker/base/Dockerfile.agent
-      args:
-        PROJECT_BASE: abstract-base/project-base:local
-
-  base-mcp-server:
-    build:
-      <<: *mcp-build
-      dockerfile: mcp-servers/base-mcp-server/Dockerfile
-      args:
-        BASE_IMAGE: abstract-base/mcp-base:local
-        UV_PACKAGE: base-mcp-server
+      dockerfile: mcp-servers/sql-gateway/Dockerfile
     environment:
-      MCP_TRANSPORT: sse
-      MCP_HTTP_HOST: 0.0.0.0
-      MCP_HTTP_PORT: 8100
-      AGENT_DATA_DIR: /app/data
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "8100:8100"
-    volumes:
-      - ./data:/app/data
-    networks:
-      - agentnet
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/sse')\""]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      - ANALYTICS_DB_DSN=${ANALYTICS_DB_DSN}
+    ports: ["8101:8101"]
 
-  base-agent:
-    build:
-      <<: *agent-build
-      dockerfile: agents/base-agent/Dockerfile
-      args:
-        BASE_IMAGE: abstract-base/agent-base:local
-        UV_PACKAGE: base-agent
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      AGENT_ROOT_DIR: /app
-      AGENT_DATA_DIR: /app/data
-      PROJECT_CONFIG: config/project.yaml
-      BASE_MCP_SERVER_URL: http://base-mcp-server:8100/sse
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      MODEL_PROFILE: ${MODEL_PROFILE:-openrouter_default}
-      AGENT_HTTP_HOST: 0.0.0.0
-      AGENT_HTTP_PORT: 8200
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "8200:8200"
-    depends_on:
-      - base-mcp-server
-    volumes:
-      - ./data:/app/data
-    networks:
-      - agentnet
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/health')\""]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  base-runner:
+  conversational-router:
     build:
       context: .
-      dockerfile: agents/base-runner/Dockerfile
-      args:
-        BASE_IMAGE: abstract-base/agent-base:local
-        UV_PACKAGE: base-runner
-    env_file:
-      - path: .env
-        required: false
+      dockerfile: agents/conversational-router/Dockerfile
     environment:
-      AGENT_ROOT_DIR: /app
-      AGENT_DATA_DIR: /app/data
-      PROJECT_CONFIG: config/project.yaml
-      PLATFORM_TRANSPORT: http
-      BASE_AGENT_URL: http://base-agent:8200
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    depends_on:
-      base-agent:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
-    networks:
-      - agentnet
-    profiles:
-      - runner
-    command: ["uv", "run", "base-runner", "--loop", "--interval", "60s"]
-    restart: unless-stopped
+      - AGENT_HTTP_PORT=8201
+      - ALLOW_LLM_STUB=1
+    ports: ["8201:8201"]
 
-networks:
-  agentnet:
-    driver: bridge
+  sql-planner:
+    build:
+      context: .
+      dockerfile: agents/sql-planner/Dockerfile
+    environment:
+      - AGENT_HTTP_PORT=8202
+      - ALLOW_LLM_STUB=1
+    ports: ["8202:8202"]
+
+  risk-reviewer:
+    build:
+      context: .
+      dockerfile: agents/risk-reviewer/Dockerfile
+    environment:
+      - AGENT_HTTP_PORT=8203
+      - ALLOW_LLM_STUB=1
+    ports: ["8203:8203"]
+
+  data-analyst:
+    build:
+      context: .
+      dockerfile: agents/data-analyst/Dockerfile
+    environment:
+      - AGENT_HTTP_PORT=8204
+      - ALLOW_LLM_STUB=1
+    ports: ["8204:8204"]
+
+  chat-gateway:
+    build:
+      context: .
+      dockerfile: agents/chat-gateway/Dockerfile
+    environment:
+      - CHAT_GATEWAY_PORT=8300
+      - REDIS_URL=redis://redis:6379/0
+      - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
+      - ALLOW_DEV_AUTH=1
+      - ALLOW_LLM_STUB=1
+      - SQL_GATEWAY_INPROCESS=1
+    ports: ["8300:8300"]
+    depends_on: [redis, mongodb, sql-planner, risk-reviewer, data-analyst, conversational-router]

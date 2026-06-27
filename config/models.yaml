@@ -1,9 +1,35 @@
-# Model profiles (template)
-# TODO: wire via project_core.models.loader
+default_profile: openrouter_mimo
+
+agent_profiles:
+  router: openrouter_mimo
+  sql_planner: openrouter_mimo
+  risk_reviewer: openrouter_fast
+  analyst: openrouter_mimo
+  analyst_vision: openrouter_vision
+  embed: openrouter_embed
 
 profiles:
-  openrouter_default:
+  openrouter_mimo:
     provider: openrouter
-    model: anthropic/claude-sonnet-4
-    env_api_key: OPENROUTER_API_KEY
-    env_base_url: OPENROUTER_BASE_URL
+    model_id: xiaomi/mimo-v2.5
+    supports_vision: true
+    params:
+      max_tokens: 4096
+      temperature: 0.5
+  openrouter_fast:
+    provider: openrouter
+    model_id: google/gemini-2.0-flash-001
+    params:
+      max_tokens: 4096
+      temperature: 0.5
+  openrouter_vision:
+    provider: openrouter
+    model_id: xiaomi/mimo-v2.5
+    supports_vision: true
+    params:
+      max_tokens: 4096
+      temperature: 0.5
+  openrouter_embed:
+    provider: openrouter
+    model_id: openai/text-embedding-3-small
+    embedding_dims: 1536

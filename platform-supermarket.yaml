@@ -1,0 +1,54 @@
+# Supermarket platform wiring — agents, MCP servers, memory
+
+memory:
+  stm:
+    backend: redis
+    url_env: REDIS_URL
+  ltm:
+    backend: mongodb
+    uri_env: MONGODB_URI
+    db_name: supermarket_agent
+  checkpoint_db_path: ./data/checkpoints.db
+
+mcp_servers:
+  sql-gateway:
+    prefix: sql
+    transport: sse
+    url_env: SQL_GATEWAY_URL
+    command: uv
+    args: ["run", "sql-gateway"]
+  python-sandbox:
+    prefix: sandbox
+    transport: stdio
+    command: uv
+    args: ["run", "python-sandbox"]
+
+agents:
+  conversational-router:
+    capabilities: [router, ingress, synthesize, clarification_bridge]
+    factory: conversational_router.service:build_service
+    mcp_servers: []
+    skill: router
+    endpoint_env: AGENT_I_URL
+  sql-planner:
+    capabilities: [sql_plan, clarify]
+    factory: sql_planner.service:build_service
+    mcp_servers: [sql-gateway]
+    skill: sql_planner
+    endpoint_env: AGENT_II_URL
+  risk-reviewer:
+    capabilities: [risk_review]
+    factory: risk_reviewer.service:build_service
+    mcp_servers: [sql-gateway]
+    skill: risk_reviewer
+    endpoint_env: AGENT_III_URL
+  data-analyst:
+    capabilities: [analytics]
+    factory: data_analyst.service:build_service
+    mcp_servers: [python-sandbox]
+    skill: analyst
+    endpoint_env: AGENT_IV_URL
+
+orchestration:
+  type: pipeline
+  entry: conversational-router

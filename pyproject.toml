@@ -22,6 +22,13 @@ project-test = { workspace = true }
 base-agent = { workspace = true }
 base-runner = { workspace = true }
 base-mcp-server = { workspace = true }
+sql-gateway = { workspace = true }
+python-sandbox = { workspace = true }
+conversational-router = { workspace = true }
+sql-planner = { workspace = true }
+risk-reviewer = { workspace = true }
+data-analyst = { workspace = true }
+chat-gateway = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -29,6 +36,12 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "project-test",
+    "chat-gateway",
+    "sql-gateway",
+    "conversational-router",
+    "sql-planner",
+    "risk-reviewer",
+    "data-analyst",
 ]
 # Docker base image tiers — see docs/DOCKER_BUILD.md
 # TODO: add domain packages to docker-project when the project needs heavier shared deps

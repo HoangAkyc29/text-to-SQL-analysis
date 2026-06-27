@@ -1,0 +1,31 @@
+cases:
+  - name: policy_select_only
+    sql: "SELECT TOP 10 * FROM sales"
+    allowed: true
+  - name: policy_block_delete
+    sql: "DELETE FROM sales"
+    allowed: false
+  - name: vip_clarify_round1
+    intent: "Phân tích VIP doanh thu"
+    expect: clarify
+  - name: vip_transcript_resolve
+    transcript: "VIP card prefix E trans_code 221 chia 50000"
+    expect: resolve_from_transcript
+  - name: risk_approve_select
+    sql: "SELECT 1"
+    verdict: approve
+  - name: iv_complete_nonempty
+    row_count: 10
+    action: complete
+  - name: iv_empty_feedback
+    row_count: 0
+    action: data_feedback
+  - name: case_study_success
+    outcome: success
+    stage: true
+  - name: case_study_impossible
+    outcome: impossible
+    stage: false
+  - name: clarify_rounds_cap
+    rounds: 4
+    error: CLARIFY_ROUNDS_EXCEEDED
