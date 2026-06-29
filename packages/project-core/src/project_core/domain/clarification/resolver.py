@@ -29,5 +29,12 @@ def apply_clarification_reply(brief: AnalysisBrief, reply: ClarificationReply, r
             value = {"other_text": answer.other_text}
         else:
             value = option_map.get((answer.question_id, answer.selected_option_id)) or {}
-        _set_nested(data, field, value)
+        leaf = field.split(".")[-1]
+        if isinstance(value, dict) and leaf in value:
+            _set_nested(data, field, value[leaf])
+        elif isinstance(value, dict) and "." not in field:
+            for k, v in value.items():
+                _set_nested(data, f"{field}.{k}" if field else k, v)
+        else:
+            _set_nested(data, field, value)
     return AnalysisBrief.model_validate(data)

@@ -18,7 +18,7 @@ class ChatCompletionResult:
 
 
 class OpenRouterClient:
-  def __init__(
+    def __init__(
         self,
         *,
         api_key: str | None = None,

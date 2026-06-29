@@ -2842,22 +2842,36 @@ name = "project-test"
 version = "0.1.0"
 source = { editable = "packages/project-test" }
 dependencies = [
-    { name = "base-agent" },
-    { name = "base-mcp-server" },
-    { name = "base-runner" },
+    { name = "chat-gateway" },
+    { name = "conversational-router" },
+    { name = "data-analyst" },
+    { name = "pandas" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pyarrow" },
+    { name = "pyjwt" },
     { name = "pytest" },
+    { name = "python-sandbox" },
+    { name = "risk-reviewer" },
+    { name = "sql-gateway" },
+    { name = "sql-planner" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "base-agent", editable = "agents/base-agent" },
-    { name = "base-mcp-server", editable = "mcp-servers/base-mcp-server" },
-    { name = "base-runner", editable = "agents/base-runner" },
+    { name = "chat-gateway", editable = "agents/chat-gateway" },
+    { name = "conversational-router", editable = "agents/conversational-router" },
+    { name = "data-analyst", editable = "agents/data-analyst" },
+    { name = "pandas" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow" },
+    { name = "pyjwt", specifier = ">=2.8" },
     { name = "pytest", specifier = ">=8" },
+    { name = "python-sandbox", editable = "mcp-servers/python-sandbox" },
+    { name = "risk-reviewer", editable = "agents/risk-reviewer" },
+    { name = "sql-gateway", editable = "mcp-servers/sql-gateway" },
+    { name = "sql-planner", editable = "agents/sql-planner" },
 ]
 
 [[package]]

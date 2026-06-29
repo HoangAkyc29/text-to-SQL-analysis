@@ -24,5 +24,5 @@ class SessionBundle(BaseModel):
     actor_id: str
     transcript: list[TranscriptTurn] = Field(default_factory=list)
     workflow: WorkflowState | None = None
-    clarification: ClarificationState | None = None
+    clarification: dict[str, Any] | None = None
     permissions: Any | None = None

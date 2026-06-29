@@ -18,7 +18,7 @@ from project_core.service.supermarket_agent import SupermarketAgentService
 class SqlPlannerService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.goal or "{}") if ctx.request.goal else {}
+        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
         brief = AnalysisBrief.model_validate(payload_in.get("brief") or meta.get("brief") or {})
         inbox = payload_in.get("inbox") or meta.get("inbox") or {}
         attempt = int(payload_in.get("attempt") or meta.get("attempt") or 1)

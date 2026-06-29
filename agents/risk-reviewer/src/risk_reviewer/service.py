@@ -14,7 +14,7 @@ from project_core.service.supermarket_agent import SupermarketAgentService
 class RiskReviewerService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.goal or "{}") if ctx.request.goal else {}
+        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
         sql = payload_in.get("sql") or meta.get("sql") or ""
         if os.getenv("ALLOW_LLM_STUB") == "1":
             blocked = any(tok in sql.lower() for tok in ("drop", "delete", "insert"))

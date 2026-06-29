@@ -25,7 +25,7 @@ class HttpAgentInvoker(AgentInvoker):
         req = AgentRequest(
             session_id=metadata.get("session_id", "system"),
             actor_id=metadata.get("actor_id", "system"),
-            goal=json.dumps(payload),
+            message=json.dumps(payload),
             metadata=metadata,
         )
         with httpx.Client(timeout=120.0) as client:

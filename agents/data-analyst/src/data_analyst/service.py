@@ -14,7 +14,7 @@ from project_core.service.supermarket_agent import SupermarketAgentService
 class DataAnalystService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.goal or "{}") if ctx.request.goal else {}
+        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
         manifest = payload_in.get("dataset_manifest") or meta.get("dataset_manifest") or {}
         profile = payload_in.get("result_profile") or meta.get("result_profile") or {}
         if os.getenv("ALLOW_LLM_STUB") == "1":

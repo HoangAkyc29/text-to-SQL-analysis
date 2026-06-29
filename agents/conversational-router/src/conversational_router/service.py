@@ -29,7 +29,7 @@ class ConversationalRouterService(SupermarketAgentService):
         return self._ingress(ctx)
 
     def _ingress(self, ctx: DecisionContext):
-        text = ctx.request.goal or ""
+        text = ctx.request.message or ""
         satisfaction = detect_satisfaction(text)
         if os.getenv("ALLOW_LLM_STUB") == "1":
             route = "analysis" if any(k in text.lower() for k in ("vip", "doanh", "bán", "chart", "điểm")) else "chitchat"

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import resource
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,8 +16,11 @@ _MAX_SECONDS = int(os.getenv("SANDBOX_MAX_SECONDS", "30"))
 
 
 def _limit_resources() -> None:
-    if sys.platform != "win32":
-        resource.setrlimit(resource.RLIMIT_CPU, (_MAX_SECONDS, _MAX_SECONDS))
+    if sys.platform == "win32":
+        return
+    import resource
+
+    resource.setrlimit(resource.RLIMIT_CPU, (_MAX_SECONDS, _MAX_SECONDS))
 
 
 def load_dataset(path: str) -> dict[str, Any]:
@@ -49,7 +51,8 @@ def run_analysis_script(path: str, script: str, output_dir: str) -> dict[str, An
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     local_vars: dict[str, Any] = {"pd": pd, "plt": plt, "path": path, "out": out}
-    exec(script, {"__builtins__": {}}, local_vars)  # noqa: S102
+    safe_builtins = {"len": len, "str": str, "int": int, "float": float, "range": range}
+    exec(script, {"__builtins__": safe_builtins}, local_vars)  # noqa: S102
     artifacts = [str(p) for p in out.glob("*")]
     return {"status": "ok", "artifacts": artifacts}
 

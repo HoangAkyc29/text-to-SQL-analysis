@@ -6,10 +6,17 @@ requires-python = ">=3.11"
 dependencies = [
     "project-core",
     "platform-core",
-    "base-runner",
-    "base-agent",
-    "base-mcp-server",
+    "chat-gateway",
+    "sql-gateway",
+    "python-sandbox",
+    "conversational-router",
+    "sql-planner",
+    "risk-reviewer",
+    "data-analyst",
     "pytest>=8",
+    "pandas",
+    "pyarrow",
+    "pyjwt>=2.8",
 ]
 
 [build-system]
@@ -21,5 +28,9 @@ packages = ["src/project_test"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
-pythonpath = ["."]
+pythonpath = [".", "../../agents/conversational-router/src", "../../agents/sql-planner/src", "../../agents/risk-reviewer/src", "../../agents/data-analyst/src", "../../agents/chat-gateway/src", "../../mcp-servers/sql-gateway/src", "../../mcp-servers/python-sandbox/src"]
 addopts = "-q"
+markers = [
+    "unit: no network",
+    "integration: in-process stubs",
+]
