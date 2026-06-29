@@ -1,0 +1,97 @@
+data_source: db1
+notes: Physical tables map 1:1 từ JSON export. Agent dùng logical_table + physical_pattern;
+  chọn shard theo shard_key_column và khoảng thời gian filter.
+logical_tables:
+  STRANS:
+    description: '[TODO: mô tả nghiệp vụ bảng STRANS — chi tiết dòng giao dịch]'
+    physical_pattern: STRANS_{YYYYMM}
+    shard_key_column: TRAN_DATE
+    schema_file: tables/STRANS.md
+    physical_tables:
+    - STRANS_202312
+    - STRANS_202401
+    - STRANS_202402
+    - STRANS_202403
+    - STRANS_202404
+    - STRANS_202405
+    - STRANS_202406
+    - STRANS_202407
+    - STRANS_202408
+    - STRANS_202409
+    - STRANS_202410
+    - STRANS_202411
+    - STRANS_202412
+    - STRANS_202501
+    - STRANS_202502
+    - STRANS_202503
+    - STRANS_202504
+    - STRANS_202505
+    - STRANS_202506
+    - STRANS_202507
+    - STRANS_202508
+    - STRANS_202509
+    - STRANS_202510
+    - STRANS_202511
+    - STRANS_202512
+    - STRANS_202601
+    - STRANS_202602
+    - STRANS_202603
+    - STRANS_202604
+    shard_range:
+      from: '202312'
+      to: '202604'
+      count: 29
+  PMTRANS:
+    description: '[TODO: mô tả nghiệp vụ bảng PMTRANS — thanh toán]'
+    physical_pattern: PMTRANS_{YYYYMM}
+    shard_key_column: TRAN_DATE
+    schema_file: tables/PMTRANS.md
+    physical_tables:
+    - PMTRANS_202401
+    - PMTRANS_202402
+    - PMTRANS_202403
+    - PMTRANS_202404
+    - PMTRANS_202405
+    - PMTRANS_202406
+    - PMTRANS_202407
+    - PMTRANS_202408
+    - PMTRANS_202409
+    - PMTRANS_202410
+    - PMTRANS_202411
+    - PMTRANS_202412
+    - PMTRANS_202501
+    - PMTRANS_202502
+    - PMTRANS_202503
+    - PMTRANS_202504
+    - PMTRANS_202505
+    - PMTRANS_202506
+    - PMTRANS_202507
+    - PMTRANS_202508
+    - PMTRANS_202509
+    - PMTRANS_202510
+    - PMTRANS_202511
+    - PMTRANS_202512
+    - PMTRANS_202601
+    - PMTRANS_202602
+    - PMTRANS_202603
+    - PMTRANS_202604
+    shard_range:
+      from: '202401'
+      to: '202604'
+      count: 28
+  CRDTRANS_ARC:
+    description: '[TODO: mô tả nghiệp vụ bảng CRDTRANS_ARC — archive thẻ/điểm]'
+    physical_pattern: CRDTRANS_ARC
+    shard_key_column: TRAN_DATE
+    schema_file: tables/CRDTRANS_ARC.md
+    physical_tables:
+    - CRDTRANS_ARC
+    shard_range: null
+  TRANSHDR_ARC:
+    description: '[TODO: mô tả nghiệp vụ bảng TRANSHDR_ARC — archive header giao dịch]'
+    physical_pattern: TRANSHDR_ARC
+    shard_key_column: TRAN_DATE
+    schema_file: tables/TRANSHDR_ARC.md
+    physical_tables:
+    - TRANSHDR_ARC
+    shard_range: null

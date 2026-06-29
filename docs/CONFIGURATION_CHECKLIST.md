@@ -5,6 +5,33 @@ Template env: [`.env.example`](../.env.example) ở repo root.
 
 ---
 
+## 0. Kiến trúc dữ liệu — 2 DB kinh doanh + 1 DB auth
+
+Hệ thống **không** query business data từ một SQL Server duy nhất. Pipeline phân tích truy xuất **hai database kinh doanh** (readonly), do `sql-gateway` route theo `target_db`:
+
+| `target_db` | Biến env | Ghi chú |
+|-------------|----------|---------|
+| `db1` | `ANALYTICS_DB_DSN` | DB kinh doanh 1 |
+| `db2` | `ANALYTICS_DB_DSN_2` | DB kinh doanh 2 |
+| — | `AUTH_DB_DSN` | Auth only — **không** dùng cho query kinh doanh |
+
+```mermaid
+flowchart LR
+    II[Agent II plan_sql] --> GW[sql-gateway]
+    GW -->|target_db=db1| DB1[(ANALYTICS_DB_DSN)]
+    GW -->|target_db=db2| DB2[(ANALYTICS_DB_DSN_2)]
+    II -->|multi-query plan| GW
+```
+
+- Agent II có thể emit **nhiều câu SQL** trong một plan; mỗi câu chỉ định `target_db`: `db1` hoặc `db2` (mặc định `db1`).
+- `execute_readonly` / `explain_sql` (MCP): tham số `target_db` — xem `mcp-servers/sql-gateway/src/sql_gateway/tools_impl.py`.
+- Mapping bảng → DB: user khai báo trong [`config/project.yaml`](../config/project.yaml) → `data_sources` và `data_dictionary/`.
+- `data_dictionary/` cần mô tả schema **cả hai** DB; ghi rõ bảng thuộc `db1` hay `db2` (comment hoặc thư mục con tùy user).
+
+**Lưu ý:** Join cross-DB không thực hiện trên SQL Server — pipeline chạy từng query trên đúng pool, Agent IV merge trong sandbox (pandas).
+
+---
+
 ## 1. File `.env` (repo root)
 
 Copy `.env.example` → `.env` và điền các giá trị bên dưới.
@@ -14,7 +41,8 @@ Copy `.env.example` → `.env` và điền các giá trị bên dưới.
 | Key | Mô tả | Đọc trong code |
 |-----|--------|----------------|
 | `OPENROUTER_API_KEY` | API key OpenRouter | `project_core/config/loader.py` → `get_openrouter_api_key()`; agents I–IV khi `ALLOW_LLM_STUB=0` |
-| `ANALYTICS_DB_DSN` | ODBC connection string SQL Server **readonly** (analytics) | `mcp-servers/sql-gateway/src/sql_gateway/tools_impl.py` — thiếu → `execute_readonly` lỗi |
+| `ANALYTICS_DB_DSN` | ODBC readonly — DB kinh doanh 1 (`target_db=db1`) | `sql-gateway/tools_impl.py` |
+| `ANALYTICS_DB_DSN_2` | ODBC readonly — DB kinh doanh 2 (`target_db=db2`) | `sql-gateway/tools_impl.py` |
 | `REDIS_URL` | Redis STM (transcript / workflow / clarification) | `project_core/infra/stm/redis_store.py`, `platform-supermarket.yaml` |
 | `MONGODB_URI` | MongoDB cho RAG + case study | `agents/chat-gateway/src/chat_gateway/orchestrator.py`, `scripts/index_schema_docs.py` |
 | `JWT_SECRET` | Secret ký JWT (prod: chuỗi ngẫu nhiên ≥ 32 ký tự) | `agents/chat-gateway/src/chat_gateway/auth.py` |
@@ -40,7 +68,7 @@ Copy `.env.example` → `.env` và điền các giá trị bên dưới.
 | `OAUTH_CLIENT_SECRET` | Azure client secret | ↑ |
 | `OAUTH_REDIRECT_URI` | Callback URL, VD `https://your-domain/auth/callback` | ↑ (default: `http://localhost:8300/auth/callback`) |
 | `AZURE_TENANT_ID` | Azure tenant ID hoặc `common` | ↑ |
-| `AUTH_DB_DSN` | ODBC SQL Server auth DB | Có migration tại `deploy/sql/auth/` — **gateway chưa wire lookup user** |
+| `AUTH_DB_DSN` | ODBC SQL Server **auth only** (không query kinh doanh) | `deploy/sql/auth/` — **gateway chưa wire lookup user** |
 
 ### 1.4 Dev / test flags
 
@@ -97,7 +125,9 @@ Copy `.env.example` → `.env` và điền các giá trị bên dưới.
 
 | Mục | User cần bổ sung |
 |-----|------------------|
-| `roles.*.allowed_tables` | Khớp bảng thật trong analytics DB |
+| `data_sources.db1` | DSN env (`ANALYTICS_DB_DSN`) |
+| `data_sources.db2` | DSN env (`ANALYTICS_DB_DSN_2`) |
+| `roles.*.allowed_tables` | Khớp bảng thật — phân bổ đúng `db1` / `db2` (user định nghĩa) |
 | `roles.*.denied_columns` | Cột nhạy cảm (VD `cost_price`, `margin_pct`) |
 | `roles.store_manager.store_filter_required` | `true` nếu bắt buộc lọc `store_id` |
 | `policy.max_rows`, `max_join_depth` | Tune theo DB prod |
@@ -134,15 +164,17 @@ Copy `.env.example` → `.env` và điền các giá trị bên dưới.
 
 ## 3. Database & migrations
 
-### 3.1 Analytics SQL Server (query thật)
+### 3.1 Hai SQL Server kinh doanh (query thật)
 
 | Thành phần | Vị trí | Trạng thái repo |
 |------------|--------|-----------------|
-| Connection | `.env` → `ANALYTICS_DB_DSN` | User điền |
-| Schema + seed data | SQL Server prod | **Chưa có migration trong repo** |
-| Readonly user | SQL Server | User tạo account chỉ `SELECT` |
+| **DB 1** connection | `.env` → `ANALYTICS_DB_DSN` | User điền |
+| **DB 2** connection | `.env` → `ANALYTICS_DB_DSN_2` | User điền — bắt buộc nếu plan SQL dùng `target_db=db2` |
+| Schema + seed | Hai SQL Server prod | **Chưa có migration trong repo** |
+| Readonly user | Mỗi DB một account chỉ `SELECT` | User tạo |
+| Route query | `target_db` trên MCP `execute_readonly` | `sql-gateway/tools_impl.py` |
 
-### 3.2 Auth SQL Server
+### 3.2 Auth SQL Server (không phải DB kinh doanh)
 
 | File | Nội dung |
 |------|----------|
@@ -214,14 +246,14 @@ File: [`docker-compose.yaml`](../docker-compose.yaml)
 |---------|------|----------------|
 | `redis` | 6379 | — |
 | `mongodb` | 27017 | — |
-| `sql-gateway` | 8101 | `ANALYTICS_DB_DSN` |
+| `sql-gateway` | 8101 | `ANALYTICS_DB_DSN`, `ANALYTICS_DB_DSN_2` |
 | `conversational-router` | 8201 | `ALLOW_LLM_STUB=1` (dev) |
 | `sql-planner` | 8202 | ↑ |
 | `risk-reviewer` | 8203 | ↑ |
 | `data-analyst` | 8204 | ↑ |
 | `chat-gateway` | 8300 | `REDIS_URL`, `MONGODB_URI`, `ALLOW_DEV_AUTH`, `SQL_GATEWAY_INPROCESS` |
 
-**Chưa có trong compose:** SQL Server analytics, SQL Server auth, `python-sandbox` sidecar, `OPENROUTER_API_KEY`, `JWT_SECRET` prod.
+**Chưa có trong compose:** hai SQL Server kinh doanh, SQL Server auth, `python-sandbox` sidecar, `OPENROUTER_API_KEY`, `JWT_SECRET` prod.
 
 ---
 
@@ -271,13 +303,13 @@ uv run pytest packages/project-test -q
 |---|------|--------|
 | 1 | `OPENROUTER_API_KEY` | `.env` |
 | 2 | `ALLOW_LLM_STUB=0` | `.env` |
-| 3 | `ANALYTICS_DB_DSN` + DB + readonly user | `.env` + SQL Server |
+| 3 | `ANALYTICS_DB_DSN` + `ANALYTICS_DB_DSN_2` + schema + readonly user (×2) | `.env` + 2× SQL Server |
 | 4 | `data_dictionary/` đầy đủ + `index_schema_docs.py` | `data_dictionary/`, `scripts/` |
 | 5 | Agent skills II–IV | `agents/*/skills/` |
 | 6 | `JWT_SECRET` + OAuth Azure (`OAUTH_*`, `AZURE_TENANT_ID`) | `.env` |
 | 7 | `ALLOW_DEV_AUTH=0` | `.env` |
 | 8 | Wire `AUTH_DB_DSN` → user lookup trong gateway | **Chưa implement** |
-| 9 | Migration / seed analytics DB | **Chưa có trong repo** |
+| 9 | Migration / seed **cả hai** DB kinh doanh | **Chưa có trong repo** |
 | 10 | `MONGODB_URI` + index vector collections | `.env` + Mongo |
 
 ---
@@ -296,8 +328,12 @@ AGENT_III_URL=http://localhost:8203
 AGENT_IV_URL=http://localhost:8204
 CHAT_GATEWAY_URL=http://localhost:8300
 
-ANALYTICS_DB_DSN=Driver={ODBC Driver 18 for SQL Server};Server=...;Database=supermarket_analytics;Uid=readonly;Pwd=...;TrustServerCertificate=yes;
-AUTH_DB_DSN=Driver={ODBC Driver 18 for SQL Server};Server=...;Database=supermarket_auth;Uid=...;Pwd=...;TrustServerCertificate=yes;
+# --- Business data: 2 readonly SQL Server pools ---
+ANALYTICS_DB_DSN=Driver={...};Server=...;Database=...;Uid=readonly;Pwd=...;TrustServerCertificate=yes;
+ANALYTICS_DB_DSN_2=Driver={...};Server=...;Database=...;Uid=readonly;Pwd=...;TrustServerCertificate=yes;
+
+# Auth only — not for analytics queries
+AUTH_DB_DSN=Driver={...};Server=...;Database=supermarket_auth;Uid=...;Pwd=...;TrustServerCertificate=yes;
 
 JWT_SECRET=change-me-in-production
 OAUTH_CLIENT_ID=

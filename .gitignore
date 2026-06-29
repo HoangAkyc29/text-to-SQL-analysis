@@ -21,6 +21,10 @@ htmlcov/
 # Env / secrets
 .env
 *.local.env
+docs/db_exploration_samples/
+
+# Ad-hoc debug scratch at repo root (use tests/ or docs/db_exploration_samples/)
+/_*
 
 # Data runtime (keep scaffold structure)
 data/**

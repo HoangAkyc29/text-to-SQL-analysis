@@ -41,6 +41,12 @@ artifacts:
 stm:
   session_ttl_days: 30
 
+data_sources:
+  db1:
+    env_dsn: ANALYTICS_DB_DSN
+  db2:
+    env_dsn: ANALYTICS_DB_DSN_2
+
 roles:
   store_manager:
     allowed_tables: [sales, inventory, stores, customers, transactions, products]

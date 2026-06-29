@@ -13,6 +13,7 @@ services:
       dockerfile: mcp-servers/sql-gateway/Dockerfile
     environment:
       - ANALYTICS_DB_DSN=${ANALYTICS_DB_DSN}
+      - ANALYTICS_DB_DSN_2=${ANALYTICS_DB_DSN_2}
     ports: ["8101:8101"]
 
   conversational-router:
