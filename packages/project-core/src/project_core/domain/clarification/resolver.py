@@ -37,4 +37,8 @@ def apply_clarification_reply(brief: AnalysisBrief, reply: ClarificationReply, r
                 _set_nested(data, f"{field}.{k}" if field else k, v)
         else:
             _set_nested(data, field, value)
+    for answer in reply.answers:
+        if answer.selected_option_id == "unknown":
+            data["exploration_mode"] = True
+            data["user_knowledge_level"] = "unknown"
     return AnalysisBrief.model_validate(data)

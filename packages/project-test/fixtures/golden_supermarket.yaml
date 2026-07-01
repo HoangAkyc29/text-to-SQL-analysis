@@ -1,9 +1,9 @@
 cases:
   - name: policy_select_only
-    sql: "SELECT TOP 10 * FROM sales"
+    sql: "SELECT TOP 10 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"
     allowed: true
   - name: policy_block_delete
-    sql: "DELETE FROM sales"
+    sql: "DELETE FROM STRANS"
     allowed: false
   - name: vip_clarify_round1
     intent: "Phân tích VIP doanh thu"

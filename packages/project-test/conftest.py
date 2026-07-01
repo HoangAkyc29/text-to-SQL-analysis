@@ -78,10 +78,24 @@ def platform_config():
 
 
 @pytest.fixture
-def mini_schema_catalog():
+def schema_catalog():
     from project_core.domain.schema.catalog import SchemaCatalog
 
     return SchemaCatalog.from_dictionary_dir()
+
+
+@pytest.fixture
+def mini_schema_catalog():
+    from project_core.domain.schema.catalog import ColumnMeta, SchemaCatalog, TableMeta
+
+    sales = TableMeta(
+        name="sales",
+        columns=[
+            ColumnMeta(name="sale_id", data_type="int"),
+            ColumnMeta(name="store_id", data_type="int"),
+        ],
+    )
+    return SchemaCatalog({"sales": sales})
 
 
 @pytest.fixture
@@ -95,14 +109,14 @@ def sample_parquet(tmp_path):
 
 
 @pytest.fixture
-def pipeline_factory(mini_schema_catalog):
+def pipeline_factory(schema_catalog):
     from project_core.orchestration.pipeline import SupermarketAnalysisPipeline
 
     def _build(invoker, sql_gateway, feedback_loop=None):
         return SupermarketAnalysisPipeline(
             agent_invoker=invoker,
             sql_gateway=sql_gateway,
-            catalog=mini_schema_catalog,
+            catalog=schema_catalog,
             feedback_loop=feedback_loop,
         )
 

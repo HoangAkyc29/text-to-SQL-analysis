@@ -29,18 +29,37 @@ class ConversationalRouterService(SupermarketAgentService):
         return self._ingress(ctx)
 
     def _ingress(self, ctx: DecisionContext):
-        text = ctx.request.message or ""
+        meta = ctx.request.metadata or {}
+        raw = ctx.request.message or ""
+        external_sources = meta.get("external_sources") or []
+        text = raw
+        if raw.startswith("{"):
+            try:
+                payload = json.loads(raw)
+                text = payload.get("text") or raw
+                external_sources = payload.get("external_sources") or external_sources
+            except json.JSONDecodeError:
+                pass
         satisfaction = detect_satisfaction(text)
         if os.getenv("ALLOW_LLM_STUB") == "1":
             route = "analysis" if any(k in text.lower() for k in ("vip", "doanh", "bán", "chart", "điểm")) else "chitchat"
-            brief = AnalysisBrief(intent=text, metrics=["points"], output_format=["chart"]) if route == "analysis" else None
-            payload = {
+            brief = None
+            if route == "analysis":
+                brief = AnalysisBrief(intent=text, metrics=["points"], output_format=["chart"])
+                if external_sources:
+                    from project_core.domain.contracts.external_source import ExternalSource
+
+                    brief.external_sources = [ExternalSource.model_validate(s) for s in external_sources]
+                    excerpts = [s.get("text_excerpt", "")[:500] for s in external_sources if s.get("text_excerpt")]
+                    if excerpts:
+                        brief.intent = f"{text}\n\n[Attachments]\n" + "\n".join(excerpts)
+            payload_out = {
                 "route": route,
                 "user_message": "Đã nhận yêu cầu phân tích." if route == "analysis" else "Xin chào, tôi có thể giúp gì?",
                 "brief": brief.model_dump() if brief else None,
                 "satisfaction_signal": satisfaction,
             }
-            return self.json_response(ctx, payload)
+            return self.json_response(ctx, payload_out)
         client = OpenRouterClient()
         result = client.chat(
             profile_name=agent_profile("router"),

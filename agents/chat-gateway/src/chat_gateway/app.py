@@ -4,11 +4,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from project_core.domain.contracts.clarification import ClarificationReply
 from project_core.domain.contracts.feedback import FeedbackRecord
+from project_core.ingest.attachments import ingest_file
 
 from chat_gateway.auth import current_user, issue_token
 from chat_gateway.orchestrator import ChatOrchestrator
@@ -29,12 +31,22 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class ClarifyRequest(BaseModel):
+    session_id: str
+    reply: ClarificationReply
+
+
 class FeedbackRequest(BaseModel):
     session_id: str
     analysis_id: str
     trace_id: str
     sentiment: str
     comment: str | None = None
+
+
+class DomainRuleConfirmRequest(BaseModel):
+    rule_id: str
+    confirmed: bool = True
 
 
 class DevLoginRequest(BaseModel):
@@ -78,6 +90,39 @@ def chat(body: ChatRequest, user: dict[str, Any] = Depends(current_user)) -> dic
     return resp.model_dump()
 
 
+@app.post("/chat/clarify")
+def chat_clarify(body: ClarifyRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    os.environ.setdefault("ALLOW_LLM_STUB", "1")
+    resp = get_orchestrator().handle_clarify(session_id=body.session_id, reply=body.reply, user=user)
+    return resp.model_dump()
+
+
+@app.post("/attachments")
+async def upload_attachment(
+    session_id: str,
+    file: UploadFile = File(...),
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="file_too_large")
+    source = ingest_file(
+        session_id=session_id,
+        file_name=file.filename or "upload.bin",
+        content=content,
+    )
+    get_orchestrator().attach_external_sources(session_id, [source.model_dump()])
+    return {"status": "ok", "source": source.model_dump()}
+
+
+@app.post("/domain-rules/confirm")
+def confirm_domain_rule(
+    body: DomainRuleConfirmRequest,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, str]:
+    return get_orchestrator().confirm_domain_rule(body.rule_id, confirmed=body.confirmed, user=user)
+
+
 @app.post("/feedback")
 def feedback(body: FeedbackRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, str]:
     orch = get_orchestrator()
@@ -94,6 +139,10 @@ def feedback(body: FeedbackRequest, user: dict[str, Any] = Depends(current_user)
             evidence=body.comment or "",
         )
         orch.feedback.on_user_feedback(record)
+        if body.sentiment == "positive" and orch.analysis_tool_registry:
+            tool = orch.analysis_tool_registry.find_by_trace(body.trace_id)
+            if tool:
+                orch.analysis_tool_registry.promote(tool["tool_id"])
     return {"status": "ok"}
 
 

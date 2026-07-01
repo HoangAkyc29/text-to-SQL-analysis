@@ -47,12 +47,81 @@ data_sources:
   db2:
     env_dsn: ANALYTICS_DB_DSN_2
 
+# Logical table names from data_dictionary. SQL may also use db1 shards STRANS_YYYYMM, PMTRANS_YYYYMM.
+
+_HQ_TABLES: &hq_tables
+  - STRANS
+  - PMTRANS
+  - TRANSHDR
+  - TRANSHDR_ARC
+  - CRDTRANS
+  - CRDTRANS_ARC
+  - CRDTRANS_TMP
+  - STRANS_TMP
+  - SUSPEND
+  - CASH_ST
+  - CTRANS
+  - CUSTOMER
+  - CSCARD
+  - CRD_INFO
+  - CUSTHIST
+  - CustSumm
+  - SKU_DEF
+  - PLU
+  - BARCODE
+  - ASSOLST
+  - ASSO_INF
+  - SUPPLIER
+  - PARTNER
+  - HISRTPR
+  - HISSPPR
+  - RDISCINF
+  - STK_DTL
+  - ST_ORDER
+  - INV_HDR
+  - INV_ISS
+  - PMCRDINF
+  - PMCRDSTK
+  - PMCRDISS
+  - PMCRDRCV
+  - ACCOUNT
+  - DEBT
+  - sku_activity
+  - WebRpt_sales_sku_daily
+  - WebRpt_inventory_daily
+  - WebRpt_rfm_snapshot
+
+_STORE_TABLES: &store_tables
+  - STRANS
+  - PMTRANS
+  - TRANSHDR
+  - CRDTRANS
+  - CUSTOMER
+  - CSCARD
+  - CustSumm
+  - CUSTHIST
+  - SKU_DEF
+  - BARCODE
+  - PLU
+  - SUPPLIER
+  - WebRpt_sales_sku_daily
+  - WebRpt_inventory_daily
+  - WebRpt_rfm_snapshot
+
 roles:
   store_manager:
-    allowed_tables: [sales, inventory, stores, customers, transactions, products]
-    denied_columns: [cost_price, margin_pct]
+    allowed_tables: *store_tables
+    denied_columns:
+      - SPPRICE
+      - LASTSPPR
+      - cogs
+      - gross_profit
+      - free_cogs
+      - value_onhand
+      - PASSCODE
+      - PERSON_ID
     store_filter_required: true
   hq_analyst:
-    allowed_tables: [sales, inventory, stores, customers, transactions, products, promotions, loyalty_tier]
+    allowed_tables: *hq_tables
     denied_columns: []
     store_filter_required: false

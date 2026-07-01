@@ -17,8 +17,8 @@ class StubSqlGateway:
     def explain_sql(self, sql: str, actor_id: str) -> dict[str, Any]:
         return {"status": "ok", "plan_rows": 1}
 
-    def execute_readonly(self, sql: str, actor_id: str) -> dict[str, Any]:
+    def execute_readonly(self, sql: str, actor_id: str, *, target_db: str = "db2") -> dict[str, Any]:
         if self.policy_block:
             return {"error": "policy_blocked", "violations": ["blocked"]}
         self.executed.append(sql)
-        return {"rows": self.rows, "columns": list(self.rows[0].keys()) if self.rows else []}
+        return {"rows": self.rows, "columns": list(self.rows[0].keys()) if self.rows else [], "target_db": target_db}

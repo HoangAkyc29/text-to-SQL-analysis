@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 import sqlglot
 from sqlglot import exp
 
 from project_core.config.loader import load_project_config
-from project_core.domain.errors.codes import PolicyViolationError
 from project_core.domain.schema.catalog import SchemaCatalog
 
 
@@ -34,7 +32,8 @@ class PolicyEngine:
         self.max_rows = cfg.max_rows
         self.max_join_depth = cfg.max_join_depth
         self.default_schema = cfg.default_schema
-        self.allowed_tables = {t.lower() for t in (allowed_tables or catalog.tables())}
+        self._dictionary_tables = catalog.sql_table_names()
+        self.allowed_tables = catalog.resolve_allowed_sql_tables(allowed_tables)
         self.denied_columns = {c.lower() for c in (denied_columns or [])}
         self.store_ids = store_ids
         self.store_filter_required = store_filter_required
@@ -61,7 +60,9 @@ class PolicyEngine:
 
         tables = {t.name.lower() for t in statement.find_all(exp.Table) if t.name}
         for table in tables:
-            if table not in self.allowed_tables:
+            if table not in self._dictionary_tables:
+                violations.append(f"table_not_in_dictionary:{table}")
+            elif table not in self.allowed_tables:
                 violations.append(f"table_not_allowed:{table}")
 
         for column in statement.find_all(exp.Column):
@@ -92,15 +93,14 @@ class PolicyEngine:
     def _inject_top(self, statement: exp.Select) -> exp.Select:
         if statement.args.get("limit"):
             return statement
-        # T-SQL TOP injection via sqlglot Limit for portability
         statement.set("limit", exp.Limit(expression=exp.Literal.number(self.max_rows)))
         return statement
 
     def _inject_store_filter(self, statement: exp.Select) -> exp.Select:
-        store_col = exp.column("store_id")
+        store_col = exp.column("STK_ID")
         condition = exp.In(
             this=store_col,
-            expressions=[exp.Literal.number(int(i)) for i in (self.store_ids or [])],
+            expressions=[exp.Literal.string(str(i)) for i in (self.store_ids or [])],
         )
         where = statement.args.get("where")
         if where:

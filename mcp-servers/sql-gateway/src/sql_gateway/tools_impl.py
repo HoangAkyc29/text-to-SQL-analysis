@@ -32,8 +32,9 @@ def _rate_limit(actor_id: str, *, limit: int = 30, window: int = 60) -> None:
         _rate_buckets[actor_id] = bucket
 
 
-def _policy(actor_id: str) -> PolicyEngine:
-    return PolicyEngine(_catalog, allowed_tables=_catalog.tables())
+def _policy(actor_id: str, allowed_tables: list[str] | None = None) -> PolicyEngine:
+    # Gateway: must be in data_dictionary; optional role subset via allowed_tables metadata later.
+    return PolicyEngine(_catalog, allowed_tables=allowed_tables)
 
 
 def _resolve_target_db(target_db: str | None) -> str:
@@ -54,9 +55,14 @@ def _connect(target_db: str = "db1") -> pyodbc.Connection:
     return pyodbc.connect(dsn, timeout=30)
 
 
-def validate_sql(sql: str, actor_id: str = "system") -> dict[str, Any]:
+def validate_sql(
+    sql: str,
+    actor_id: str = "system",
+    *,
+    allowed_tables: list[str] | None = None,
+) -> dict[str, Any]:
     """Run PolicyEngine validation for a SQL statement."""
-    verdict = _policy(actor_id).validate(sql)
+    verdict = _policy(actor_id, allowed_tables).validate(sql)
     return {
         "allowed": verdict.allowed,
         "violations": verdict.violations,
@@ -78,11 +84,17 @@ def explain_sql(sql: str, actor_id: str = "system", target_db: str = "db1") -> d
         return {"status": "error", "message": str(exc)[:500]}
 
 
-def execute_readonly(sql: str, actor_id: str = "system", target_db: str = "db1") -> dict[str, Any]:
+def execute_readonly(
+    sql: str,
+    actor_id: str = "system",
+    target_db: str = "db1",
+    *,
+    allowed_tables: list[str] | None = None,
+) -> dict[str, Any]:
     """Execute validated readonly SQL and return rows as dicts."""
     _rate_limit(actor_id)
     db = _resolve_target_db(target_db)
-    verdict = _policy(actor_id).validate(sql)
+    verdict = _policy(actor_id, allowed_tables).validate(sql)
     if not verdict.allowed:
         return {"error": "policy_blocked", "violations": verdict.violations}
     sanitized = verdict.sanitized_sql or sql
@@ -94,6 +106,11 @@ def execute_readonly(sql: str, actor_id: str = "system", target_db: str = "db1")
         return {"columns": columns, "rows": rows, "row_count": len(rows), "target_db": db}
 
 
-def get_schema_snapshot(actor_id: str = "system") -> dict[str, Any]:
-    """Return compact schema metadata for risk review."""
-    return {"tables": _catalog.snapshot(), "data_sources": ["db1", "db2"]}
+def get_schema_snapshot(actor_id: str = "system", allowed_tables: list[str] | None = None) -> dict[str, Any]:
+    """Return schema metadata from data_dictionary for agents."""
+    role = allowed_tables or _catalog.logical_table_names()
+    bundle = _catalog.agent_schema_bundle(role)
+    return {
+        **bundle,
+        "logical_tables": _catalog.logical_table_names(),
+    }

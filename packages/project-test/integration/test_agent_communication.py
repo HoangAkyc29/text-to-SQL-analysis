@@ -14,7 +14,7 @@ pytestmark = pytest.mark.integration
 def test_communication_II_to_III_to_IV_order(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(
         {
-            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 5 sale_id FROM sales"]}],
+            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 5 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"]}],
             "III": [{"verdict": "approve"}],
             "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
         }
@@ -30,7 +30,7 @@ def test_communication_II_to_III_to_IV_order(pipeline_factory, workflow_state, h
 def test_communication_III_receives_sql_from_II(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(
         {
-            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 1 sale_id FROM sales"]}],
+            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 1 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"]}],
             "III": [{"verdict": "approve"}],
             "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
         }
@@ -48,7 +48,7 @@ def test_communication_III_receives_sql_from_II(pipeline_factory, workflow_state
 def test_communication_IV_receives_dataset_manifest(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(
         {
-            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]}],
+            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
             "III": [{"verdict": "approve"}],
             "IV": [{"action": "complete", "headline_metrics": {"rows": 1}, "artifact_paths": []}],
         }
@@ -66,8 +66,8 @@ def test_communication_IV_to_II_data_feedback_inbox(pipeline_factory, workflow_s
     invoker = ScriptedAgentInvoker(
         {
             "II": [
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
             ],
             "III": [{"verdict": "approve"}, {"verdict": "approve"}],
             "IV": [
@@ -105,7 +105,7 @@ def test_communication_sql_gateway_executes_after_III_approve(pipeline_factory, 
     sql = StubSqlGateway(rows=[{"sale_id": 99}])
     invoker = ScriptedAgentInvoker(
         {
-            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]}],
+            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
             "III": [{"verdict": "approve"}],
             "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
         }

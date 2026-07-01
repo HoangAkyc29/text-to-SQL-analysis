@@ -68,5 +68,8 @@ class HttpSqlGatewayClient(SqlGatewayClient):
     def explain_sql(self, sql: str, actor_id: str) -> dict[str, Any]:
         return self._call("explain_sql", {"sql": sql, "actor_id": actor_id})
 
-    def execute_readonly(self, sql: str, actor_id: str) -> dict[str, Any]:
-        return self._call("execute_readonly", {"sql": sql, "actor_id": actor_id})
+    def execute_readonly(self, sql: str, actor_id: str, *, target_db: str = "db2") -> dict[str, Any]:
+        return self._call(
+            "execute_readonly",
+            {"sql": sql, "actor_id": actor_id, "target_db": target_db},
+        )

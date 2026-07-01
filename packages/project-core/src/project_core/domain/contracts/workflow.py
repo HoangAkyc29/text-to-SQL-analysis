@@ -101,7 +101,7 @@ class WorkflowState(BaseModel):
 
 class ClarificationState(BaseModel):
     analysis_id: str
-    source_agent: Literal["II"] = "II"
+    source_agent: Literal["II", "IV"] = "II"
     request: ClarificationRequest
     partial_brief: AnalysisBrief
     asked_question_ids: list[str] = Field(default_factory=list)

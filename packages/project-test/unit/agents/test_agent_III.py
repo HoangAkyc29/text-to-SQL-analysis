@@ -16,13 +16,20 @@ def _svc() -> RiskReviewerService:
 
 
 def test_III_approves_safe_select(decision_ctx):
-    ctx = decision_ctx(goal=json.dumps({"sql": "SELECT TOP 10 sale_id FROM sales"}))
+    ctx = decision_ctx(
+        goal=json.dumps(
+            {
+                "sql": "SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'",
+                "allowed_tables": ["STRANS"],
+            }
+        )
+    )
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["verdict"] == "approve"
 
 
 def test_III_rejects_drop(decision_ctx):
-    ctx = decision_ctx(goal=json.dumps({"sql": "DROP TABLE sales"}))
+    ctx = decision_ctx(goal=json.dumps({"sql": "DROP TABLE STRANS", "allowed_tables": ["STRANS"]}))
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["verdict"] == "reject"
     assert payload["risk_feedback"] is not None

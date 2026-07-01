@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -51,7 +52,7 @@ def run_analysis_script(path: str, script: str, output_dir: str) -> dict[str, An
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     local_vars: dict[str, Any] = {"pd": pd, "plt": plt, "path": path, "out": out}
-    safe_builtins = {"len": len, "str": str, "int": int, "float": float, "range": range}
+    safe_builtins = {"len": len, "str": str, "int": int, "float": float, "range": range, "open": open}
     exec(script, {"__builtins__": safe_builtins}, local_vars)  # noqa: S102
     artifacts = [str(p) for p in out.glob("*")]
     return {"status": "ok", "artifacts": artifacts}
@@ -78,3 +79,47 @@ def plot_chart(path: str, output_path: str, x: str, y: str, title: str = "") -> 
     plt.savefig(output_path)
     plt.close()
     return {"status": "ok", "path": output_path}
+
+
+def run_recipe_tool(tool_id: str, path: str, output_dir: str, params_json: str = "{}") -> dict[str, Any]:
+    """Invoke a promoted analysis recipe by tool_id (requires recipe registry wiring)."""
+    try:
+        from project_core.domain.analysis.recipe_runtime import get_registry
+
+        reg = get_registry()
+        if reg is None:
+            return {"error": "recipe_registry_unavailable", "tool_id": tool_id}
+        params = json.loads(params_json) if params_json else {}
+        return reg.invoke_tool(tool_id, dataset_path=path, output_dir=output_dir, params=params)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": "recipe_invoke_failed", "tool_id": tool_id, "detail": str(exc)}
+
+
+def merge_datasets(primary_path: str, secondary_path: str, output_path: str, on: str = "") -> dict[str, Any]:
+    """Join SQL dataset with external upload (parquet/csv) on shared key when possible."""
+    left = pd.read_parquet(primary_path) if Path(primary_path).suffix == ".parquet" else pd.read_csv(primary_path)
+    right = pd.read_parquet(secondary_path) if Path(secondary_path).suffix == ".parquet" else pd.read_csv(secondary_path)
+    join_key = on or _guess_join_key(left.columns, right.columns)
+    if join_key:
+        merged = left.merge(right, on=join_key, how="left", suffixes=("", "_ext"))
+    else:
+        merged = pd.concat([left, right], axis=1)
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.suffix == ".parquet":
+        merged.to_parquet(out, index=False)
+    else:
+        merged.to_csv(out, index=False)
+    return {"status": "ok", "path": str(out), "row_count": len(merged), "join_key": join_key or None}
+
+
+def _guess_join_key(left_cols: Any, right_cols: Any) -> str:
+    preferred = ("SKU", "BARCODE", "STK_ID", "PRODUCT_CODE", "ITEM_CODE")
+    left_set = {str(c).upper() for c in left_cols}
+    right_set = {str(c).upper() for c in right_cols}
+    for key in preferred:
+        if key in left_set and key in right_set:
+            for c in left_cols:
+                if str(c).upper() == key:
+                    return str(c)
+    return ""

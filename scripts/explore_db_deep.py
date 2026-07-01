@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deep read-only DB exploration (TOP 20 / table) + TCVN3 decode + markdown report."""
+"""Deep read-only DB exploration (TOP 20 / table) — raw stats to db_exploration_samples/."""
 from __future__ import annotations
 
 import json
@@ -21,7 +21,7 @@ from project_core.text.tcvn3 import tcvn3_to_unicode  # noqa: E402
 
 MAX_ROWS = 20
 OUT_SAMPLES = ROOT / "docs" / "db_exploration_samples"
-REPORT_PATH = ROOT / "docs" / "DB_EXPLORATION_REPORT.md"
+RAW_REPORT_PATH = OUT_SAMPLES / "raw_per_table_exploration.md"
 
 TEXT_HINTS = (
     "NAME", "DESCRIPT", "REMARK", "NOTES", "ADDR", "ADDRESS", "skuname", "stkname",
@@ -492,9 +492,10 @@ def main() -> None:
     raw_path.write_text(json.dumps(slim, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
 
     report = render_report(payload)
-    REPORT_PATH.write_text(report, encoding="utf-8")
+    RAW_REPORT_PATH.write_text(report, encoding="utf-8")
     print(f"\nWrote {raw_path}")
-    print(f"Wrote {REPORT_PATH}")
+    print(f"Wrote {RAW_REPORT_PATH}")
+    print("(Semantic report: docs/DB_EXPLORATION_REPORT.md — maintain separately)")
 
 
 if __name__ == "__main__":

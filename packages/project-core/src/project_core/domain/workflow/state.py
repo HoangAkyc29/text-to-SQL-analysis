@@ -26,14 +26,22 @@ def resume_after_clarification(workflow: WorkflowState) -> None:
     touch_workflow(workflow)
 
 
-def start_analysis(workflow: WorkflowState) -> str:
+def start_analysis(workflow: WorkflowState, *, reset_clarify: bool = True) -> str:
     analysis_id = str(uuid4())
     workflow.active_analysis_id = analysis_id
     workflow.status = WorkflowStatus.RUNNING
-    workflow.clarify_round = 0
+    if reset_clarify:
+        workflow.clarify_round = 0
     workflow.sql_attempt = 1
     workflow.steps = []
     if analysis_id not in workflow.analysis_history:
         workflow.analysis_history.append(analysis_id)
     touch_workflow(workflow)
     return analysis_id
+
+
+def resume_analysis(workflow: WorkflowState) -> None:
+    """Continue an in-flight analysis without resetting clarify_round."""
+    workflow.status = WorkflowStatus.RUNNING
+    workflow.suspended_trace_id = None
+    touch_workflow(workflow)

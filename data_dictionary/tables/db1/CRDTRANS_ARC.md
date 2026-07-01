@@ -1,0 +1,56 @@
+---
+logical_table: CRDTRANS_ARC
+data_source: db1
+physical_pattern: CRDTRANS_ARC
+shard_key_column: TRAN_DATE
+temporal_scope: history
+temporal_rule: TRAN_DATE < cutoff (lịch sử từ tháng trước đó nữa trở về quá khứ).
+description: Giao dịch thẻ loyalty / điểm — archive lịch sử trên db1.
+column_count: 35
+---
+
+# CRDTRANS_ARC
+
+Giao dịch thẻ loyalty / điểm — archive lịch sử trên db1.
+
+**Liên kết:** CARD_ID → CSCARD (db2); TRANS_NUM liên quan bill
+
+**Lưu ý:** Chỉ giao dịch trước cutoff. cutoff = ngày 1 của tháng trước (so với ngày chạy query). Ví dụ hôm nay 22/06/2026 → cutoff = 2026-05-01.
+
+| column | type | description |
+|--------|------|-------------|
+| TRANS_NUM | char | Số chứng từ / bill; join header ↔ dòng ↔ thanh toán |
+| CARD_ID | char | Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng |
+| ACML_CODE | char | Mã chương trình tích lũy |
+| TRAN_DATE | datetime | Ngày giao dịch; chọn shard db1 theo YYYYMM |
+| TRAN_TIME | char | Giờ giao dịch (HH:MM) |
+| TRANS_CODE | char | Loại chứng từ — xem domain_definitions.md (113=bán lẻ, 221=thanh toán, 811/812=thẻ, 008=quỹ, …) |
+| TRANS_TYPE | char | Phân loại giao dịch thẻ |
+| RS_CODE | char | Mã lý do (hủy, trả, …) |
+| BU_ID | char | Đơn vị kinh doanh / chi nhánh logic (00000, 90100, 90200) |
+| IDX | numeric | Số thứ tự dòng trong chứng từ |
+| CUST_ID | char | Mã khách hàng |
+| TYPE | char | Loại bản ghi (ngữ cảnh theo bảng) |
+| DISCOUNT | numeric | Giảm giá (số tiền hoặc % tùy ngữ cảnh) |
+| AMOUNT | numeric | Thành tiền / số tiền (ngữ cảnh theo bảng) |
+| MARK | numeric | Điểm tích lũy; ~AMOUNT/50000 trên CRDTRANS 811 |
+| MARK_VAL | numeric | Giá trị quy đổi điểm |
+| MARK_MUL | numeric | Hệ số nhân điểm |
+| RFN_AMT | numeric | Hoàn / refund điểm: RFN_AMT |
+| RFN_MARK | numeric | Hoàn / refund điểm: RFN_MARK |
+| RFN_RATE | numeric | Hoàn / refund điểm: RFN_RATE |
+| RBT_AMT | numeric | Rebate: RBT_AMT |
+| PRG_CODE | char | MãPRG_CODE |
+| REF | char | Mã/tham chiếu nội bộ |
+| USER_ID | int | Mã user thao tác |
+| WS_ID | int | Mã máy trạm |
+| STAFF_ID | char | Mã nhân viên |
+| NOTES | nvarchar | Ghi chú bổ sung |
+| RCV_DATE | datetime | NgàyRCV_DATE |
+| RCV_TIME | char | Cột RCV_TIME |
+| REMARK | nvarchar | Ghi chú nghiệp vụ |
+| POST | char | Trạng thái post chứng từ |
+| STATUS | bit | Trạng thái active/duyệt |
+| STK_ID | char | Mã cửa hàng / kho (10001, 10004, 10005, …) |
+| VAT_AMT | numeric | Tiền thuế VAT |
+| COMM_AMT | numeric | Tiền hoa hồng |

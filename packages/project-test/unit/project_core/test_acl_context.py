@@ -19,7 +19,9 @@ def test_store_manager_requires_store_filter():
 
 def test_hq_analyst_has_broader_tables():
     snap = build_permissions_snapshot("u", "hq_analyst")
-    assert "promotions" in snap.allowed_tables or len(snap.allowed_tables) >= 6
+    assert "STRANS" in snap.allowed_tables
+    assert "HISSPPR" in snap.allowed_tables
+    assert len(snap.allowed_tables) >= 30
 
 
 def test_context_policy_agent_II_gets_brief():

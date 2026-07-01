@@ -18,7 +18,7 @@ def test_on_pipeline_complete_stages_success(feedback_loop):
         "success",
         {
             "brief": brief,
-            "approved_sql": ["SELECT 1 FROM sales"],
+            "approved_sql": ["SELECT TOP 10 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"],
             "sql_attempt": 1,
             "correction_path": False,
             "headline_metrics": {"rows": 10},

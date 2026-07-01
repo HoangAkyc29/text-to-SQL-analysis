@@ -1,33 +1,35 @@
-# db1 — schema overview
+# db1 — lịch sử (RESTORED_DB)
 
-db1 có **4 logical table**, **59 physical table** (57 shard theo tháng + 2 archive).
+db1 là **archive giao dịch quá khứ**. Dữ liệu giao dịch ở đây có `TRAN_DATE` **trước** ngưỡng rolling — tức trước ngày 1 của tháng trước (so với hôm nay).
 
-Agent **không** cần đọc 59 file — đọc 4 file trong `tables/` + file này + `shards.yaml`.
+Ví dụ hôm nay **22/06/2026**:
+- `cutoff = 2026-05-01`
+- db1: giao dịch **trước** 01/05/2026 (tháng 4 và cũ hơn)
+- db2: giao dịch **từ** 01/05/2026 đến nay
 
-## Logical tables
+## Logical tables (4)
 
-| Logical | Physical pattern | Shards | Mô tả |
-|---------|------------------|--------|-------|
-| `STRANS` | `STRANS_{YYYYMM}` | 202312..202604 (29) | [TODO: mô tả nghiệp vụ bảng STRANS — chi tiết dòng giao dịch] |
-| `PMTRANS` | `PMTRANS_{YYYYMM}` | 202401..202604 (28) | [TODO: mô tả nghiệp vụ bảng PMTRANS — thanh toán] |
-| `CRDTRANS_ARC` | `CRDTRANS_ARC` | 1 (archive) | [TODO: mô tả nghiệp vụ bảng CRDTRANS_ARC — archive thẻ/điểm] |
-| `TRANSHDR_ARC` | `TRANSHDR_ARC` | 1 (archive) | [TODO: mô tả nghiệp vụ bảng TRANSHDR_ARC — archive header giao dịch] |
+| Logical | Physical | Shards | Mô tả |
+|---------|----------|--------|-------|
+| `STRANS` | `STRANS_{YYYYMM}` | 29 | Chi tiết dòng bán lịch sử |
+| `PMTRANS` | `PMTRANS_{YYYYMM}` | 28 | Thanh toán bill lịch sử |
+| `CRDTRANS_ARC` | `CRDTRANS_ARC` | 1 | Giao dịch thẻ/điểm archive |
+| `TRANSHDR_ARC` | `TRANSHDR_ARC` | 1 | Header bill archive |
 
-## Cách chọn physical table
+Schema: `../tables/db1/<TênBảng>.md` + `shards.yaml` + `../domain_definitions.md`
 
-1. Xác định logical table (VD `STRANS`).
-2. Lọc theo `TRAN_DATE` trong brief/filter.
-3. Map tháng → suffix `YYYYMM` → VD `STRANS_202503`.
-4. Khoảng nhiều tháng: `UNION ALL` các shard tương ứng (không join cross-shard trên server nếu không cần).
+## Chọn physical table
 
-## Quan hệ (placeholder — user điền)
+1. Xác nhận khoảng thời gian **nằm hoàn toàn trước cutoff** — nếu không, dùng db2.
+2. Lọc `TRAN_DATE` theo brief.
+3. Suffix `YYYYMM` → vd. `STRANS_202503`.
+4. Nhiều tháng: `UNION ALL` các shard.
 
-- `STRANS` ↔ `TRANSHDR_ARC`: [TODO: join key, cardinality]
-- `STRANS` ↔ `PMTRANS`: [TODO]
-- `CRDTRANS_ARC` ↔ `STRANS` / thẻ: [TODO]
+## Quan hệ
 
-## File liên quan
+- `TRANSHDR_ARC` 1 — N `STRANS` / `PMTRANS` (shard): `TRANS_NUM` + `TRANS_CODE` + `TRAN_DATE`
+- `CRDTRANS_ARC` ↔ `CARD_ID` (master thẻ trên db2 `CSCARD`)
 
-- `tables/STRANS.md`, `tables/PMTRANS.md`, `tables/CRDTRANS_ARC.md`, `tables/TRANSHDR_ARC.md` — cột + type
-- `shards.yaml` — danh sách physical table đầy đủ
-- `../domain_definitions.md` — thuật ngữ nghiệp vụ (TRANS_CODE, …)
+## Không có trên db1
+
+Danh mục (SKU, khách, NCC, giá, …) — luôn query **db2**.

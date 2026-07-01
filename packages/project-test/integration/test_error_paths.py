@@ -64,7 +64,7 @@ def test_result_profile_flags_empty():
 def test_pipeline_IV_impossible_outcome(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(
         {
-            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]}],
+            "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
             "III": [{"verdict": "approve"}],
             "IV": [{"action": "impossible", "reason": "metric not in schema"}],
         }

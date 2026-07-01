@@ -15,7 +15,7 @@ pytestmark = pytest.mark.integration
 
 def _happy_scripts():
     return {
-        "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]}],
+        "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
         "III": [{"verdict": "approve", "concerns": []}],
         "IV": [{"action": "complete", "headline_metrics": {"rows": 1}, "artifact_paths": ["out/a.xlsx"]}],
     }
@@ -64,8 +64,8 @@ def test_pipeline_risk_reject_then_retry(pipeline_factory, workflow_state, hq_pe
     invoker = ScriptedAgentInvoker(
         {
             "II": [
-                {"action": "plan_sql", "sql_queries": ["SELECT bad FROM sales"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT bad_col FROM STRANS"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
             ],
             "III": [{"verdict": "reject", "risk_feedback": {"issue": "scan"}}, {"verdict": "approve"}],
             "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
@@ -85,8 +85,8 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
     invoker = ScriptedAgentInvoker(
         {
             "II": [
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id, amount FROM sales"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
             ],
             "III": [{"verdict": "approve"}, {"verdict": "approve"}],
             "IV": [

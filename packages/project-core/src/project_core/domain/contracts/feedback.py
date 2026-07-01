@@ -24,16 +24,33 @@ class MissingForBrief(BaseModel):
     reason: str
 
 
+class ProbeRequest(BaseModel):
+    table: str
+    purpose: str
+    suggested_sql: str
+    priority: int = 1
+
+
+class DomainRuleCandidate(BaseModel):
+    rule_id: str = ""
+    scope: str = ""
+    statement: str = ""
+    evidence_trace_ids: list[str] = Field(default_factory=list)
+
+
 class DataFeedback(BaseModel):
     needs_sql_retry: bool = True
     issue: str
     summary: str
+    diagnosis: Literal["solvable", "needs_probe", "impossible", "needs_user_clarify"] = "solvable"
     affected_columns: list[str] = Field(default_factory=list)
     brief_alignment: BriefAlignment | None = None
     expected_vs_observed: list[ExpectedVsObserved] = Field(default_factory=list)
     missing_for_brief: list[MissingForBrief] = Field(default_factory=list)
     suggested_intent_fix: str = ""
     evidence_refs: list[str] = Field(default_factory=list)
+    probe_requests: list[ProbeRequest] = Field(default_factory=list)
+    confirmed_rules: list[DomainRuleCandidate] = Field(default_factory=list)
 
 
 class SatisfactionSignal(BaseModel):

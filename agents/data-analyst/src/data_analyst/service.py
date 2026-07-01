@@ -8,6 +8,9 @@ from typing import Any
 from platform_core.config.schema import AgentSpec, PlatformConfig
 from platform_core.service.base import DecisionContext
 
+from project_core.config.loader import load_project_config
+from project_core.domain.analysis.iv_analyzer import analyze_datasets
+from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.service.supermarket_agent import SupermarketAgentService
 
 
@@ -17,32 +20,35 @@ class DataAnalystService(SupermarketAgentService):
         payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
         manifest = payload_in.get("dataset_manifest") or meta.get("dataset_manifest") or {}
         profile = payload_in.get("result_profile") or meta.get("result_profile") or {}
-        if os.getenv("ALLOW_LLM_STUB") == "1":
-            if profile.get("row_count", 0) == 0:
-                return self.json_response(
-                    ctx,
-                    {
-                        "action": "data_feedback",
-                        "data_feedback": {
-                            "needs_sql_retry": True,
-                            "issue": "empty_result",
-                            "summary": "No rows returned",
-                            "suggested_intent_fix": "expand filters",
-                        },
-                    },
-                )
-            paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
-            out_paths = [p.replace("raw", "out").replace(".parquet", ".xlsx") for p in paths]
-            return self.json_response(
-                ctx,
-                {
-                    "action": "complete",
-                    "headline_metrics": {"row_count": profile.get("row_count", 0)},
-                    "artifact_paths": out_paths,
-                    "caveats": [],
-                },
-            )
-        return self.json_response(ctx, {"action": "complete", "headline_metrics": {}, "artifact_paths": []})
+        brief_data = payload_in.get("brief") or meta.get("brief") or {}
+        brief = AnalysisBrief.model_validate(brief_data)
+        query_meta = payload_in.get("query_meta") or meta.get("query_meta") or []
+        out_dir = payload_in.get("out_dir") or meta.get("out_dir") or "data/artifacts/out"
+        max_steps = int(
+            payload_in.get("max_steps")
+            or meta.get("max_steps")
+            or load_project_config().pipeline.iv_max_steps
+        )
+        analysis_tools = payload_in.get("analysis_tools") or meta.get("analysis_tools") or []
+        recipe_candidates = payload_in.get("recipe_candidates") or meta.get("recipe_candidates") or []
+        analysis_plan = payload_in.get("analysis_plan") or meta.get("analysis_plan")
+        execution_plan = payload_in.get("execution_plan") or meta.get("execution_plan")
+        domain_rules_excerpt = payload_in.get("domain_rules_excerpt") or meta.get("domain_rules_excerpt") or ""
+
+        payload = analyze_datasets(
+            brief=brief,
+            manifest=manifest,
+            profile=profile,
+            out_dir=out_dir,
+            max_steps=max_steps,
+            query_meta=query_meta,
+            analysis_tools=analysis_tools,
+            recipe_candidates=recipe_candidates,
+            analysis_plan=analysis_plan,
+            execution_plan=execution_plan,
+            domain_rules_excerpt=domain_rules_excerpt,
+        )
+        return self.json_response(ctx, payload)
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> DataAnalystService:

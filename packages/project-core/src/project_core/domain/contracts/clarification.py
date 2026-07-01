@@ -22,13 +22,14 @@ class ClarificationQuestion(BaseModel):
 
 
 class ClarificationRequest(BaseModel):
-    source_agent: Literal["II"] = "II"
+    source_agent: Literal["II", "IV"] = "II"
     reason: str
     partial_brief: AnalysisBrief
     trigger_context: Literal[
         "initial", "after_policy", "after_risk", "after_data_feedback"
     ] = "initial"
     questions: list[ClarificationQuestion]
+    evidence_summary: str = ""
 
 
 class ClarificationAnswer(BaseModel):

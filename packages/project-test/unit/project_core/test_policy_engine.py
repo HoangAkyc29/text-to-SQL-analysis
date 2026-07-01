@@ -29,7 +29,7 @@ def test_policy_blocks_delete(engine):
 def test_policy_blocks_disallowed_table(engine):
     verdict = engine.validate("SELECT * FROM secret_table")
     assert verdict.allowed is False
-    assert any("table_not_allowed" in v for v in verdict.violations)
+    assert any("table_not_in_dictionary" in v for v in verdict.violations)
 
 
 def test_policy_injects_row_limit(engine):
@@ -47,7 +47,7 @@ def test_policy_store_filter_when_required(mini_schema_catalog):
     )
     verdict = engine.validate("SELECT sale_id FROM sales")
     assert verdict.allowed is True
-    assert "store_id" in (verdict.sanitized_sql or "").lower()
+    assert "stk_id" in (verdict.sanitized_sql or "").lower()
 
 
 def test_policy_blocks_semicolon_injection(engine):

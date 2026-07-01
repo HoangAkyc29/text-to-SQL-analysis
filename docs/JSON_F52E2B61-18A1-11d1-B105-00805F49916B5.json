@@ -1,0 +1,6498 @@
+﻿[
+  {
+    "table_name": "ACCOUNT",
+    "record_count": 1776,
+    "columns": [
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCO_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "PREV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CR_LIMIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CR_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_CREDIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "B_CREDIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "Y_CREDIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "Y_DEBIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CLOSE_DATE",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  {
+    "table_name": "ASSO_INF",
+    "record_count": 14300,
+    "columns": [
+      {
+        "column_name": "ASSO_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ASSO_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PLU_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ITEM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ZONE_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MARGIN",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RATIO",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "ASSOLST",
+    "record_count": 7150,
+    "columns": [
+      {
+        "column_name": "ASSO_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ASSO_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DESCRIPT",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "FIX_RATIO",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsProcess",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "REVERSE",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "Planned",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "Sale_Period",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MARGIN",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MBC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "ISS_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "BARCODE",
+    "record_count": 44004,
+    "columns": [
+      {
+        "column_name": "BARCODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DESCRIPT",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ISDEFAULT",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "CASH_ST",
+    "record_count": 15142,
+    "columns": [
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "VALUE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "POS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "CRD_INFO",
+    "record_count": 52072,
+    "columns": [
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACML_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_LVL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TO_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "PERIOD",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BEG_BMARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_BAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_BTRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_OMARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_OAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_OTRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEG_RAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUY_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUY_TRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "OTH_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "OTH_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "OTH_TRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "LAST_CALL",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CLOSE_DATE",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  {
+    "table_name": "CRDTRANS",
+    "record_count": 38091,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACML_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_VAL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RBT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PRG_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NOTES",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "RCV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "RCV_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "CRDTRANS_TMP",
+    "record_count": 197387,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACML_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_VAL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RFN_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RBT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PRG_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NOTES",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "RCV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "RCV_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "CSCARD",
+    "record_count": 45208,
+    "columns": [
+      {
+        "column_name": "IDX",
+        "data_type": "int"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID2",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BARCODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PASSCODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PERSON_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "SEX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ADDRESS",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "PLC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "DISC_LVL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BONUS_PC",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ISS_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "LAST_CALL",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "FRESH_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BIRTHDAY",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMAGE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MOBI",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "HAMLET",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CITY",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "DISTRICT",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "WARD",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STREET",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "HOUSE_NO",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "OWN_COMPID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CHR_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "HEX_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "RADIUS",
+        "data_type": "int"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COUNTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NAME_U",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CHANGEPWD",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "HASHEDPWD",
+        "data_type": "ntext"
+      },
+      {
+        "column_name": "ISWEBUSE",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "ISLOCKED",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "CTRANS",
+    "record_count": 51314,
+    "columns": [
+      {
+        "column_name": "IDX",
+        "data_type": "int"
+      },
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DEBT_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEBT_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BILL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEP_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_POS",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_TRANS",
+        "data_type": "varchar"
+      }
+    ]
+  },
+  {
+    "table_name": "CUSTHIST",
+    "record_count": 230438,
+    "columns": [
+      {
+        "column_name": "ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURP_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "CUSTOMER",
+    "record_count": 46793,
+    "columns": [
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "GRP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACC_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "DISC_LVL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ADDRESS",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "ADDRESS2",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "COUNTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PLC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FAX",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CON_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI2",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "SKYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "YM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FACEBOOK",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "INDUSTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEPT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PERSON_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "SEX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BIRTHDAY",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "FAMILY",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "JOB",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "HOBBY",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "NOTES",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "DELIVERY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DEBT_MODE",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMPANY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CS_LEVEL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CONTR_BR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "REG_NUM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CONTR_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CONTR_NUM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "GUA_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GUA_RELA",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REP_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "ACC_HOLDER",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BLOCK_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "OWN",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "HAMLET",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CITY",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "DISTRICT",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "WARD",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STREET",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "HOUSE_NO",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OWN_COMPID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PROP_VALUE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CUST_NAME_U",
+        "data_type": "nvarchar"
+      }
+    ]
+  },
+  {
+    "table_name": "CustSumm",
+    "record_count": 13104,
+    "columns": [
+      {
+        "column_name": "Card_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "Name",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "Address",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "Phone",
+        "data_type": "char"
+      },
+      {
+        "column_name": "Mobil",
+        "data_type": "char"
+      },
+      {
+        "column_name": "Amount",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "Remark",
+        "data_type": "nvarchar"
+      }
+    ]
+  },
+  {
+    "table_name": "DEBT",
+    "record_count": 225126,
+    "columns": [
+      {
+        "column_name": "DEBT_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEBT_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEBT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PAID_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FINE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INV_Date",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_VATAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "HISRTPR",
+    "record_count": 21745,
+    "columns": [
+      {
+        "column_name": "DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ZONE_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LASTRTPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RTPRAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURP_PC",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RTPR_CODE",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "HISSPPR",
+    "record_count": 92173,
+    "columns": [
+      {
+        "column_name": "DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LASTSPPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SPPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "PCPR_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "INV_HDR",
+    "record_count": 31918,
+    "columns": [
+      {
+        "column_name": "INV_REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STR_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "ATR_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ATR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TAX_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CUST_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BUY_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BUY_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BUY_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BUY_PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BUY_FAX",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BUY_EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "ACC_HOLDER",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BANK_POS",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "ISS_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OWN",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CUSTAC",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EINV",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SND_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "RCV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "UPD_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "EINV_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "INV_ISS",
+    "record_count": 55198,
+    "columns": [
+      {
+        "column_name": "INV_REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "FR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TO_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ISS_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CUST_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CUST_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BUY_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BUY_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BUY_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FAX",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "REP_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CON_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "PERSON_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "ACC_HOLDER",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "COMPANY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "COPIES",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "Gua_ID",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "PARTNER",
+    "record_count": 1790,
+    "columns": [
+      {
+        "column_name": "ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "GRP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACC_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CON_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BIRTHDAY",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "SEX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "JOB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ADDRESS",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "ADDRESS2",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "COUNTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PLC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FAX",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI2",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "SKYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "YM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FACEBOOK",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "INDUSTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEPT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DEBT_MODE",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "NDUEDAY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PAYDAY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "GUA_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GUA_RELA",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INTER_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "fine_rate",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CR_LIMIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CR_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CONTR_BR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "REP_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "ACC_HOLDER",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BLOCK_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "OWN",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MDC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OWN_COMPID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMPANY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "NOTES",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "PERSON_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BUYER_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NAME_U",
+        "data_type": "nvarchar"
+      }
+    ]
+  },
+  {
+    "table_name": "PLU",
+    "record_count": 3886,
+    "columns": [
+      {
+        "column_name": "PLU_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USEBYDAYS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PACKDAYS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SELLBYDAYS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LBL_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LASTRTPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_INCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "FR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TO_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "PMCRDINF",
+    "record_count": 426254,
+    "columns": [
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PASSCODE",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "VALUE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COND_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "NODE_LIST",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACTIVATE",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SALEABLE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SALE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "ISS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ISS_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "RCV_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RCV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BAL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BARCODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CHR_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "HEX_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "PAID_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "PMCRDISS",
+    "record_count": 31477,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FR_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TO_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "VALUE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ISS_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SALE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_PC",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OBJ_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OBJ_VALUE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CHG_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CHG_VALUE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "PMCRDRCV",
+    "record_count": 2122,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "VALUE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RCV_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RCV_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "PMCRDSTK",
+    "record_count": 31554,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PREFIX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FR_SERI",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TO_SERI",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FR_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TO_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "VALUE_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ISS_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RCV_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STP_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "NODE_LIST",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARK_MUL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ACTIVATE",
+        "data_type": "bit"
+      }
+    ]
+  },
+  {
+    "table_name": "PMTRANS",
+    "record_count": 123716,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "int"
+      },
+      {
+        "column_name": "PMT_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ROUNDIFF",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "POS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "RDISCINF",
+    "record_count": 18854,
+    "columns": [
+      {
+        "column_name": "IDX",
+        "data_type": "int"
+      },
+      {
+        "column_name": "DISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "LAYER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "ZONE_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OBJ_NOT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "OBJ_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OBJ_VALUE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DATA_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SOLD_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SOLD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BY_EACH",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CHG_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CHG_VALUE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUY_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MAXDISCQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MAXDISCAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MAXDISCTRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CARDEXCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CARDINCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CARDRQ",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "CRD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PREFIX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FR_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TO_CARDID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MARKUP",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "GIFT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "LOTTERY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "FR_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "FR_TIME",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TO_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TO_TIME",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DOMMAP",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DOWMAP",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMAGE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "VC_PREFIX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MAXSUMQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MAXSUMAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MAXSUMTRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNTSUMQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNTSUMAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNTSUMTRS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USERDEF1",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF2",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF3",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF4",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF5",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF6",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF7",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF8",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "USERDEF9",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "WOMMAP",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_FRB",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "RTPR_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SOLD_CNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GRP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_LMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TRS_AMT",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "sku_activity",
+    "record_count": 54060,
+    "columns": [
+      {
+        "column_name": "stk_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "sku_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "first_sale_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "last_sale_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "first_receipt_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "last_receipt_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  {
+    "table_name": "SKU_DEF",
+    "record_count": 116112,
+    "columns": [
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BARCODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UPC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PLU_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "DEPT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GRP_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "GRP_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "MATRIX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SHORT_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "FULL_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "MERC_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "GOODS_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "VAR_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "VAR_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "VAR_DESC",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "UNIT_DESC",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "PICEUNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISP_GRP",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BLOCK_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MIN_MG",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MARGIN",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MAX_MG",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BASEPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "WSPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COSTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PREFPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LASTIMPPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MBC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SKU",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DMS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CACL_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "ATTR_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ITEM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "IMAGE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MA",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CL",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SEX",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BUY_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BON_MARK",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DOMESTIC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "EXPIRY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsOwnBrd",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsConsign",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsInstall",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsSerial",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsReserv",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsWebshow",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "RC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RC_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "LBL_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POS_SHW",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ABC",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "XYZ",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MDPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GTYPE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CLS_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MRK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RES_SHW",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "IsPack",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DISC_RTPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_SPPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IsTicket",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "FULL_NAME_U",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "SPCMETHOD",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TAX_DRATE",
+        "data_type": "numeric"
+      }
+    ]
+  },
+  {
+    "table_name": "ST_ORDER",
+    "record_count": 2202,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "DELIVER_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "FINISH_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STOPED_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "REF_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CS_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CTC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_MODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CR_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ORD_WAY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COPIES",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "HDR_REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DMS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SAL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ORDP_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ORD_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ORD_PRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DLV_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ST_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PRICE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "SURPLUS",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "VAT_INCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CDISC_RATE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "CDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_RATE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "TDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GIFT_SQTY",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "GIFT_QTY",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "CCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GCOMM_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GCOMM_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ITEM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "EXPIRY_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "WARR_TM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COSTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "RTPRICE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_CODE",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "STK_DTL",
+    "record_count": 111613,
+    "columns": [
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BEGIN_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BEGIN_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRSUPP_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRDEAL_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCUST_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRTRF_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRTRF_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRMUL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRMUL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRBAL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRBAL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCQTY_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCQTY_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCAMT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCAMT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FRCAMT_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOSUPP_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TODEAL_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_VAT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_DIS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCUST_COM",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOTRF_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOTRF_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOMUL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOMUL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOBAL_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOBAL_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCQTY_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCQTY_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCAMT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCAMT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TOCAMT_SUR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PRD_CODE",
+        "data_type": "varchar"
+      }
+    ]
+  },
+  {
+    "table_name": "STRANS",
+    "record_count": 420002,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_Date",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_VATAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_DEPT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "KIT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ASSO_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ASSO_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURPLUS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_INCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GIFT_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GIFT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GCOMM_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "EXPIRY_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "WARR_TM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "CS_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MBC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SKU",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COPIES",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INV_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IC_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ITEM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "gdisc_amt",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_POS",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "PMT_MODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_CODE",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "STRANS_TMP",
+    "record_count": 184907,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_TYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_NO",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "INV_Date",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "INV_VATAMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_DEPT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "KIT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ASSO_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ASSO_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURPLUS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_INCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GIFT_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GIFT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GCOMM_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "EXPIRY_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "WARR_TM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "CS_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MBC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SKU",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COPIES",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INV_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IC_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ITEM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "gdisc_amt",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_REF",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "INV_POS",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "PMT_MODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_CODE",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "SUPPLIER",
+    "record_count": 1758,
+    "columns": [
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_CODE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "NODE_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "GRP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACCOUNT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ACC_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CON_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "TAX_NAME",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "TAX_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ADDRESS",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "ADDRESS2",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "COUNTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PLC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PHONE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FAX",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOBI2",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "EMAIL",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "SKYPE",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "YM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "FACEBOOK",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "BANK_ACC",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BANK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BANK_ADDR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "INDUSTRY",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DEPT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ORD_SEQ",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DLV_SEQ",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ORD_PERIOD",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STO_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_SEQ",
+        "data_type": "char"
+      },
+      {
+        "column_name": "LEAD_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_MODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "CS_LEVEL",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FIXSALEPR",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CONTR_NUM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CONTR_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "REG_NUM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "OPEN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "MODI_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "FINE_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GUA_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GUA_RELA",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CONTR_BR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "REP_PERSON",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "ACC_HOLDER",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "BLOCK_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "LAST_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "OWN",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MDC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OWN_COMPID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "COMPANY",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "NOTES",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "PROP_VALUE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PERSON_ID",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "MOA",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MOQ",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "BUYER_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_NAME_U",
+        "data_type": "nvarchar"
+      }
+    ]
+  },
+  {
+    "table_name": "SUSPEND",
+    "record_count": 906372,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "RS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMPORT",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "OSTK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PACK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "KIT_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "KIT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ASSO_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "ASSO_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SKU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STK_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CNT_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "UNIT_SYMB",
+        "data_type": "char"
+      },
+      {
+        "column_name": "BASE_UNIT",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UNITCONV",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURPLUS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_INCL",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_RATE",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GDISC_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GIFT_SQTY",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "GIFT_QTY",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "CCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TCOMM_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MCOMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MCOMM_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "GCOMM_SQTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "GCOMM_QTY",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TAX_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "FOREX_CYS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "FOREX_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "EXPIRY_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "CS_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "MERC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MBC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SKU",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DTDISC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DTDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DTDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DTDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DMDISC",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "DMDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DMDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DMDISC_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "CDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDISC_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDISC_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_RATE",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "MDADD_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TDADD_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "MDADD_CODE",
+        "data_type": "char"
+      }
+    ]
+  },
+  {
+    "table_name": "TRANSHDR",
+    "record_count": 86733,
+    "columns": [
+      {
+        "column_name": "TRANS_NUM",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IDX",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "TRANS_CODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "TRAN_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "TRAN_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "DUE_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "EF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "BU_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_NO",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF_DATE",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "REF_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "POST",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "STK_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "SUPP_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CUST_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IMP_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EXP_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "EXP_TYPE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "AMOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SURPLUS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "VAT_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DISCOUNT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "COMM_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DEPOSIT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "PAID_AMT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "DEDUCT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "USER_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "WS_ID",
+        "data_type": "int"
+      },
+      {
+        "column_name": "STAFF_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CARD_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REF",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_MODE",
+        "data_type": "char"
+      },
+      {
+        "column_name": "UPDATED",
+        "data_type": "bit"
+      },
+      {
+        "column_name": "COPIES",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "SHIFT",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "ACTION",
+        "data_type": "char"
+      },
+      {
+        "column_name": "INV_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "IC_STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "REMARK",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "STATUS",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CTC_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "PMT_TIME",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CONTR_DT",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "CONTR_NUM",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "CAR_ID",
+        "data_type": "char"
+      },
+      {
+        "column_name": "CONTR_BR",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "REG_NUM",
+        "data_type": "varchar"
+      }
+    ]
+  },
+  {
+    "table_name": "WebRpt_inventory_daily",
+    "record_count": 2203446,
+    "columns": [
+      {
+        "column_name": "report_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "stk_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "sku_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "grp_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "skucode",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "stkname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "grpname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "skuname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "qty_onhand",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "value_onhand",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "avg_daily_qty_30d",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "doi_days",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "days_no_sale",
+        "data_type": "int"
+      },
+      {
+        "column_name": "days_since_receipt",
+        "data_type": "int"
+      },
+      {
+        "column_name": "stock_status",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "DMS",
+        "data_type": "numeric"
+      },
+      {
+        "column_name": "refreshed_at",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  {
+    "table_name": "WebRpt_rfm_snapshot",
+    "record_count": 12309,
+    "columns": [
+      {
+        "column_name": "snapshot_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "card_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "cust_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "card_type",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "recency_days",
+        "data_type": "int"
+      },
+      {
+        "column_name": "frequency",
+        "data_type": "int"
+      },
+      {
+        "column_name": "monetary",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "rfm_segment",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "rfm_score",
+        "data_type": "tinyint"
+      },
+      {
+        "column_name": "refreshed_at",
+        "data_type": "datetime"
+      }
+    ]
+  },
+  {
+    "table_name": "WebRpt_sales_sku_daily",
+    "record_count": 6372,
+    "columns": [
+      {
+        "column_name": "report_date",
+        "data_type": "date"
+      },
+      {
+        "column_name": "stk_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "sku_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "grp_id",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "skucode",
+        "data_type": "varchar"
+      },
+      {
+        "column_name": "stkname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "grpname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "skuname",
+        "data_type": "nvarchar"
+      },
+      {
+        "column_name": "qty",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "revenue",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "cogs",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "gross_profit",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "bill_count",
+        "data_type": "int"
+      },
+      {
+        "column_name": "refreshed_at",
+        "data_type": "datetime"
+      },
+      {
+        "column_name": "mdisc_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "tdisc_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "cdisc_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "gdisc_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "discount_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "tdadd_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "mdadd_total",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "gift_qty",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "free_qty",
+        "data_type": "decimal"
+      },
+      {
+        "column_name": "free_cogs",
+        "data_type": "decimal"
+      }
+    ]
+  }
+]

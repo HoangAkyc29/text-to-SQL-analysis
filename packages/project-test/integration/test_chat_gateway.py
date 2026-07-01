@@ -44,7 +44,7 @@ def test_chat_analysis_route(gateway_client, monkeypatch):
                     {"route": "analysis", "user_message": "ok", "brief": {"intent": "VIP", "filters": {"card_prefix": "E"}}},
                     {"user_message": "done", "artifacts": []},
                 ],
-                "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 sale_id FROM sales"]}],
+                "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
                 "III": [{"verdict": "approve"}],
                 "IV": [{"action": "complete", "headline_metrics": {"rows": 1}, "artifact_paths": []}],
             }

@@ -1,12 +1,14 @@
 data_source: db1
-notes: Physical tables map 1:1 từ JSON export. Agent dùng logical_table + physical_pattern;
-  chọn shard theo shard_key_column và khoảng thời gian filter.
+notes: |
+  Archive lịch sử — giao dịch có TRAN_DATE trước cutoff (ngày 1 tháng trước).
+  Agent dùng logical_table + physical_pattern; chọn shard theo TRAN_DATE (YYYYMM).
+  Danh mục (SKU, khách, …) không có trên db1 — query db2.
 logical_tables:
   STRANS:
-    description: '[TODO: mô tả nghiệp vụ bảng STRANS — chi tiết dòng giao dịch]'
+    description: Chi tiết từng dòng trên chứng từ bán (SKU, SL, giá, chiết khấu, VAT, quà). TRANS_CODE=113.
     physical_pattern: STRANS_{YYYYMM}
     shard_key_column: TRAN_DATE
-    schema_file: tables/STRANS.md
+    schema_file: tables/db1/STRANS.md
     physical_tables:
     - STRANS_202312
     - STRANS_202401
@@ -42,10 +44,10 @@ logical_tables:
       to: '202604'
       count: 29
   PMTRANS:
-    description: '[TODO: mô tả nghiệp vụ bảng PMTRANS — thanh toán]'
+    description: Thanh toán bill (221), thu/chi quỹ (008), loại khác (222). TRANS_CODE xem domain_definitions.
     physical_pattern: PMTRANS_{YYYYMM}
     shard_key_column: TRAN_DATE
-    schema_file: tables/PMTRANS.md
+    schema_file: tables/db1/PMTRANS.md
     physical_tables:
     - PMTRANS_202401
     - PMTRANS_202402
@@ -80,18 +82,18 @@ logical_tables:
       to: '202604'
       count: 28
   CRDTRANS_ARC:
-    description: '[TODO: mô tả nghiệp vụ bảng CRDTRANS_ARC — archive thẻ/điểm]'
+    description: Archive giao dịch thẻ loyalty và điểm (TRANS_CODE 811/812). Join CARD_ID.
     physical_pattern: CRDTRANS_ARC
     shard_key_column: TRAN_DATE
-    schema_file: tables/CRDTRANS_ARC.md
+    schema_file: tables/db1/CRDTRANS_ARC.md
     physical_tables:
     - CRDTRANS_ARC
     shard_range: null
   TRANSHDR_ARC:
-    description: '[TODO: mô tả nghiệp vụ bảng TRANSHDR_ARC — archive header giao dịch]'
+    description: Archive header chứng từ (113 bán lẻ, 221 thanh toán, …). Lọc 113 cho bill bán.
     physical_pattern: TRANSHDR_ARC
     shard_key_column: TRAN_DATE
-    schema_file: tables/TRANSHDR_ARC.md
+    schema_file: tables/db1/TRANSHDR_ARC.md
     physical_tables:
     - TRANSHDR_ARC
     shard_range: null
