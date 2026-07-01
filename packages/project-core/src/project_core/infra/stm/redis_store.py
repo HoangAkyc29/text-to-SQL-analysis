@@ -48,9 +48,27 @@ class RedisSessionStore:
         self.client.setex(key, self.ttl_seconds, json.dumps([t.model_dump() for t in transcript]))
         self._refresh_ttl(session_id)
 
+    def _analysis_index_key(self, analysis_id: str) -> str:
+        return f"analysis:{analysis_id}"
+
+    def index_analysis(self, analysis_id: str, session_id: str) -> None:
+        key = self._analysis_index_key(analysis_id)
+        self.client.setex(key, self.ttl_seconds, session_id)
+
+    def find_by_analysis_id(self, analysis_id: str) -> tuple[str, WorkflowState] | None:
+        session_id = self.client.get(self._analysis_index_key(analysis_id))
+        if not session_id:
+            return None
+        bundle = self.load_session(session_id)
+        if bundle.workflow is None:
+            return None
+        return session_id, bundle.workflow
+
     def save_workflow(self, session_id: str, workflow: WorkflowState) -> None:
         key = self._key(session_id, "workflow")
         self.client.setex(key, self.ttl_seconds, workflow.model_dump_json())
+        if workflow.active_analysis_id:
+            self.index_analysis(workflow.active_analysis_id, session_id)
         self._refresh_ttl(session_id)
 
     def save_clarification(self, session_id: str, clarification: dict[str, Any] | None) -> None:

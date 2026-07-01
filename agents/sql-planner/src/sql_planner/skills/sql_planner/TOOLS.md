@@ -1,6 +1,8 @@
-# Agent II — MCP tools (sql-gateway)
+# Agent II — Tools (pipeline-centric)
 
-Prefix MCP: `sql_*` (qua pipeline `HttpSqlGatewayClient`, không gọi trực tiếp trong `decide`).
+**Agents do not call MCP in `decide()`.** Return JSON actions; `SupermarketAnalysisPipeline` + `HttpSqlGatewayClient` execute tools.
+
+Prefix MCP: `sql_*` (executed by pipeline, not Agent II directly).
 
 | Tool | Mục đích |
 |------|----------|

@@ -16,6 +16,9 @@ def gateway_client(monkeypatch, fake_redis):
     os.environ["ALLOW_LLM_STUB"] = "1"
     os.environ["ALLOW_DEV_AUTH"] = "1"
     os.environ["SQL_GATEWAY_INPROCESS"] = "1"
+    import chat_gateway.app as gw_app
+
+    gw_app._orchestrator = None
     from chat_gateway.app import app
 
     return TestClient(app)
@@ -68,3 +71,31 @@ def test_feedback_endpoint(gateway_client):
         },
     )
     assert r.status_code == 200
+
+
+def test_analysis_status_endpoint(gateway_client, monkeypatch):
+    with patch("chat_gateway.orchestrator.HttpAgentInvoker") as mock_invoker_cls, patch(
+        "chat_gateway.orchestrator.HttpSqlGatewayClient"
+    ) as mock_sql_cls:
+        from project_test.helpers.scripted_invoker import ScriptedAgentInvoker
+        from project_test.helpers.stub_sql import StubSqlGateway
+
+        stub = ScriptedAgentInvoker(
+            {
+                "I": [
+                    {"route": "analysis", "user_message": "ok", "brief": {"intent": "VIP"}},
+                    {"user_message": "done"},
+                ],
+                "II": [{"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]}],
+                "III": [{"verdict": "approve"}],
+                "IV": [{"action": "complete", "headline_metrics": {"rows": 1}, "artifact_paths": []}],
+            }
+        )
+        mock_invoker_cls.return_value = stub
+        mock_sql_cls.return_value = StubSqlGateway()
+        chat = gateway_client.post("/chat", json={"session_id": "gw-status", "message": "VIP doanh thu"})
+        analysis_id = chat.json().get("analysis_id")
+        assert analysis_id
+        status = gateway_client.get(f"/analysis/{analysis_id}/status").json()
+        assert status["status"] != "unknown"
+        assert status.get("last_outcome") == "success"

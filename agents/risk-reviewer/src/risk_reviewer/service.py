@@ -39,6 +39,7 @@ class RiskReviewerService(SupermarketAgentService):
                 "verdict": "reject" if blocked else "approve",
                 "concerns": concerns,
                 "risk_feedback": None if not blocked else {"issue": concerns[0] if concerns else "blocked"},
+                "needs_explain": blocked and any("scan" in c.lower() for c in concerns),
                 "schema_context_summary": {
                     "table_count": len(schema_context.get("tables") or []),
                     "has_domain_definitions": bool(schema_context.get("domain_definitions_excerpt")),

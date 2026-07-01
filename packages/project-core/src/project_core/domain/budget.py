@@ -18,6 +18,20 @@ class TraceBudget:
         self.spent["tokens"] = self.spent.get("tokens", 0) + tokens
 
 
+class SessionTraceBudget:
+    """Shared trace budget for gateway Agent I calls + pipeline agents II–IV."""
+
+    def __init__(self, trace_budget: TraceBudget | None = None) -> None:
+        self.trace_budget = trace_budget or TraceBudget()
+        self.guard = SupermarketBudgetGuard(self.trace_budget)
+
+    def check_agent(self, agent: str) -> None:
+        self.guard.check_agent(agent)
+
+    def record(self, agent: str, *, tokens: int = 0) -> None:
+        self.guard.record(agent, tokens=tokens)
+
+
 class SupermarketBudgetGuard(BudgetGuard):
     def __init__(self, trace_budget: TraceBudget) -> None:
         cfg = load_project_config().budget

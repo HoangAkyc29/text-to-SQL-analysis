@@ -1,4 +1,6 @@
-# Agent III — Tools
+# Agent III — Tools (pipeline-centric)
+
+**Agent III returns JSON only.** Pipeline calls `explain_sql` via `HttpSqlGatewayClient` when `needs_explain` or performance-related `risk_feedback`.
 
 ## Policy engine (in-process)
 

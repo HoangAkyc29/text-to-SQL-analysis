@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,8 @@ from uuid import uuid4
 import pandas as pd
 
 from project_core.domain.contracts.external_source import ExternalSource
+
+logger = logging.getLogger(__name__)
 
 
 def ingest_file(
@@ -61,7 +64,10 @@ def ingest_file(
 def _extract_pdf_text(path: Path) -> str:
     try:
         import pypdf
-
+    except ImportError:
+        logger.warning("pypdf not installed — PDF text excerpt will be empty")
+        return ""
+    try:
         reader = pypdf.PdfReader(str(path))
         parts = []
         for page in reader.pages[:20]:

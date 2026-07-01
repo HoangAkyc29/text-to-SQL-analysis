@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -8,6 +9,7 @@ from uuid import uuid4
 import pandas as pd
 
 from project_core.config.loader import load_project_config
+from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
 from project_core.domain.analysis.recipe_matcher import rank_candidates
@@ -54,6 +56,7 @@ class SupermarketAnalysisPipeline:
         self.analysis_tool_registry = analysis_tool_registry
         self.domain_rule_store = domain_rule_store
         self.cfg = load_project_config()
+        self.context_policy = ContextPolicy()
 
     def run(
         self,
@@ -61,11 +64,13 @@ class SupermarketAnalysisPipeline:
         brief: AnalysisBrief,
         workflow: WorkflowState,
         permissions: PermissionsSnapshot,
+        trace_budget: TraceBudget | None = None,
+        on_progress: Callable[[WorkflowState], None] | None = None,
     ) -> PipelineResult:
         trace_id = str(uuid4())
         workflow.status = WorkflowStatus.RUNNING
         workflow.sql_attempt = 1
-        budget = SupermarketBudgetGuard(TraceBudget())
+        budget = SupermarketBudgetGuard(trace_budget or TraceBudget())
         artifact_base = Path(self.cfg.artifacts.base_dir) / trace_id
         raw_dir = artifact_base / "raw"
         out_dir = artifact_base / "out"
@@ -100,11 +105,19 @@ class SupermarketAnalysisPipeline:
 
             budget.record("II")
             schema_context = self.catalog.agent_schema_bundle(permissions.allowed_tables)
+            filtered_snapshot = self.context_policy.filter_schema_excerpt(
+                "II", permissions, self.catalog.snapshot()
+            )
+            if filtered_snapshot:
+                schema_context = {**schema_context, "filtered_table_snapshot": filtered_snapshot}
             if domain_excerpt:
                 schema_context = {**schema_context, "domain_rules_excerpt": domain_excerpt}
             retrieval_context: list[Any] = []
             if self.feedback_loop is not None:
                 retrieval_context = self.feedback_loop.retrieve_context("II", brief.intent, permissions.actor_id)
+
+            workflow.progress_step = WorkflowStepType.PLAN_SQL.value
+            self._emit_progress(workflow, on_progress)
 
             ii_result = self.agent_invoker.invoke(
                 "II",
@@ -179,6 +192,8 @@ class SupermarketAnalysisPipeline:
             for idx, sql in enumerate(sql_queries[:max_queries]):
                 verdict = policy.validate(sql)
                 if not verdict.allowed:
+                    workflow.progress_step = WorkflowStepType.POLICY_REJECT.value
+                    self._emit_progress(workflow, on_progress)
                     workflow.steps.append(
                         WorkflowStep(
                             step_id=str(uuid4()),
@@ -195,6 +210,7 @@ class SupermarketAnalysisPipeline:
 
                 sanitized = verdict.sanitized_sql or sql
                 approved = False
+                explain_attached = False
                 for risk_attempt in range(1, self.cfg.pipeline.max_risk_retries + 1):
                     budget.record("III")
                     iii = self.agent_invoker.invoke(
@@ -205,6 +221,7 @@ class SupermarketAnalysisPipeline:
                             "risk_attempt": risk_attempt,
                             "schema_context": schema_context,
                             "allowed_tables": permissions.allowed_tables,
+                            "explain_plan": inbox.get("explain_plan"),
                         },
                         {"mode": "review"},
                     )
@@ -212,6 +229,25 @@ class SupermarketAnalysisPipeline:
                         approved = True
                         break
                     inbox["risk_feedback"] = iii.get("risk_feedback")
+                    if not explain_attached and (
+                        iii.get("needs_explain")
+                        or _needs_explain_from_feedback(iii.get("risk_feedback"))
+                    ):
+                        if self.context_policy.is_tool_allowed("III", "explain_sql"):
+                            inbox["explain_plan"] = self.sql_gateway.explain_sql(
+                                sanitized, permissions.actor_id
+                            )
+                            explain_attached = True
+                        else:
+                            return self._finish(
+                                trace_id,
+                                workflow,
+                                AnalysisOutcome.POLICY_BLOCKED,
+                                TechnicalSummary(
+                                    outcome=AnalysisOutcome.POLICY_BLOCKED.value,
+                                    caveats=["explain_sql not granted"],
+                                ),
+                            )
 
                 if not approved:
                     workflow.steps.append(
@@ -227,7 +263,20 @@ class SupermarketAnalysisPipeline:
                     )
                     continue
 
+                if not self.context_policy.is_tool_allowed("II", "validate_sql"):
+                    return self._finish(
+                        trace_id,
+                        workflow,
+                        AnalysisOutcome.POLICY_BLOCKED,
+                        TechnicalSummary(
+                            outcome=AnalysisOutcome.POLICY_BLOCKED.value,
+                            caveats=["validate_sql not granted"],
+                        ),
+                    )
+
                 tdb = target_dbs[idx] if idx < len(target_dbs) else default_db
+                workflow.progress_step = WorkflowStepType.EXECUTE.value
+                self._emit_progress(workflow, on_progress)
                 exec_result = self.sql_gateway.execute_readonly(
                     sanitized, permissions.actor_id, target_db=tdb
                 )
@@ -272,6 +321,8 @@ class SupermarketAnalysisPipeline:
             dataset = ExtractedDataset(trace_id=trace_id, queries=query_files)
             merged_profile = self._merge_profiles(profiles)
             budget.record("IV")
+            workflow.progress_step = WorkflowStepType.SANDBOX.value
+            self._emit_progress(workflow, on_progress)
 
             analysis_tools: list[dict[str, Any]] = promoted_tools
             recipe_candidates: list[dict[str, Any]] = []
@@ -337,6 +388,17 @@ class SupermarketAnalysisPipeline:
                         summary=fb.issue,
                     )
                 )
+                if fb.diagnosis == "impossible":
+                    return self._finish(
+                        trace_id,
+                        workflow,
+                        AnalysisOutcome.IMPOSSIBLE,
+                        TechnicalSummary(
+                            outcome=AnalysisOutcome.IMPOSSIBLE.value,
+                            caveats=[fb.summary],
+                            empty_reason=fb.issue,
+                        ),
+                    )
                 if iv_result.get("suggest_clarify"):
                     needs_clarification = ClarificationRequest.model_validate(
                         iv_result["suggest_clarify"]
@@ -395,6 +457,8 @@ class SupermarketAnalysisPipeline:
                             summary=f"steps={iv_result.get('sandbox_steps')}",
                         )
                     )
+                workflow.progress_step = WorkflowStepType.SYNTHESIZE.value
+                self._emit_progress(workflow, on_progress)
                 artifact_paths = iv_result.get("artifact_paths") or []
                 coverage = iv_result.get("coverage") or {}
                 outcome = AnalysisOutcome.SUCCESS if iv_action == "complete" else AnalysisOutcome.PARTIAL
@@ -451,6 +515,11 @@ class SupermarketAnalysisPipeline:
             TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=["pipeline exhausted"]),
         )
 
+    @staticmethod
+    def _emit_progress(workflow: WorkflowState, on_progress: Callable[[WorkflowState], None] | None) -> None:
+        if on_progress is not None:
+            on_progress(workflow)
+
     def _finish(
         self,
         trace_id: str,
@@ -461,6 +530,7 @@ class SupermarketAnalysisPipeline:
         workflow.status = WorkflowStatus.IDLE
         workflow.last_outcome = outcome.value
         workflow.last_completed_trace_id = trace_id
+        workflow.progress_step = None
         return PipelineResult(
             trace_id=trace_id,
             analysis_id=workflow.active_analysis_id or trace_id,
@@ -478,3 +548,10 @@ class SupermarketAnalysisPipeline:
         if total_rows == 0:
             flags.append("empty")
         return ResultProfile(row_count=total_rows, columns=profiles[0].columns, flags=flags)
+
+
+def _needs_explain_from_feedback(risk_feedback: Any) -> bool:
+    if not risk_feedback or not isinstance(risk_feedback, dict):
+        return False
+    issue = str(risk_feedback.get("issue", "")).lower()
+    return any(k in issue for k in ("performance", "scan", "slow", "full table"))

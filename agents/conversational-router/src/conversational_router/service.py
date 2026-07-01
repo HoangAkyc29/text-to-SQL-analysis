@@ -11,6 +11,7 @@ from platform_core.service.base import DecisionContext
 from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
+from project_core.domain.brief.templates import brief_templates_excerpt
 from project_core.domain.feedback.satisfaction_rules import detect_satisfaction
 from project_core.llm.openrouter_client import OpenRouterClient
 from project_core.models.loader import agent_profile
@@ -63,11 +64,20 @@ class ConversationalRouterService(SupermarketAgentService):
         user_content: dict[str, Any] = {"text": text}
         if external_sources:
             user_content["external_sources"] = external_sources
+        templates = brief_templates_excerpt()
+        if templates:
+            user_content["brief_templates_excerpt"] = templates
         client = OpenRouterClient()
         result = client.chat(
             profile_name=agent_profile("router"),
             messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide="ingress_guide")},
+                {
+                    "role": "system",
+                    "content": self.llm_system_prompt(
+                        guide="ingress_guide",
+                        extra=f"## Brief templates\n\n{templates}" if templates else None,
+                    ),
+                },
                 {"role": "user", "content": json.dumps(user_content, ensure_ascii=False)},
             ],
             response_format={"type": "json_object"},
@@ -116,10 +126,17 @@ class ConversationalRouterService(SupermarketAgentService):
             }
             return self.json_response(ctx, payload)
         client = OpenRouterClient()
+        templates = brief_templates_excerpt()
         result = client.chat(
             profile_name=agent_profile("router"),
             messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide="clarify_guide")},
+                {
+                    "role": "system",
+                    "content": self.llm_system_prompt(
+                        guide="clarify_guide",
+                        extra=f"## Brief templates\n\n{templates}" if templates else None,
+                    ),
+                },
                 {"role": "user", "content": json.dumps(request.model_dump(), ensure_ascii=False)},
             ],
             response_format={"type": "json_object"},

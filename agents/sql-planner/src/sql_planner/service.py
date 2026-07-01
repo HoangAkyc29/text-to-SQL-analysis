@@ -27,6 +27,9 @@ class SqlPlannerService(SupermarketAgentService):
         attempt = int(payload_in.get("attempt") or meta.get("attempt") or 1)
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
         retrieval_context = payload_in.get("retrieval_context") or meta.get("retrieval_context") or []
+        if not retrieval_context and getattr(self, "retriever", None):
+            chunks = self.retrieve(brief.intent, top_k=5)
+            retrieval_context = [c.text for c in chunks]
 
         if inbox.get("data_feedback"):
             brief = apply_data_feedback(brief, inbox["data_feedback"])
@@ -260,5 +263,8 @@ class SqlPlannerService(SupermarketAgentService):
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> SqlPlannerService:
+    from project_core.infra.mongo_factory import try_create_hybrid_retriever
+
     skills_root = Path(__file__).resolve().parent / "skills"
-    return SqlPlannerService(config, spec, skills_root=skills_root, agent_key="II")
+    retriever = try_create_hybrid_retriever()
+    return SqlPlannerService(config, spec, skills_root=skills_root, agent_key="II", retriever=retriever)

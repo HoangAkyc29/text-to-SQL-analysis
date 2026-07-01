@@ -29,4 +29,4 @@ Nếu policy reject → `verdict: reject` (không override bằng LLM).
 }
 ```
 
-`risk_feedback` non-null khi reject — Agent II đọc qua `inbox.policy_feedback`.
+`risk_feedback` non-null khi reject — Agent II đọc qua `inbox.risk_feedback`.

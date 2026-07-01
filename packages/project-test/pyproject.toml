@@ -33,4 +33,5 @@ addopts = "-q"
 markers = [
     "unit: no network",
     "integration: in-process stubs",
+    "live: opt-in tests requiring real SQL or LLM",
 ]

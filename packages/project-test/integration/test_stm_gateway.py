@@ -46,3 +46,14 @@ def test_stm_append_turn(fake_redis):
     store.append_turn("sess-4", TranscriptTurn(id="2", role="assistant", content="b", at="t2"))
     bundle = store.load_session("sess-4")
     assert len(bundle.transcript) == 2
+
+
+def test_stm_find_by_analysis_id(fake_redis):
+    store = RedisSessionStore()
+    wf = WorkflowState(session_id="sess-5", actor_id="u1", active_analysis_id="aid-123")
+    store.save_workflow("sess-5", wf)
+    found = store.find_by_analysis_id("aid-123")
+    assert found is not None
+    session_id, loaded = found
+    assert session_id == "sess-5"
+    assert loaded.active_analysis_id == "aid-123"

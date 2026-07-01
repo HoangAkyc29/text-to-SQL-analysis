@@ -29,6 +29,7 @@ def resume_after_clarification(workflow: WorkflowState) -> None:
 def start_analysis(workflow: WorkflowState, *, reset_clarify: bool = True) -> str:
     analysis_id = str(uuid4())
     workflow.active_analysis_id = analysis_id
+    workflow.progress_step = "starting"
     workflow.status = WorkflowStatus.RUNNING
     if reset_clarify:
         workflow.clarify_round = 0

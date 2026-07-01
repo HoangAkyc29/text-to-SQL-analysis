@@ -1,4 +1,5 @@
 # Supermarket platform wiring — agents, MCP servers, memory
+# Pipeline-centric: agents return JSON; chat-gateway + SupermarketAnalysisPipeline execute MCP tools.
 
 memory:
   stm:
@@ -11,6 +12,7 @@ memory:
   checkpoint_db_path: ./data/checkpoints.db
 
 mcp_servers:
+  # Tool ownership: executed by pipeline/gateway (HttpSqlGatewayClient, python_sandbox), not agent ReAct loops.
   sql-gateway:
     prefix: sql
     transport: sse
@@ -33,19 +35,19 @@ agents:
   sql-planner:
     capabilities: [sql_plan, clarify]
     factory: sql_planner.service:build_service
-    mcp_servers: [sql-gateway]
+    mcp_servers: [sql-gateway]  # documented; pipeline invokes sql-gateway
     skill: sql_planner
     endpoint_env: AGENT_II_URL
   risk-reviewer:
     capabilities: [risk_review]
     factory: risk_reviewer.service:build_service
-    mcp_servers: [sql-gateway]
+    mcp_servers: [sql-gateway]  # explain_sql called by pipeline when III requests
     skill: risk_reviewer
     endpoint_env: AGENT_III_URL
   data-analyst:
     capabilities: [analytics]
     factory: data_analyst.service:build_service
-    mcp_servers: [python-sandbox]
+    mcp_servers: [python-sandbox]  # iv_analyzer + recipe_runtime in pipeline process
     skill: analyst
     endpoint_env: AGENT_IV_URL
 

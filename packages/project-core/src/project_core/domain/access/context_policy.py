@@ -46,8 +46,18 @@ class ContextPolicy:
         if agent == "III":
             return ["explain_sql", "get_schema_snapshot"]
         if agent == "IV":
-            return ["run_analysis_script", "preview_dataframe", "export_excel", "plot_chart", "load_dataset"]
+            return [
+                "run_analysis_script",
+                "preview_dataframe",
+                "export_excel",
+                "plot_chart",
+                "load_dataset",
+                "merge_datasets",
+            ]
         return []
+
+    def is_tool_allowed(self, agent: str, tool: str) -> bool:
+        return tool in self.allowed_mcp_tools(agent)
 
     def filter_schema_excerpt(self, agent: str, snapshot: PermissionsSnapshot, catalog_tables: dict[str, Any]) -> dict[str, Any]:
         allowed = {t.lower() for t in snapshot.allowed_tables}

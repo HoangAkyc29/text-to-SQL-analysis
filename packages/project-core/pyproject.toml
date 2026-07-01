@@ -25,6 +25,7 @@ dependencies = [
     "httpx>=0.27",
     "platform-core",
     "pyarrow>=15",
+    "pypdf>=4.0",
 ]
 
 [build-system]

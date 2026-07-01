@@ -8,12 +8,15 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from project_core.config.env import load_project_env
 from project_core.domain.contracts.clarification import ClarificationReply
 from project_core.domain.contracts.feedback import FeedbackRecord
 from project_core.ingest.attachments import ingest_file
 
 from chat_gateway.auth import current_user, issue_token
 from chat_gateway.orchestrator import ChatOrchestrator
+
+load_project_env()
 
 app = FastAPI(title="chat-gateway")
 _orchestrator: ChatOrchestrator | None = None
@@ -85,14 +88,12 @@ def oauth_callback(code: str) -> dict[str, Any]:
 
 @app.post("/chat")
 def chat(body: ChatRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    os.environ.setdefault("ALLOW_LLM_STUB", "1")
     resp = get_orchestrator().handle_chat(session_id=body.session_id, message=body.message, user=user)
     return resp.model_dump()
 
 
 @app.post("/chat/clarify")
 def chat_clarify(body: ClarifyRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    os.environ.setdefault("ALLOW_LLM_STUB", "1")
     resp = get_orchestrator().handle_clarify(session_id=body.session_id, reply=body.reply, user=user)
     return resp.model_dump()
 
@@ -147,18 +148,25 @@ def feedback(body: FeedbackRequest, user: dict[str, Any] = Depends(current_user)
 
 
 @app.get("/analysis/{analysis_id}/status")
-def analysis_status(analysis_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, str]:
-    return {"analysis_id": analysis_id, "status": "unknown"}
+def analysis_status(analysis_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    return get_orchestrator().analysis_status(analysis_id)
 
 
 @app.get("/artifacts/{trace_id}/{file_name}")
-def get_artifact(trace_id: str, file_name: str, user: dict[str, Any] = Depends(current_user)) -> FileResponse:
+def get_artifact(
+    trace_id: str,
+    file_name: str,
+    session_id: str | None = None,
+    user: dict[str, Any] = Depends(current_user),
+) -> FileResponse:
     if ".." in file_name or "/" in file_name or "\\" in file_name:
         raise HTTPException(status_code=400, detail="invalid_path")
     base = Path(os.getenv("ARTIFACTS_DIR", "data/artifacts")) / trace_id / "out"
     path = base / file_name
     if not path.exists():
         raise HTTPException(status_code=404, detail="not_found")
+    if session_id:
+        get_orchestrator().record_artifact_download(session_id, trace_id)
     return FileResponse(path)
 
 

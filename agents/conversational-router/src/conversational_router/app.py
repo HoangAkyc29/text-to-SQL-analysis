@@ -5,8 +5,11 @@ import os
 from agent_core.io.schemas import AgentRequest, AgentResponse
 from fastapi import FastAPI
 from platform_core.config.loader import load_platform_config
+from project_core.config.env import load_project_env
 
 from conversational_router.service import build_service
+
+load_project_env()
 
 app = FastAPI(title="conversational-router")
 _service = None

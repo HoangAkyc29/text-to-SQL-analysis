@@ -65,3 +65,6 @@ target-version = "py311"
 testpaths = ["tests", "packages/project-test"]
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+    "live: opt-in tests requiring real SQL or LLM (OPENROUTER_API_KEY, ANALYTICS_DB_DSN)",
+]

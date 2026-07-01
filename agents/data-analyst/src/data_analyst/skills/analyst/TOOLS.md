@@ -1,6 +1,6 @@
-# Agent IV — Sandbox tools (python-sandbox)
+# Agent IV — Sandbox tools (pipeline-centric)
 
-Pipeline gọi in-process `python_sandbox.tools_impl`. MCP prefix: `sandbox_*` khi chạy qua MCP server.
+**Agent IV `decide()` returns JSON;** `iv_analyzer` + pipeline execute sandbox tools in-process (`python_sandbox.tools_impl`). MCP prefix `sandbox_*` when using MCP server directly.
 
 | Tool | Params | Mô tả |
 |------|--------|-------|

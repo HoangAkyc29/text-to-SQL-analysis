@@ -138,6 +138,14 @@ def analyze_datasets(
         if clarify:
             return clarify
 
+    if _is_impossible_analysis(brief, coverage, steps_run, main_rows, paths):
+        return {
+            "action": "impossible",
+            "reason": "metric_not_mappable",
+            "impossible_reason": "brief_metrics_not_found_in_dataset",
+            "explanation_vi": "Không thể map metric từ brief sang cột dữ liệu sau khi chạy hết bước phân tích",
+        }
+
     action = "complete"
     if coverage.diagnosis == "partial":
         action = "partial"
@@ -234,6 +242,30 @@ def _column_names(path: str) -> list[str]:
         return list(df.columns.astype(str))
     except Exception:
         return []
+
+
+def _is_impossible_analysis(
+    brief: AnalysisBrief,
+    coverage: ExecutionCoverage,
+    steps_run: int,
+    main_rows: int,
+    paths: list[str | None],
+) -> bool:
+    if main_rows <= 0:
+        return False
+    if coverage.diagnosis == "none" and steps_run == 0 and brief.metrics:
+        primary = next((p for p in paths if p), None)
+        if primary:
+            cols = {c.lower() for c in _column_names(primary)}
+            for metric in brief.metrics:
+                if metric.lower() not in cols and metric.lower() not in {"revenue", "amount", "points"}:
+                    return True
+    if steps_run >= 1 and coverage.diagnosis == "none" and not coverage.gaps:
+        return False
+    budget_gaps = [g for g in coverage.gaps if g.startswith("budget_exceeded:")]
+    if budget_gaps and steps_run >= 1 and not any(p for p in paths if p):
+        return True
+    return False
 
 
 def _identifier_mismatch_feedback(

@@ -11,6 +11,7 @@ services:
     build:
       context: .
       dockerfile: mcp-servers/sql-gateway/Dockerfile
+    env_file: .env
     environment:
       - ANALYTICS_DB_DSN=${ANALYTICS_DB_DSN}
       - ANALYTICS_DB_DSN_2=${ANALYTICS_DB_DSN_2}
@@ -20,48 +21,48 @@ services:
     build:
       context: .
       dockerfile: agents/conversational-router/Dockerfile
+    env_file: .env
     environment:
       - AGENT_HTTP_PORT=8201
-      - ALLOW_LLM_STUB=1
     ports: ["8201:8201"]
 
   sql-planner:
     build:
       context: .
       dockerfile: agents/sql-planner/Dockerfile
+    env_file: .env
     environment:
       - AGENT_HTTP_PORT=8202
-      - ALLOW_LLM_STUB=1
     ports: ["8202:8202"]
 
   risk-reviewer:
     build:
       context: .
       dockerfile: agents/risk-reviewer/Dockerfile
+    env_file: .env
     environment:
       - AGENT_HTTP_PORT=8203
-      - ALLOW_LLM_STUB=1
     ports: ["8203:8203"]
 
   data-analyst:
     build:
       context: .
       dockerfile: agents/data-analyst/Dockerfile
+    env_file: .env
     environment:
       - AGENT_HTTP_PORT=8204
-      - ALLOW_LLM_STUB=1
     ports: ["8204:8204"]
 
   chat-gateway:
     build:
       context: .
       dockerfile: agents/chat-gateway/Dockerfile
+    env_file: .env
     environment:
       - CHAT_GATEWAY_PORT=8300
       - REDIS_URL=redis://redis:6379/0
       - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
       - ALLOW_DEV_AUTH=1
-      - ALLOW_LLM_STUB=1
       - SQL_GATEWAY_INPROCESS=1
     ports: ["8300:8300"]
     depends_on: [redis, mongodb, sql-planner, risk-reviewer, data-analyst, conversational-router]
