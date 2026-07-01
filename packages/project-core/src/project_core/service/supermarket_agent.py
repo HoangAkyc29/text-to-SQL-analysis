@@ -51,6 +51,24 @@ class SupermarketAgentService(BaseAgentService):
             return []
         return self.retriever.retrieve(query, top_k=top_k)
 
+    def llm_system_prompt(self, *, guide: str | None = None, extra: str | None = None) -> str:
+        """Assemble system prompt from SKILL.md, TOOLS.md, and task guide markdown."""
+        parts: list[str] = []
+        if self.skill is not None:
+            parts.extend(self.skill.system_fragments())
+            tools = self.skill.tool_docs()
+            if tools.strip():
+                parts.append(f"## Tools reference\n\n{tools}")
+            if guide:
+                body = self.skill.guide(guide)
+                if body.strip():
+                    parts.append(body)
+        if extra and extra.strip():
+            parts.append(extra)
+        if not parts:
+            return f"You are supermarket agent {self.agent_key}. Return JSON only."
+        return "\n\n---\n\n".join(parts)
+
     @staticmethod
     def json_response(ctx: DecisionContext, payload: dict[str, Any]) -> AgentResponse:
         return AgentResponse(

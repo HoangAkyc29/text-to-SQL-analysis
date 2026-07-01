@@ -4,11 +4,18 @@ import json
 import os
 from typing import Any
 
+from pathlib import Path
+
 from project_core.domain.analysis.param_resolver import apply_param_schema_defaults, resolve_params
 from project_core.domain.contracts.analysis_plan import AnalysisSubtask, RecipeCandidate, RecipeStep
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.llm.openrouter_client import OpenRouterClient
 from project_core.models.loader import agent_profile
+
+
+def _analysis_prompt(name: str) -> str:
+    path = Path(__file__).resolve().parent / "prompts" / f"{name}.md"
+    return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
 def select_recipe_for_subtask(
@@ -67,13 +74,7 @@ def _select_llm(
     result = client.chat(
         profile_name=agent_profile("analyst"),
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Select analysis recipe for subtask. Return JSON: "
-                    '{"tool_id": str|null, "params": {}, "rationale": str, "use_none": bool}'
-                ),
-            },
+            {"role": "system", "content": _analysis_prompt("recipe_select_guide")},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         response_format={"type": "json_object"},

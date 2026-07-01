@@ -60,12 +60,15 @@ class ConversationalRouterService(SupermarketAgentService):
                 "satisfaction_signal": satisfaction,
             }
             return self.json_response(ctx, payload_out)
+        user_content: dict[str, Any] = {"text": text}
+        if external_sources:
+            user_content["external_sources"] = external_sources
         client = OpenRouterClient()
         result = client.chat(
             profile_name=agent_profile("router"),
             messages=[
-                {"role": "system", "content": "You are Agent I ingress router. Return JSON only."},
-                {"role": "user", "content": text},
+                {"role": "system", "content": self.llm_system_prompt(guide="ingress_guide")},
+                {"role": "user", "content": json.dumps(user_content, ensure_ascii=False)},
             ],
             response_format={"type": "json_object"},
         )
@@ -89,8 +92,14 @@ class ConversationalRouterService(SupermarketAgentService):
             llm = client.chat(
                 profile_name=agent_profile("router"),
                 messages=[
-                    {"role": "system", "content": "Resolve clarification from transcript or ask_user."},
-                    {"role": "user", "content": json.dumps({"request": request.model_dump(), "transcript": transcript})},
+                    {"role": "system", "content": self.llm_system_prompt(guide="clarification_bridge_guide")},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {"request": request.model_dump(), "transcript": transcript},
+                            ensure_ascii=False,
+                        ),
+                    },
                 ],
                 response_format={"type": "json_object"},
             )
@@ -100,20 +109,44 @@ class ConversationalRouterService(SupermarketAgentService):
     def _clarify(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}
         request = ClarificationRequest.model_validate(meta["clarification_request"])
-        payload = {
-            "user_message": "Vui lòng chọn thêm thông tin để tiếp tục phân tích.",
-            "clarification": request.model_dump(),
-        }
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            payload = {
+                "user_message": "Vui lòng chọn thêm thông tin để tiếp tục phân tích.",
+                "clarification": request.model_dump(),
+            }
+            return self.json_response(ctx, payload)
+        client = OpenRouterClient()
+        result = client.chat(
+            profile_name=agent_profile("router"),
+            messages=[
+                {"role": "system", "content": self.llm_system_prompt(guide="clarify_guide")},
+                {"role": "user", "content": json.dumps(request.model_dump(), ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        payload = json.loads(result.content)
+        payload.setdefault("clarification", request.model_dump())
         return self.json_response(ctx, payload)
 
     def _synthesize(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}
         summary = meta.get("technical_summary") or {}
-        payload = {
-            "user_message": f"Kết quả: {summary.get('outcome', 'done')}.",
-            "artifacts": summary.get("artifact_urls") or [],
-        }
-        return self.json_response(ctx, payload)
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            payload = {
+                "user_message": f"Kết quả: {summary.get('outcome', 'done')}.",
+                "artifacts": summary.get("artifact_urls") or [],
+            }
+            return self.json_response(ctx, payload)
+        client = OpenRouterClient()
+        result = client.chat(
+            profile_name=agent_profile("router"),
+            messages=[
+                {"role": "system", "content": self.llm_system_prompt(guide="synthesize_guide")},
+                {"role": "user", "content": json.dumps(summary, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        return self.json_response(ctx, json.loads(result.content))
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> ConversationalRouterService:

@@ -34,11 +34,17 @@ class SqlPlannerService(SupermarketAgentService):
         if os.getenv("ALLOW_LLM_STUB") == "1":
             return self._stub_plan(ctx, brief, inbox, attempt, schema_context)
 
+        extra = None
+        if inbox.get("probe_mode") or inbox.get("data_feedback"):
+            probe = self.skill.guide("probe_feedback_guide") if self.skill else ""
+            if probe.strip():
+                extra = probe
+
         client = OpenRouterClient()
         result = client.chat(
             profile_name=agent_profile("sql_planner"),
             messages=[
-                {"role": "system", "content": "You are Agent II SQL planner. Use only tables in schema_context."},
+                {"role": "system", "content": self.llm_system_prompt(guide="plan_sql_guide", extra=extra)},
                 {
                     "role": "user",
                     "content": json.dumps(
@@ -47,6 +53,7 @@ class SqlPlannerService(SupermarketAgentService):
                             "inbox": inbox,
                             "attempt": attempt,
                             "schema_context": schema_context,
+                            "retrieval_context": retrieval_context,
                         },
                         ensure_ascii=False,
                     ),

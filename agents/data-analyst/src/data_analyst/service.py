@@ -15,6 +15,10 @@ from project_core.service.supermarket_agent import SupermarketAgentService
 
 
 class DataAnalystService(SupermarketAgentService):
+    def skill_reference(self) -> str:
+        """Expose analyst skill docs for tooling/tests."""
+        return self.llm_system_prompt(guide="analyze_guide")
+
     def decide(self, ctx: DecisionContext) -> Any:
         meta = ctx.request.metadata or {}
         payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}

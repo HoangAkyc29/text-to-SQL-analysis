@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from uuid import uuid4
 
 from project_core.domain.contracts.analysis_plan import AnalysisPlan, AnalysisSubtask
@@ -21,6 +22,11 @@ _ASPECT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "store": ("cửa hàng", "store", "stk", "chi nhánh"),
     "product": ("sku", "mã hàng", "barcode", "sản phẩm"),
 }
+
+
+def _analysis_prompt(name: str) -> str:
+    path = Path(__file__).resolve().parent / "prompts" / f"{name}.md"
+    return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
 def decompose_brief(brief: AnalysisBrief, *, min_tokens_for_split: int = 12, use_llm: bool | None = None) -> AnalysisPlan:
@@ -50,14 +56,7 @@ def decompose_brief_llm(brief: AnalysisBrief) -> AnalysisPlan:
     result = client.chat(
         profile_name=agent_profile("router"),
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Decompose supermarket analysis intent into subtasks. "
-                    'Return JSON: {"is_decomposed": bool, "subtasks": [{"id": str, "intent": str, '
-                    '"metrics": [], "dimensions": [], "filters": {}}]}'
-                ),
-            },
+            {"role": "system", "content": _analysis_prompt("decompose_guide")},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         response_format={"type": "json_object"},
