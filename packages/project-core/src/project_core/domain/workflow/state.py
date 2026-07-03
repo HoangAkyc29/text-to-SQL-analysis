@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+
+from project_core.domain.time import utc_now
 from uuid import uuid4
 
 from project_core.domain.contracts.workflow import WorkflowState, WorkflowStatus
@@ -11,7 +13,7 @@ def new_workflow(session_id: str, actor_id: str) -> WorkflowState:
 
 
 def touch_workflow(workflow: WorkflowState) -> None:
-    workflow.updated_at = datetime.utcnow()
+    workflow.updated_at = utc_now()
 
 
 def suspend_for_clarification(workflow: WorkflowState, trace_id: str) -> None:

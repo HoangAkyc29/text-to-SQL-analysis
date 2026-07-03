@@ -1,8 +1,12 @@
 # Docker build helper — layered monorepo images (abstract-base/*)
-# Usage: .\scripts\docker-build.ps1 [bases|service <name>|all|stack]
+# Usage:
+#   .\scripts\docker-build.ps1 bases          # project-base + mcp-base + agent-base
+#   .\scripts\docker-build.ps1 service chat-gateway
+#   .\scripts\docker-build.ps1 all            # bases + all supermarket services
+#   .\scripts\docker-build.ps1 stack          # build all + compose up core templates
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("bases", "service", "all", "stack")]
+    [ValidateSet("bases", "service", "all", "stack", "supermarket")]
     [string]$Command = "all",
     [Parameter(Position = 1)]
     [string]$ServiceName = ""
@@ -15,8 +19,17 @@ Set-Location $Root
 $env:DOCKER_BUILDKIT = "1"
 $env:COMPOSE_DOCKER_CLI_BUILD = "1"
 
-# TODO: keep in sync with docker/images.yaml when adding services
-$ServiceList = @(
+# Keep in sync with docker/images.yaml supermarket services
+$SupermarketServices = @(
+    "sql-gateway",
+    "conversational-router",
+    "sql-planner",
+    "risk-reviewer",
+    "data-analyst",
+    "chat-gateway"
+)
+
+$TemplateServices = @(
     "base-mcp-server",
     "base-agent",
     "base-runner"
@@ -57,7 +70,8 @@ function Build-Service {
 }
 
 function Build-AllServices {
-    foreach ($s in $ServiceList) {
+    param([string[]]$List)
+    foreach ($s in $List) {
         Build-Service $s
     }
 }
@@ -67,15 +81,21 @@ switch ($Command) {
         Build-Bases
     }
     "service" {
+        Build-Bases
         Build-Service $ServiceName
     }
     "all" {
         Build-Bases
-        Build-AllServices
+        Build-AllServices $SupermarketServices
+        Build-AllServices $TemplateServices
+    }
+    "supermarket" {
+        Build-Bases
+        Build-AllServices $SupermarketServices
     }
     "stack" {
         Build-Bases
-        Build-AllServices
+        Build-AllServices $TemplateServices
         docker compose up -d base-mcp-server base-agent
         Write-Host "Runner (poll loop): docker compose --profile runner up -d base-runner"
     }

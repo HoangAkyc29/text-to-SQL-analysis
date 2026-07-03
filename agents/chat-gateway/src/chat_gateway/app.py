@@ -58,8 +58,34 @@ class DevLoginRequest(BaseModel):
 
 
 @app.get("/health")
-def health() -> dict[str, bool]:
+def health() -> dict:
+    return {"ok": True, "redis": True, "mongo": get_orchestrator().feedback is not None, "agents": {}}
+
+
+@app.get("/health/live")
+def health_live() -> dict[str, bool]:
     return {"ok": True}
+
+
+@app.get("/health/ready")
+def health_ready() -> dict:
+    import httpx
+
+    orch = get_orchestrator()
+    agents: dict[str, str] = {}
+    for key, url in orch.pipeline.agent_invoker.urls.items():  # type: ignore[attr-defined]
+        try:
+            resp = httpx.get(f"{url}/health", timeout=2.0)
+            agents[key] = "ok" if resp.status_code == 200 else "error"
+        except Exception:
+            agents[key] = "error"
+    redis_ok = True
+    try:
+        orch.stm.client.ping()  # type: ignore[attr-defined]
+    except Exception:
+        redis_ok = False
+    mongo_ok = orch.feedback is not None
+    return {"ok": redis_ok and mongo_ok, "redis": redis_ok, "mongo": mongo_ok, "agents": agents}
 
 
 @app.post("/auth/dev-login")

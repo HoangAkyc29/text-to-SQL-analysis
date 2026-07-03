@@ -7,10 +7,13 @@ dependencies = [
     "mcp-core",
     "project-core",
     "pyodbc>=5.1",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
 ]
 
 [project.scripts]
 sql-gateway = "sql_gateway.app:main"
+sql-gateway-http = "sql_gateway.http_app:main"
 
 [build-system]
 requires = ["hatchling"]

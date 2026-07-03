@@ -16,7 +16,14 @@ COPY packages/project-core/pyproject.toml packages/project-core/
 COPY packages/project-test/pyproject.toml packages/project-test/
 COPY agents/base-agent/pyproject.toml agents/base-agent/
 COPY agents/base-runner/pyproject.toml agents/base-runner/
+COPY agents/chat-gateway/pyproject.toml agents/chat-gateway/
+COPY agents/conversational-router/pyproject.toml agents/conversational-router/
+COPY agents/sql-planner/pyproject.toml agents/sql-planner/
+COPY agents/risk-reviewer/pyproject.toml agents/risk-reviewer/
+COPY agents/data-analyst/pyproject.toml agents/data-analyst/
 COPY mcp-servers/base-mcp-server/pyproject.toml mcp-servers/base-mcp-server/
+COPY mcp-servers/sql-gateway/pyproject.toml mcp-servers/sql-gateway/
+COPY mcp-servers/python-sandbox/pyproject.toml mcp-servers/python-sandbox/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --only-group docker-project --no-dev --no-install-project --no-install-workspace

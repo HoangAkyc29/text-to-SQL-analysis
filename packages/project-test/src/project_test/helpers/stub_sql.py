@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from project_core.domain.contracts.sql_acl import SqlAclContext
+
 
 class StubSqlGateway:
     def __init__(self, *, rows: list[dict[str, Any]] | None = None, policy_block: bool = False) -> None:
@@ -9,15 +11,15 @@ class StubSqlGateway:
         self.policy_block = policy_block
         self.executed: list[str] = []
 
-    def validate_sql(self, sql: str, actor_id: str) -> dict[str, Any]:
+    def validate_sql(self, sql: str, acl: SqlAclContext) -> dict[str, Any]:
         if self.policy_block:
             return {"allowed": False, "violations": ["blocked"]}
         return {"allowed": True, "sanitized_sql": sql}
 
-    def explain_sql(self, sql: str, actor_id: str) -> dict[str, Any]:
-        return {"status": "ok", "plan_rows": 1}
+    def explain_sql(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict[str, Any]:
+        return {"status": "ok", "plan_rows": 1, "target_db": target_db}
 
-    def execute_readonly(self, sql: str, actor_id: str, *, target_db: str = "db2") -> dict[str, Any]:
+    def execute_readonly(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict[str, Any]:
         if self.policy_block:
             return {"error": "policy_blocked", "violations": ["blocked"]}
         self.executed.append(sql)

@@ -42,7 +42,8 @@ def test_IV_data_feedback_when_empty(decision_ctx):
     assert payload["data_feedback"]["needs_sql_retry"] is True
 
 
-def test_IV_artifact_paths_map_raw_to_out(decision_ctx, sample_parquet, tmp_path):
+def test_IV_artifact_paths_map_raw_to_out(decision_ctx, sample_parquet, tmp_path, monkeypatch):
+    monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     out = tmp_path / "artifacts" / "t" / "out"
     out.mkdir(parents=True)
     ctx = decision_ctx(

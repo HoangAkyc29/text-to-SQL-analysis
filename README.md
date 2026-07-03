@@ -37,9 +37,19 @@ uv run agent-platform --goal "Hello"
 ## Docker
 
 ```powershell
+# Shared base images (project-core / mcp-core / agent stack) — build once
 .\scripts\docker-build.ps1 bases
-.\scripts\docker-build.ps1 all
+
+# Supermarket service images (thin layer on top of bases)
+.\scripts\docker-build.ps1 supermarket
+
 docker compose up -d
+```
+
+Layered images: `abstract-base/project-base` → `agent-base` | `mcp-base` → per-service `uv sync --package`. See [docs/DOCKER_BUILD.md](docs/DOCKER_BUILD.md).
+
+```powershell
+.\scripts\docker-build.ps1 all
 docker compose --profile runner up -d base-runner
 ```
 
@@ -50,6 +60,17 @@ Image prefix: `abstract-base/project-base:local`, `abstract-base/mcp-base:local`
 - [docs/SCAFFOLD_GUIDE.md](docs/SCAFFOLD_GUIDE.md) — fork workflow, rename templates
 - [docs/DOCKER_BUILD.md](docs/DOCKER_BUILD.md) — dependency-groups, layered builds
 - [docs/GRAPH_ORCHESTRATION.md](docs/GRAPH_ORCHESTRATION.md) — graph topologies, debate, shared state
+
+## Production deploy checklist
+
+- Set strong `JWT_SECRET` (32+ chars) and `REQUIRE_PROD_AUTH=1` on chat-gateway
+- Set `INTERNAL_SERVICE_TOKEN` and `REQUIRE_INTERNAL_AUTH=1` on agents I–IV and sql-gateway HTTP
+- Do **not** set `ALLOW_DEV_AUTH=1` or `SQL_GATEWAY_INPROCESS=1` in production
+- Verify ACL roles in `config/project.yaml` match your auth DB / JWT claims (`role`, `store_ids`)
+- Index Mongo schema docs: `uv run python scripts/index_schema_docs.py`
+- Schedule artifact cleanup: `uv run python scripts/cleanup_artifacts.py` (cron / compose profile)
+- Confirm `ANALYTICS_DB_DSN` / `ANALYTICS_DB_DSN_2` are readonly SQL logins
+- Use `/health/live` for liveness; `/health/ready` for Redis, Mongo, and agent pings
 
 ## Child projects
 

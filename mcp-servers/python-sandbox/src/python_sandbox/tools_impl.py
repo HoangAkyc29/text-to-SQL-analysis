@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,14 +16,24 @@ import pandas as pd  # noqa: E402
 
 _MAX_ROWS = int(os.getenv("SANDBOX_MAX_ROWS", "200000"))
 _MAX_SECONDS = int(os.getenv("SANDBOX_MAX_SECONDS", "30"))
+_RUNNER = Path(__file__).resolve().parent / "runner_child.py"
 
 
-def _limit_resources() -> None:
-    if sys.platform == "win32":
-        return
-    import resource
+def _artifacts_root() -> Path:
+    root = Path(os.getenv("ARTIFACTS_DIR", "data/artifacts")).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
-    resource.setrlimit(resource.RLIMIT_CPU, (_MAX_SECONDS, _MAX_SECONDS))
+
+def _guard_output_dir(output_dir: str) -> Path:
+    out = Path(output_dir).resolve()
+    root = _artifacts_root()
+    try:
+        out.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("output_dir_must_be_under_artifacts_root") from exc
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 def load_dataset(path: str) -> dict[str, Any]:
@@ -47,15 +59,37 @@ def preview_dataframe(path: str, n: int = 100) -> dict[str, Any]:
 
 
 def run_analysis_script(path: str, script: str, output_dir: str) -> dict[str, Any]:
-    """Execute constrained pandas script against dataset path."""
-    _limit_resources()
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    local_vars: dict[str, Any] = {"pd": pd, "plt": plt, "path": path, "out": out}
-    safe_builtins = {"len": len, "str": str, "int": int, "float": float, "range": range, "open": open}
-    exec(script, {"__builtins__": safe_builtins}, local_vars)  # noqa: S102
-    artifacts = [str(p) for p in out.glob("*")]
-    return {"status": "ok", "artifacts": artifacts}
+    """Execute constrained pandas script in an isolated subprocess."""
+    try:
+        out = _guard_output_dir(output_dir)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    dataset = Path(path).resolve()
+    if not dataset.exists():
+        return {"error": "file_not_found", "path": path}
+    child_env = os.environ.copy()
+    child_env["MPLBACKEND"] = "Agg"
+    proc = subprocess.run(
+        [sys.executable, str(_RUNNER), str(dataset), str(out)],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=_MAX_SECONDS,
+        cwd=str(out),
+        env=child_env,
+    )
+    if proc.returncode != 0:
+        detail = proc.stderr.strip() or proc.stdout.strip()
+        try:
+            payload = json.loads(proc.stdout.strip() or "{}")
+            return payload if "error" in payload else {"error": "script_failed", "detail": detail[:500]}
+        except json.JSONDecodeError:
+            return {"error": "script_failed", "detail": detail[:500]}
+    try:
+        return json.loads(proc.stdout.strip() or "{}")
+    except json.JSONDecodeError:
+        artifacts = [str(p) for p in out.glob("*")]
+        return {"status": "ok", "artifacts": artifacts}
 
 
 def export_excel(path: str, output_path: str) -> dict[str, Any]:
@@ -98,7 +132,9 @@ def run_recipe_tool(tool_id: str, path: str, output_dir: str, params_json: str =
 def merge_datasets(primary_path: str, secondary_path: str, output_path: str, on: str = "") -> dict[str, Any]:
     """Join SQL dataset with external upload (parquet/csv) on shared key when possible."""
     left = pd.read_parquet(primary_path) if Path(primary_path).suffix == ".parquet" else pd.read_csv(primary_path)
-    right = pd.read_parquet(secondary_path) if Path(secondary_path).suffix == ".parquet" else pd.read_csv(secondary_path)
+    right = (
+        pd.read_parquet(secondary_path) if Path(secondary_path).suffix == ".parquet" else pd.read_csv(secondary_path)
+    )
     join_key = on or _guess_join_key(left.columns, right.columns)
     if join_key:
         merged = left.merge(right, on=join_key, how="left", suffixes=("", "_ext"))

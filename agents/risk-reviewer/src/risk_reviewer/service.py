@@ -23,9 +23,20 @@ class RiskReviewerService(SupermarketAgentService):
         payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
         sql = payload_in.get("sql") or meta.get("sql") or ""
         allowed_tables = list(payload_in.get("allowed_tables") or meta.get("allowed_tables") or [])
+        denied_columns = list(payload_in.get("denied_columns") or meta.get("denied_columns") or [])
+        store_ids = payload_in.get("store_ids") if "store_ids" in payload_in else meta.get("store_ids")
+        store_filter_required = bool(
+            payload_in.get("store_filter_required", meta.get("store_filter_required", False))
+        )
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
 
-        policy = PolicyEngine(_CATALOG, allowed_tables=allowed_tables or None)
+        policy = PolicyEngine(
+            _CATALOG,
+            allowed_tables=allowed_tables or None,
+            denied_columns=denied_columns or None,
+            store_ids=store_ids,
+            store_filter_required=store_filter_required,
+        )
         verdict = policy.validate(sql)
 
         if os.getenv("ALLOW_LLM_STUB") == "1":
@@ -75,6 +86,9 @@ class RiskReviewerService(SupermarketAgentService):
                         {
                             "sql": sql,
                             "allowed_tables": allowed_tables,
+                            "denied_columns": denied_columns,
+                            "store_ids": store_ids,
+                            "store_filter_required": store_filter_required,
                             "schema_context": schema_context,
                             "policy_result": {"allowed": verdict.allowed, "violations": verdict.violations},
                         },

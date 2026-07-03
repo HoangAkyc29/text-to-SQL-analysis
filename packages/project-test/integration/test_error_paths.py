@@ -19,6 +19,8 @@ from project_core.domain.errors.codes import (
 from project_core.domain.feedback.satisfaction_rules import detect_satisfaction
 from project_core.domain.sql.result_profile import build_result_profile
 from project_core.domain.workflow.outcomes import is_case_study_eligible, is_negative_example
+from project_core.domain.access.acl import build_permissions_snapshot
+from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_test.helpers.scripted_invoker import ScriptedAgentInvoker
 from project_test.helpers.stub_sql import StubSqlGateway
 
@@ -79,5 +81,6 @@ def test_pipeline_IV_impossible_outcome(pipeline_factory, workflow_state, hq_per
 
 def test_stub_sql_policy_block_path():
     sql = StubSqlGateway(policy_block=True)
-    result = sql.execute_readonly("SELECT 1", "u")
+    acl = SqlAclContext.from_permissions(build_permissions_snapshot("u", "hq_analyst"))
+    result = sql.execute_readonly("SELECT 1", acl)
     assert result.get("error") == "policy_blocked" or result.get("violations")

@@ -141,8 +141,10 @@ class SchemaCatalog:
     def resolve_allowed_sql_tables(self, role_tables: list[str] | None) -> set[str]:
         """Expand role logical names to SQL identifiers, restricted to data_dictionary."""
         dictionary = self.sql_table_names()
-        if not role_tables:
+        if role_tables is None:
             return set(dictionary)
+        if len(role_tables) == 0:
+            return set()
 
         allowed: set[str] = set()
         role_set = {t.lower() for t in role_tables}

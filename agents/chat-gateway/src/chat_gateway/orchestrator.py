@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+import time
 from typing import Any
 from uuid import uuid4
 
+import httpx
 from project_core.config.loader import load_project_config
 from project_core.domain.access.acl import build_permissions_snapshot
 from project_core.domain.access.context_policy import ContextPolicy
@@ -25,7 +26,9 @@ from project_core.domain.memory.session_bundle import SessionBundle, TranscriptT
 from project_core.domain.retrieval.mongo_vector import HybridMongoRetriever, MongoVectorRetriever
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.state import new_workflow, resume_analysis, start_analysis
+from project_core.domain.time import utc_now
 from project_core.infra.stm.redis_store import RedisSessionStore
+from project_core.orchestration.clarification_coordinator import ClarificationCoordinator
 from project_core.orchestration.pipeline import SupermarketAnalysisPipeline
 
 from chat_gateway.clients import HttpAgentInvoker, HttpSqlGatewayClient
@@ -40,6 +43,8 @@ class ChatOrchestrator:
         self.stm = RedisSessionStore()
         self.cfg = load_project_config()
         self.context_policy = ContextPolicy()
+        self.clarify = ClarificationCoordinator()
+        self._http = httpx.Client(timeout=120.0)
         self.feedback: FeedbackLoop | None = None
         self.analysis_tool_registry: AnalysisToolRegistry | None = None
         self.domain_rule_store: DomainRuleStore | None = None
@@ -64,13 +69,20 @@ class ChatOrchestrator:
         except Exception as exc:  # noqa: BLE001
             logger.warning("Mongo/RAG unavailable: %s", exc)
         self.pipeline = SupermarketAnalysisPipeline(
-            agent_invoker=HttpAgentInvoker(),
-            sql_gateway=HttpSqlGatewayClient(),
+            agent_invoker=HttpAgentInvoker(client=self._http),
+            sql_gateway=HttpSqlGatewayClient(client=self._http),
             catalog=SchemaCatalog.from_dictionary_dir(),
             feedback_loop=self.feedback,
             analysis_tool_registry=self.analysis_tool_registry,
             domain_rule_store=self.domain_rule_store,
         )
+
+    def close(self) -> None:
+        self._http.close()
+        if hasattr(self.pipeline.agent_invoker, "close"):
+            self.pipeline.agent_invoker.close()  # type: ignore[attr-defined]
+        if hasattr(self.pipeline.sql_gateway, "close"):
+            self.pipeline.sql_gateway.close()  # type: ignore[attr-defined]
 
     def handle_chat(self, *, session_id: str, message: str, user: dict[str, Any]) -> ChatResponse:
         actor_id = user["sub"]
@@ -80,7 +92,7 @@ class ChatOrchestrator:
         if bundle.workflow is None:
             bundle.workflow = new_workflow(session_id, actor_id)
 
-        if bundle.workflow.status == WorkflowStatus.AWAITING_CLARIFICATION and bundle.clarification:
+        if self.clarify.on_ingress_clarify(bundle):
             return self._resume_from_pending_clarification(
                 session_id=session_id,
                 message=message,
@@ -90,11 +102,11 @@ class ChatOrchestrator:
 
         self._maybe_emit_re_ask_signal(session_id, bundle, message)
 
-        turn = TranscriptTurn(id=str(uuid4()), role="user", content=message, at=datetime.utcnow().isoformat())
+        turn = TranscriptTurn(id=str(uuid4()), role="user", content=message, at=utc_now().isoformat())
         bundle.transcript.append(turn)
         self.stm.save_transcript(session_id, bundle.transcript)
 
-        invoker = HttpAgentInvoker()
+        invoker = HttpAgentInvoker(client=self._http)
         session_budget = self._session_budget(bundle)
         external_sources = []
         if bundle.workflow.brief and bundle.workflow.brief.external_sources:
@@ -123,7 +135,7 @@ class ChatOrchestrator:
                 id=str(uuid4()),
                 role="assistant",
                 content=ingress.get("user_message", ""),
-                at=datetime.utcnow().isoformat(),
+                at=utc_now().isoformat(),
             )
             bundle.transcript.append(assistant)
             self.stm.save_transcript(session_id, bundle.transcript)
@@ -179,7 +191,7 @@ class ChatOrchestrator:
         permissions = bundle.workflow.permissions_snapshot or self._build_permissions(
             user["sub"], user.get("role", "hq_analyst"), user.get("store_ids")
         )
-        invoker = HttpAgentInvoker()
+        invoker = HttpAgentInvoker(client=self._http)
         session_budget = self._session_budget(bundle)
         return self._run_pipeline_and_respond(
             session_id=session_id,
@@ -278,7 +290,11 @@ class ChatOrchestrator:
                 ).get("workflow_summary", {}),
             },
         }
-        return invoker.invoke("I", payload, meta)
+        out = invoker.invoke("I", payload, meta)
+        tokens = int(out.pop("usage_tokens", 0) or 0)
+        if tokens:
+            budget.trace_budget.charge("tokens", tokens=tokens)
+        return out
 
     def _handle_satisfaction_signal(self, ingress: dict[str, Any], bundle: SessionBundle) -> None:
         raw = ingress.get("satisfaction_signal")
@@ -324,7 +340,7 @@ class ChatOrchestrator:
         user: dict[str, Any],
         bundle: SessionBundle,
     ) -> ChatResponse:
-        invoker = HttpAgentInvoker()
+        invoker = HttpAgentInvoker(client=self._http)
         session_budget = self._session_budget(bundle)
         request = ClarificationRequest.model_validate(bundle.clarification)
         try:
@@ -342,7 +358,7 @@ class ChatOrchestrator:
                             "id": str(uuid4()),
                             "role": "user",
                             "content": message,
-                            "at": datetime.utcnow().isoformat(),
+                            "at": utc_now().isoformat(),
                         }
                     ],
                 },
@@ -397,6 +413,7 @@ class ChatOrchestrator:
         def on_progress(workflow: Any) -> None:
             self.stm.save_workflow(session_id, workflow)
 
+        deadline = time.monotonic() + float(self.cfg.pipeline.max_sync_seconds)
         try:
             result = self.pipeline.run(
                 brief=brief,
@@ -404,6 +421,7 @@ class ChatOrchestrator:
                 permissions=permissions,
                 trace_budget=session_budget.trace_budget,
                 on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
+                deadline=deadline,
             )
         except ClarifyRoundsExceededError as exc:
             brief.exploration_mode = True
@@ -418,6 +436,7 @@ class ChatOrchestrator:
                     permissions=permissions,
                     trace_budget=session_budget.trace_budget,
                     on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
+                    deadline=deadline,
                 )
             except ClarifyRoundsExceededError:
                 return ChatResponse(
@@ -484,7 +503,7 @@ class ChatOrchestrator:
             id=str(uuid4()),
             role="assistant",
             content=synth.get("user_message", ""),
-            at=datetime.utcnow().isoformat(),
+            at=utc_now().isoformat(),
             analysis_id=analysis_id,
             trace_id=result.trace_id,
         )
@@ -542,21 +561,26 @@ class ChatOrchestrator:
             )
 
         if bridge.get("action") == "resolve_from_transcript":
-            reply = ClarificationReply(analysis_id=analysis_id, answers=bridge.get("answers") or [])
-            brief = apply_clarification_reply(brief, reply, result.needs_clarification)
-            bundle.workflow.brief = brief
-            resume_analysis(bundle.workflow)
-            bundle.workflow.budget_spent = session_budget.trace_budget.spent
-            self.stm.save_workflow(session_id, bundle.workflow)
-            return self._run_pipeline_and_respond(
-                session_id=session_id,
-                analysis_id=analysis_id,
+            brief, should_rerun = self.clarify.on_pipeline_clarify(
+                result=result,
                 brief=brief,
-                bundle=bundle,
-                permissions=permissions,
-                invoker=invoker,
-                session_budget=session_budget,
+                bridge=bridge,
+                analysis_id=analysis_id,
             )
+            if should_rerun:
+                bundle.workflow.brief = brief
+                resume_analysis(bundle.workflow)
+                bundle.workflow.budget_spent = session_budget.trace_budget.spent
+                self.stm.save_workflow(session_id, bundle.workflow)
+                return self._run_pipeline_and_respond(
+                    session_id=session_id,
+                    analysis_id=analysis_id,
+                    brief=brief,
+                    bundle=bundle,
+                    permissions=permissions,
+                    invoker=invoker,
+                    session_budget=session_budget,
+                )
 
         try:
             clarify = self._invoke_agent_i(
@@ -587,14 +611,16 @@ class ChatOrchestrator:
         bundle.workflow.budget_spent = session_budget.trace_budget.spent
         self.stm.save_clarification(session_id, result.needs_clarification.model_dump())
         self.stm.save_workflow(session_id, bundle.workflow)
-        suspend_msg = result.needs_clarification.evidence_summary or clarify.get("user_message", "")
-        return ChatResponse(
+        return self.clarify.suspend_response(
             session_id=session_id,
             analysis_id=analysis_id,
-            trace_id=result.trace_id,
+            request=result.needs_clarification,
+            clarify_payload=clarify,
             workflow_status=WorkflowStatus.AWAITING_CLARIFICATION.value,
-            outcome=result.outcome,
-            message=suspend_msg or clarify.get("user_message", ""),
-            bridge_action="ask_user",
-            clarification=result.needs_clarification,
+        ).model_copy(
+            update={
+                "trace_id": result.trace_id,
+                "outcome": result.outcome,
+                "bridge_action": "ask_user",
+            }
         )

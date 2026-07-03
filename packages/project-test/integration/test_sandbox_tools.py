@@ -40,10 +40,12 @@ def test_sandbox_plot_chart(sample_parquet, tmp_path):
     assert out.exists()
 
 
-def test_sandbox_run_analysis_script(sample_parquet, tmp_path):
+def test_sandbox_run_analysis_script(sample_parquet, tmp_path, monkeypatch):
     from python_sandbox.tools_impl import run_analysis_script
 
-    out_dir = tmp_path / "out"
+    artifacts_root = tmp_path / "artifacts"
+    monkeypatch.setenv("ARTIFACTS_DIR", str(artifacts_root))
+    out_dir = artifacts_root / "trace" / "out"
     script = "df=pd.read_parquet(path); (out / 'summary.txt').write_text(str(len(df)))"
     result = run_analysis_script(str(sample_parquet), script, str(out_dir))
     assert result["status"] == "ok"

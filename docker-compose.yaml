@@ -1,4 +1,44 @@
+# Supermarket stack — build shared bases first:
+#   docker compose --profile docker-bases build
+#   docker compose build
+# Or: .\scripts\docker-build.ps1 all
+
+x-agent-build: &agent-build
+  context: .
+  args:
+    BASE_IMAGE: abstract-base/agent-base:local
+
+x-mcp-build: &mcp-build
+  context: .
+  args:
+    BASE_IMAGE: abstract-base/mcp-base:local
+
 services:
+  project-base:
+    profiles: [docker-bases]
+    build:
+      context: .
+      dockerfile: docker/base/Dockerfile.project
+    image: abstract-base/project-base:local
+
+  mcp-base:
+    profiles: [docker-bases]
+    build:
+      context: .
+      dockerfile: docker/base/Dockerfile.mcp
+      args:
+        PROJECT_BASE: abstract-base/project-base:local
+    image: abstract-base/mcp-base:local
+
+  agent-base:
+    profiles: [docker-bases]
+    build:
+      context: .
+      dockerfile: docker/base/Dockerfile.agent
+      args:
+        PROJECT_BASE: abstract-base/project-base:local
+    image: abstract-base/agent-base:local
+
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
@@ -9,7 +49,7 @@ services:
 
   sql-gateway:
     build:
-      context: .
+      <<: *mcp-build
       dockerfile: mcp-servers/sql-gateway/Dockerfile
     env_file: .env
     environment:
@@ -19,7 +59,7 @@ services:
 
   conversational-router:
     build:
-      context: .
+      <<: *agent-build
       dockerfile: agents/conversational-router/Dockerfile
     env_file: .env
     environment:
@@ -28,7 +68,7 @@ services:
 
   sql-planner:
     build:
-      context: .
+      <<: *agent-build
       dockerfile: agents/sql-planner/Dockerfile
     env_file: .env
     environment:
@@ -37,7 +77,7 @@ services:
 
   risk-reviewer:
     build:
-      context: .
+      <<: *agent-build
       dockerfile: agents/risk-reviewer/Dockerfile
     env_file: .env
     environment:
@@ -46,7 +86,7 @@ services:
 
   data-analyst:
     build:
-      context: .
+      <<: *agent-build
       dockerfile: agents/data-analyst/Dockerfile
     env_file: .env
     environment:
@@ -55,7 +95,7 @@ services:
 
   chat-gateway:
     build:
-      context: .
+      <<: *agent-build
       dockerfile: agents/chat-gateway/Dockerfile
     env_file: .env
     environment:
@@ -63,6 +103,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
       - ALLOW_DEV_AUTH=1
-      - SQL_GATEWAY_INPROCESS=1
+      - SQL_GATEWAY_URL=http://sql-gateway:8101
+      - AGENT_I_URL=http://conversational-router:8201
+      - AGENT_II_URL=http://sql-planner:8202
+      - AGENT_III_URL=http://risk-reviewer:8203
+      - AGENT_IV_URL=http://data-analyst:8204
     ports: ["8300:8300"]
-    depends_on: [redis, mongodb, sql-planner, risk-reviewer, data-analyst, conversational-router]
+    depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]

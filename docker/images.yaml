@@ -24,7 +24,6 @@ services:
     package: base-mcp-server
     dockerfile: mcp-servers/base-mcp-server/Dockerfile
     port: 8100
-    # TODO: add domain-specific MCP servers
   base-agent:
     base: agent
     package: base-agent
@@ -35,3 +34,33 @@ services:
     package: base-runner
     dockerfile: agents/base-runner/Dockerfile
     compose_profile: runner
+  sql-gateway:
+    base: mcp
+    package: sql-gateway
+    dockerfile: mcp-servers/sql-gateway/Dockerfile
+    port: 8101
+  conversational-router:
+    base: agent
+    package: conversational-router
+    dockerfile: agents/conversational-router/Dockerfile
+    port: 8201
+  sql-planner:
+    base: agent
+    package: sql-planner
+    dockerfile: agents/sql-planner/Dockerfile
+    port: 8202
+  risk-reviewer:
+    base: agent
+    package: risk-reviewer
+    dockerfile: agents/risk-reviewer/Dockerfile
+    port: 8203
+  data-analyst:
+    base: agent
+    package: data-analyst
+    dockerfile: agents/data-analyst/Dockerfile
+    port: 8204
+  chat-gateway:
+    base: agent
+    package: chat-gateway
+    dockerfile: agents/chat-gateway/Dockerfile
+    port: 8300

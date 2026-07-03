@@ -6,6 +6,7 @@ from typing import Any, Protocol
 from agent_core.infra.budget.base import BudgetExceeded, BudgetGuard, BudgetLimits
 
 from project_core.config.loader import load_project_config
+from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_core.domain.errors.codes import BudgetExceededError
 
 
@@ -67,9 +68,9 @@ class AgentInvoker(Protocol):
 
 
 class SqlGatewayClient(Protocol):
-    def validate_sql(self, sql: str, actor_id: str) -> dict[str, Any]: ...
-    def explain_sql(self, sql: str, actor_id: str) -> dict[str, Any]: ...
-    def execute_readonly(self, sql: str, actor_id: str, *, target_db: str = "db2") -> dict[str, Any]: ...
+    def validate_sql(self, sql: str, acl: SqlAclContext) -> dict[str, Any]: ...
+    def explain_sql(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict[str, Any]: ...
+    def execute_readonly(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict[str, Any]: ...
 
 
 class SandboxClient(Protocol):

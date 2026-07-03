@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.access.acl import build_permissions_snapshot
+from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_core.domain.contracts.workflow import AnalysisOutcome
 from project_core.orchestration.pipeline import SupermarketAnalysisPipeline
 from project_test.helpers.scripted_invoker import ScriptedAgentInvoker
@@ -26,7 +27,7 @@ def test_is_tool_allowed_per_agent():
 
 
 class _DenyExplainSqlGateway(StubSqlGateway):
-    def explain_sql(self, sql: str, actor_id: str) -> dict:
+    def explain_sql(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict:
         return {"plan": "mock"}
 
 
@@ -36,7 +37,7 @@ def test_pipeline_explain_sql_on_performance_reject(pipeline_factory, workflow_s
     calls: list[str] = []
 
     class _TrackingSql(_DenyExplainSqlGateway):
-        def explain_sql(self, sql: str, actor_id: str) -> dict:
+        def explain_sql(self, sql: str, acl: SqlAclContext, *, target_db: str = "db2") -> dict:
             calls.append("explain")
             return {"estimated_rows": 99999}
 

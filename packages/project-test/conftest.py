@@ -45,6 +45,9 @@ def fake_redis(monkeypatch):
         def expire(self, key, _ttl):
             return True
 
+        def ping(self):
+            return True
+
     monkeypatch.setattr("project_core.infra.stm.redis_store.redis.from_url", lambda *_a, **_k: _FakeRedis())
     return store
 

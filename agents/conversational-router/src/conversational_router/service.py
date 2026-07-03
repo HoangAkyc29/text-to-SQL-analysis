@@ -85,7 +85,7 @@ class ConversationalRouterService(SupermarketAgentService):
         payload = json.loads(result.content)
         if satisfaction:
             payload["satisfaction_signal"] = satisfaction
-        return self.json_response(ctx, payload)
+        return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
 
     def _clarification_bridge(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}

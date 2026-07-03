@@ -13,10 +13,18 @@ Image prefix: **`abstract-base/`**
 ## Commands
 
 ```powershell
-.\scripts\docker-build.ps1 bases      # 3 base images
-.\scripts\docker-build.ps1 service base-agent
+# 1) Shared dependency layers (build once, reuse across service images)
+.\scripts\docker-build.ps1 bases
+# Or: docker compose --profile docker-bases build
+
+# 2) Supermarket services (thin layer: uv sync --package <name> only)
+.\scripts\docker-build.ps1 supermarket
+# Or: docker compose build
+
+# Templates + bases
 .\scripts\docker-build.ps1 all
-docker compose --profile docker-bases build
+docker compose up -d
+docker compose --profile runner up -d base-runner
 ```
 
 ## `--only-group` vs `--package`

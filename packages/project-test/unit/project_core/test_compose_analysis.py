@@ -123,6 +123,7 @@ def test_select_recipe_stub_picks_top_candidate():
 
 
 def test_registry_mcp_descriptors_and_invoke(monkeypatch, tmp_path):
+    monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     class FakeCol:
         def __init__(self):
             self.docs = {}
@@ -165,7 +166,7 @@ def test_registry_mcp_descriptors_and_invoke(monkeypatch, tmp_path):
     import pandas as pd
 
     pd.DataFrame({"AMOUNT": [1, 2]}).to_parquet(ds)
-    out = tmp_path / "out"
+    out = tmp_path / "artifacts" / "out"
     result = reg.invoke_tool(tid, dataset_path=str(ds), output_dir=str(out))
     assert result.get("status") == "ok"
 

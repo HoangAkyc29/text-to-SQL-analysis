@@ -8,6 +8,7 @@ from typing import Any
 
 import pyodbc
 
+from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.sql.policy_engine import PolicyEngine
 
@@ -32,9 +33,34 @@ def _rate_limit(actor_id: str, *, limit: int = 30, window: int = 60) -> None:
         _rate_buckets[actor_id] = bucket
 
 
-def _policy(actor_id: str, allowed_tables: list[str] | None = None) -> PolicyEngine:
-    # Gateway: must be in data_dictionary; optional role subset via allowed_tables metadata later.
-    return PolicyEngine(_catalog, allowed_tables=allowed_tables)
+def _acl_from_kwargs(
+    actor_id: str = "system",
+    *,
+    allowed_tables: list[str] | None = None,
+    denied_columns: list[str] | None = None,
+    store_ids: list[int] | None = None,
+    store_filter_required: bool = False,
+    acl: SqlAclContext | None = None,
+) -> SqlAclContext:
+    if acl is not None:
+        return acl
+    return SqlAclContext(
+        actor_id=actor_id,
+        allowed_tables=list(allowed_tables or []),
+        denied_columns=list(denied_columns or []),
+        store_ids=store_ids,
+        store_filter_required=store_filter_required,
+    )
+
+
+def _policy(acl: SqlAclContext) -> PolicyEngine:
+    return PolicyEngine(
+        _catalog,
+        allowed_tables=acl.allowed_tables,
+        denied_columns=acl.denied_columns or None,
+        store_ids=acl.store_ids,
+        store_filter_required=acl.store_filter_required,
+    )
 
 
 def _resolve_target_db(target_db: str | None) -> str:
@@ -60,9 +86,21 @@ def validate_sql(
     actor_id: str = "system",
     *,
     allowed_tables: list[str] | None = None,
+    denied_columns: list[str] | None = None,
+    store_ids: list[int] | None = None,
+    store_filter_required: bool = False,
+    acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
     """Run PolicyEngine validation for a SQL statement."""
-    verdict = _policy(actor_id, allowed_tables).validate(sql)
+    ctx = _acl_from_kwargs(
+        actor_id,
+        allowed_tables=allowed_tables,
+        denied_columns=denied_columns,
+        store_ids=store_ids,
+        store_filter_required=store_filter_required,
+        acl=acl,
+    )
+    verdict = _policy(ctx).validate(sql)
     return {
         "allowed": verdict.allowed,
         "violations": verdict.violations,
@@ -70,14 +108,36 @@ def validate_sql(
     }
 
 
-def explain_sql(sql: str, actor_id: str = "system", target_db: str = "db1") -> dict[str, Any]:
-    """Return SHOWPLAN-style explanation (best effort)."""
-    _rate_limit(actor_id)
+def explain_sql(
+    sql: str,
+    actor_id: str = "system",
+    target_db: str = "db1",
+    *,
+    allowed_tables: list[str] | None = None,
+    denied_columns: list[str] | None = None,
+    store_ids: list[int] | None = None,
+    store_filter_required: bool = False,
+    acl: SqlAclContext | None = None,
+) -> dict[str, Any]:
+    """Return SHOWPLAN-style explanation after policy validation."""
+    ctx = _acl_from_kwargs(
+        actor_id,
+        allowed_tables=allowed_tables,
+        denied_columns=denied_columns,
+        store_ids=store_ids,
+        store_filter_required=store_filter_required,
+        acl=acl,
+    )
+    _rate_limit(ctx.actor_id)
+    verdict = _policy(ctx).validate(sql)
+    if not verdict.allowed:
+        return {"status": "policy_blocked", "violations": verdict.violations}
+    sanitized = verdict.sanitized_sql or sql
     db = _resolve_target_db(target_db)
     try:
         with _semaphore, _connect(db) as conn:
             cur = conn.cursor()
-            cur.execute(f"SET SHOWPLAN_ALL ON; {sql}")
+            cur.execute(f"SET SHOWPLAN_ALL ON; {sanitized}")
             rows = cur.fetchall() if cur.description else []
             return {"plan_rows": len(rows), "status": "ok", "target_db": db}
     except Exception as exc:  # noqa: BLE001
@@ -90,11 +150,23 @@ def execute_readonly(
     target_db: str = "db1",
     *,
     allowed_tables: list[str] | None = None,
+    denied_columns: list[str] | None = None,
+    store_ids: list[int] | None = None,
+    store_filter_required: bool = False,
+    acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
     """Execute validated readonly SQL and return rows as dicts."""
-    _rate_limit(actor_id)
+    ctx = _acl_from_kwargs(
+        actor_id,
+        allowed_tables=allowed_tables,
+        denied_columns=denied_columns,
+        store_ids=store_ids,
+        store_filter_required=store_filter_required,
+        acl=acl,
+    )
+    _rate_limit(ctx.actor_id)
     db = _resolve_target_db(target_db)
-    verdict = _policy(actor_id, allowed_tables).validate(sql)
+    verdict = _policy(ctx).validate(sql)
     if not verdict.allowed:
         return {"error": "policy_blocked", "violations": verdict.violations}
     sanitized = verdict.sanitized_sql or sql
@@ -106,10 +178,26 @@ def execute_readonly(
         return {"columns": columns, "rows": rows, "row_count": len(rows), "target_db": db}
 
 
-def get_schema_snapshot(actor_id: str = "system", allowed_tables: list[str] | None = None) -> dict[str, Any]:
+def get_schema_snapshot(
+    actor_id: str = "system",
+    allowed_tables: list[str] | None = None,
+    *,
+    denied_columns: list[str] | None = None,
+    store_ids: list[int] | None = None,
+    store_filter_required: bool = False,
+    acl: SqlAclContext | None = None,
+) -> dict[str, Any]:
     """Return schema metadata from data_dictionary for agents."""
-    role = allowed_tables or _catalog.logical_table_names()
-    bundle = _catalog.agent_schema_bundle(role)
+    ctx = _acl_from_kwargs(
+        actor_id,
+        allowed_tables=allowed_tables,
+        denied_columns=denied_columns,
+        store_ids=store_ids,
+        store_filter_required=store_filter_required,
+        acl=acl,
+    )
+    role = list(ctx.allowed_tables)
+    bundle = _catalog.agent_schema_bundle(role) if role else {"tables": [], "domain_definitions_excerpt": ""}
     return {
         **bundle,
         "logical_tables": _catalog.logical_table_names(),

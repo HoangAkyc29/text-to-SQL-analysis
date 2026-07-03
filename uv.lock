@@ -3963,16 +3963,20 @@ name = "sql-gateway"
 version = "0.1.0"
 source = { editable = "mcp-servers/sql-gateway" }
 dependencies = [
+    { name = "fastapi" },
     { name = "mcp-core" },
     { name = "project-core" },
     { name = "pyodbc" },
+    { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "mcp-core", editable = "libs/mcp-core" },
     { name = "project-core", editable = "packages/project-core" },
     { name = "pyodbc", specifier = ">=5.1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
 [[package]]

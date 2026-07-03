@@ -70,7 +70,14 @@ class SupermarketAgentService(BaseAgentService):
         return "\n\n---\n\n".join(parts)
 
     @staticmethod
-    def json_response(ctx: DecisionContext, payload: dict[str, Any]) -> AgentResponse:
+    def json_response(
+        ctx: DecisionContext,
+        payload: dict[str, Any],
+        *,
+        usage_tokens: int = 0,
+    ) -> AgentResponse:
+        if usage_tokens:
+            payload = {**payload, "usage_tokens": usage_tokens}
         return AgentResponse(
             session_id=ctx.request.session_id,
             actor_id=ctx.request.actor_id,
