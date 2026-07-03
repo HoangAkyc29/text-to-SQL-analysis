@@ -1,0 +1,23 @@
+# Caddy reverse proxy for the Supermarket stack (prod overlay).
+#
+# TLS behaviour is driven by PUBLIC_DOMAIN (passed via env):
+#   - "localhost"          -> Caddy issues a local self-signed cert (works offline).
+#   - "chat.example.com"   -> Caddy auto-provisions a Let's Encrypt cert
+#                             (needs public DNS + ports 80/443 + a valid TLS_EMAIL).
+#
+# Only this proxy is published to the host (80/443); chat-gateway stays on the
+# internal compose network and is reached by service DNS name.
+
+{
+	email {$TLS_EMAIL}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+
+	# Forward everything to the chat-gateway service on the internal network.
+	reverse_proxy chat-gateway:18300 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}

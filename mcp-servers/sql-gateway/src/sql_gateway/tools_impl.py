@@ -12,6 +12,7 @@ from project_core.domain.access.permission_set import grant_denial
 from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.sql.policy_engine import PolicyEngine
+from project_core.text.tcvn3 import maybe_decode_row
 
 _catalog = SchemaCatalog.from_dictionary_dir()
 _rate_lock = threading.Lock()
@@ -206,7 +207,12 @@ def execute_readonly(
         cur = conn.cursor()
         cur.execute(sanitized)
         columns = [c[0] for c in cur.description] if cur.description else []
-        rows = [dict(zip(columns, row, strict=False)) for row in cur.fetchmany(50000)]
+        # Decode legacy TCVN3 text at the SQL boundary so every downstream
+        # consumer (agents, parquet, Excel export) sees correct Unicode.
+        rows = [
+            maybe_decode_row(dict(zip(columns, row, strict=False)))
+            for row in cur.fetchmany(50000)
+        ]
         return {"columns": columns, "rows": rows, "row_count": len(rows), "target_db": db}
 
 
