@@ -38,7 +38,7 @@ def run(request: AgentRequest, _: None = Depends(verify_internal_service)) -> Ag
 def main() -> None:
     import uvicorn
 
-    uvicorn.run("conversational_router.app:app", host="0.0.0.0", port=int(os.getenv("AGENT_HTTP_PORT", "8201")))
+    uvicorn.run("conversational_router.app:app", host="0.0.0.0", port=int(os.getenv("AGENT_HTTP_PORT", "18201")))
 
 
 if __name__ == "__main__":

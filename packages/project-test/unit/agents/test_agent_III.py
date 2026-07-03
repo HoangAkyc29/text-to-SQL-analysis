@@ -6,18 +6,25 @@ import json
 
 import pytest
 
+from project_core.domain.access.acl import build_permissions_snapshot
 from risk_reviewer.service import RiskReviewerService
 
 pytestmark = pytest.mark.unit
+
+_PERMS = build_permissions_snapshot("user-1", "hq_analyst").model_dump(mode="json")
 
 
 def _svc() -> RiskReviewerService:
     return object.__new__(RiskReviewerService)
 
 
+def _goal(payload: dict) -> str:
+    return json.dumps({**payload, "permissions": _PERMS})
+
+
 def test_III_approves_safe_select(decision_ctx):
     ctx = decision_ctx(
-        goal=json.dumps(
+        goal=_goal(
             {
                 "sql": "SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'",
                 "allowed_tables": ["STRANS"],
@@ -29,7 +36,14 @@ def test_III_approves_safe_select(decision_ctx):
 
 
 def test_III_rejects_drop(decision_ctx):
-    ctx = decision_ctx(goal=json.dumps({"sql": "DROP TABLE STRANS", "allowed_tables": ["STRANS"]}))
+    ctx = decision_ctx(goal=_goal({"sql": "DROP TABLE STRANS", "allowed_tables": ["STRANS"]}))
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["verdict"] == "reject"
     assert payload["risk_feedback"] is not None
+
+
+def test_III_denied_without_permissions(decision_ctx):
+    ctx = decision_ctx(goal=json.dumps({"sql": "SELECT 1", "allowed_tables": ["STRANS"]}))
+    payload = json.loads(_svc().decide(ctx).content)
+    assert payload["verdict"] == "reject"
+    assert "tool_not_granted:sql-gateway" in payload["concerns"]

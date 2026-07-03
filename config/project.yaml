@@ -108,6 +108,8 @@ _STORE_TABLES: &store_tables
   - WebRpt_inventory_daily
   - WebRpt_rfm_snapshot
 
+# Dev/test fallback grants (ALLOW_DEV_AUTH=1). Must mirror the AUTH DB seed
+# (deploy/sql/auth/004_permissions.sql). Fail-closed: grants are explicit here.
 roles:
   store_manager:
     allowed_tables: *store_tables
@@ -121,7 +123,15 @@ roles:
       - PASSCODE
       - PERSON_ID
     store_filter_required: true
+    tool_grants:
+      - "tool:*"
+    allowed_functions:
+      - "function:*"
   hq_analyst:
     allowed_tables: *hq_tables
     denied_columns: []
     store_filter_required: false
+    tool_grants:
+      - "tool:*"
+    allowed_functions:
+      - "function:*"

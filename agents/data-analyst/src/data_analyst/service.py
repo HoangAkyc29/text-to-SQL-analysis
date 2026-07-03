@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +18,7 @@ class DataAnalystService(SupermarketAgentService):
         return self.llm_system_prompt(guide="analyze_guide")
 
     def decide(self, ctx: DecisionContext) -> Any:
-        meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
+        payload_in, meta = self.parse_payload(ctx)
         manifest = payload_in.get("dataset_manifest") or meta.get("dataset_manifest") or {}
         profile = payload_in.get("result_profile") or meta.get("result_profile") or {}
         brief_data = payload_in.get("brief") or meta.get("brief") or {}
@@ -35,6 +32,29 @@ class DataAnalystService(SupermarketAgentService):
         )
         analysis_tools = payload_in.get("analysis_tools") or meta.get("analysis_tools") or []
         recipe_candidates = payload_in.get("recipe_candidates") or meta.get("recipe_candidates") or []
+
+        permissions = self.resolve_permissions(payload_in, meta)
+        cp = self.context_policy
+        if permissions is None or not cp.can_invoke_tool(permissions, "IV", "run_analysis_script"):
+            return self.json_response(
+                ctx,
+                {
+                    "action": "data_feedback",
+                    "data_feedback": {
+                        "needs_sql_retry": False,
+                        "issue": "tool_not_granted",
+                        "summary": "run_analysis_script not granted",
+                        "diagnosis": "impossible",
+                    },
+                    "impossible_reason": "tool_not_granted:python-sandbox:run_analysis_script",
+                },
+            )
+        recipe_candidates = [
+            c
+            for c in recipe_candidates
+            if not c.get("tool_id") or cp.can_invoke_function(permissions, c.get("tool_id", ""))
+        ]
+
         analysis_plan = payload_in.get("analysis_plan") or meta.get("analysis_plan")
         execution_plan = payload_in.get("execution_plan") or meta.get("execution_plan")
         domain_rules_excerpt = payload_in.get("domain_rules_excerpt") or meta.get("domain_rules_excerpt") or ""

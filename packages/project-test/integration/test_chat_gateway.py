@@ -13,9 +13,14 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def gateway_client(monkeypatch, fake_redis):
-    os.environ["ALLOW_LLM_STUB"] = "1"
-    os.environ["ALLOW_DEV_AUTH"] = "1"
-    os.environ["SQL_GATEWAY_INPROCESS"] = "1"
+    monkeypatch.setenv("ALLOW_LLM_STUB", "1")
+    monkeypatch.setenv("ALLOW_DEV_AUTH", "1")
+    monkeypatch.setenv("REQUIRE_INTERNAL_AUTH", "0")
+    monkeypatch.setenv("SQL_GATEWAY_INPROCESS", "1")
+    monkeypatch.setenv(
+        "MONGODB_URI",
+        "mongodb://127.0.0.1:65530/supermarket_agent?serverSelectionTimeoutMS=200",
+    )
     import chat_gateway.app as gw_app
 
     gw_app._orchestrator = None

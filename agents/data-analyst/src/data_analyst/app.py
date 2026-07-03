@@ -37,4 +37,4 @@ def run(request: AgentRequest, _: None = Depends(verify_internal_service)) -> Ag
 def main() -> None:
     import uvicorn
 
-    uvicorn.run("data_analyst.app:app", host="0.0.0.0", port=int(os.getenv("AGENT_HTTP_PORT", "8204")))
+    uvicorn.run("data_analyst.app:app", host="0.0.0.0", port=int(os.getenv("AGENT_HTTP_PORT", "18204")))

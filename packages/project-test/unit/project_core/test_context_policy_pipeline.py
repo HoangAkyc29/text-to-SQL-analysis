@@ -15,7 +15,7 @@ def test_filter_schema_excerpt_respects_allowed_tables(schema_catalog):
     policy = ContextPolicy()
     perms = build_permissions_snapshot("u", "hq_analyst")
     snapshot = schema_catalog.snapshot()
-    filtered = policy.filter_schema_excerpt("II", perms, snapshot)
+    filtered = policy.filter_schema_excerpt(perms, snapshot)
     for key in filtered:
         assert key.lower() in {t.lower() for t in perms.allowed_tables}
 
@@ -24,6 +24,45 @@ def test_is_tool_allowed_per_agent():
     policy = ContextPolicy()
     assert policy.is_tool_allowed("III", "explain_sql")
     assert not policy.is_tool_allowed("II", "export_excel")
+
+
+def test_can_invoke_tool_respects_grants():
+    policy = ContextPolicy()
+    from project_core.domain.access.acl import build_permissions_snapshot
+
+    perms = build_permissions_snapshot("u", "hq_analyst")
+    perms = perms.model_copy(update={"tool_grants": ["tool:sql-gateway:validate"]})
+    assert policy.can_invoke_tool(perms, "II", "validate_sql")
+    assert not policy.can_invoke_tool(perms, "III", "explain_sql")
+    assert policy.can_execute_sql(perms) is False
+    perms = perms.model_copy(update={"tool_grants": list(perms.tool_grants) + ["tool:sql-gateway:execute"]})
+    assert policy.can_execute_sql(perms)
+
+
+def test_tool_wildcard_grant_matches_all():
+    policy = ContextPolicy()
+    from project_core.domain.access.acl import build_permissions_snapshot
+
+    perms = build_permissions_snapshot("u", "hq_analyst").model_copy(update={"tool_grants": ["tool:*"]})
+    assert policy.can_invoke_tool(perms, "II", "validate_sql")
+    assert policy.can_invoke_tool(perms, "III", "explain_sql")
+    assert policy.can_execute_sql(perms)
+
+
+def test_can_invoke_function_wildcard_and_specific():
+    policy = ContextPolicy()
+    from project_core.domain.access.acl import build_permissions_snapshot
+
+    perms = build_permissions_snapshot("u", "hq_analyst")
+    assert perms.allowed_functions == ["function:*"]
+    assert policy.can_invoke_function(perms, "abc-123")
+
+    restricted = perms.model_copy(update={"allowed_functions": ["function:abc-123"]})
+    assert policy.can_invoke_function(restricted, "abc-123")
+    assert not policy.can_invoke_function(restricted, "other-id")
+
+    none = perms.model_copy(update={"allowed_functions": []})
+    assert not policy.can_invoke_function(none, "abc-123")
 
 
 class _DenyExplainSqlGateway(StubSqlGateway):

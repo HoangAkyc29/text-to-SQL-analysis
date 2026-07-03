@@ -42,7 +42,7 @@ def main() -> None:
     uvicorn.run(
         "sql_gateway.http_app:app",
         host="0.0.0.0",
-        port=int(os.getenv("SQL_GATEWAY_HTTP_PORT", "8101")),
+        port=int(os.getenv("SQL_GATEWAY_HTTP_PORT", "18101")),
     )
 
 

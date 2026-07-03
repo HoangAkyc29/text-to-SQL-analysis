@@ -61,16 +61,33 @@ Image prefix: `abstract-base/project-base:local`, `abstract-base/mcp-base:local`
 - [docs/DOCKER_BUILD.md](docs/DOCKER_BUILD.md) — dependency-groups, layered builds
 - [docs/GRAPH_ORCHESTRATION.md](docs/GRAPH_ORCHESTRATION.md) — graph topologies, debate, shared state
 
+### Supermarket stack
+
+- [docs/SUPERMARKET_ARCHITECTURE.md](docs/SUPERMARKET_ARCHITECTURE.md) — services, flow, ACL
+- [docs/AUTH_AND_PERMISSIONS.md](docs/AUTH_AND_PERMISSIONS.md) — login, JWT, tool grants
+- [docs/CONFIGURATION_CHECKLIST.md](docs/CONFIGURATION_CHECKLIST.md) — env audit & prod checklist
+- [docs/PORTS.md](docs/PORTS.md) — local port map (`18xxx`)
+
 ## Production deploy checklist
 
-- Set strong `JWT_SECRET` (32+ chars) and `REQUIRE_PROD_AUTH=1` on chat-gateway
-- Set `INTERNAL_SERVICE_TOKEN` and `REQUIRE_INTERNAL_AUTH=1` on agents I–IV and sql-gateway HTTP
-- Do **not** set `ALLOW_DEV_AUTH=1` or `SQL_GATEWAY_INPROCESS=1` in production
-- Verify ACL roles in `config/project.yaml` match your auth DB / JWT claims (`role`, `store_ids`)
-- Index Mongo schema docs: `uv run python scripts/index_schema_docs.py`
-- Schedule artifact cleanup: `uv run python scripts/cleanup_artifacts.py` (cron / compose profile)
-- Confirm `ANALYTICS_DB_DSN` / `ANALYTICS_DB_DSN_2` are readonly SQL logins
-- Use `/health/live` for liveness; `/health/ready` for Redis, Mongo, and agent pings
+Infra images (no local Redis/Mongo install required):
+
+```powershell
+docker compose pull redis mongodb
+.\scripts\docker-build.ps1 all
+docker compose up -d
+# AUTH DB: deploy/sql/auth/001_schema.sql, 004_permissions.sql → uv run python scripts/seed_auth.py
+uv run python scripts/index_schema_docs.py
+```
+
+Copy [`.env.example`](.env.example) → `.env` and fill **required prod values** (see [docs/CONFIGURATION_CHECKLIST.md](docs/CONFIGURATION_CHECKLIST.md) §10).
+
+- `JWT_SECRET` (32+ chars) + `REQUIRE_PROD_AUTH=1` + `ALLOW_DEV_AUTH=0`
+- `INTERNAL_SERVICE_TOKEN` + `REQUIRE_INTERNAL_AUTH=1` on all app containers (via `.env`)
+- `AUTH_DB_DSN` + run `deploy/sql/auth/*.sql`; login via `POST /auth/login` (see [docs/AUTH_AND_PERMISSIONS.md](docs/AUTH_AND_PERMISSIONS.md))
+- Do **not** set `SQL_GATEWAY_INPROCESS=1` or `ALLOW_LLM_STUB=1` in production
+- Local dev only: [`.env.dev.example`](.env.dev.example)
+- Azure OAuth optional — only if you need Microsoft SSO
 
 ## Child projects
 

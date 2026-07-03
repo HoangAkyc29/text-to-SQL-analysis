@@ -19,8 +19,7 @@ _CATALOG = SchemaCatalog.from_dictionary_dir()
 
 class RiskReviewerService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
-        meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
+        payload_in, meta = self.parse_payload(ctx)
         sql = payload_in.get("sql") or meta.get("sql") or ""
         allowed_tables = list(payload_in.get("allowed_tables") or meta.get("allowed_tables") or [])
         denied_columns = list(payload_in.get("denied_columns") or meta.get("denied_columns") or [])
@@ -29,6 +28,20 @@ class RiskReviewerService(SupermarketAgentService):
             payload_in.get("store_filter_required", meta.get("store_filter_required", False))
         )
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
+
+        permissions = self.resolve_permissions(payload_in, meta)
+        cp = self.context_policy
+        if permissions is None or not (
+            cp.can_execute_sql(permissions) or cp.can_invoke_tool(permissions, "III", "explain_sql")
+        ):
+            return self.json_response(
+                ctx,
+                {
+                    "verdict": "reject",
+                    "concerns": ["tool_not_granted:sql-gateway"],
+                    "risk_feedback": {"issue": "tool_not_granted"},
+                },
+            )
 
         policy = PolicyEngine(
             _CATALOG,

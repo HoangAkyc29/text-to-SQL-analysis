@@ -59,6 +59,8 @@ class RoleConfig(BaseModel):
     allowed_tables: list[str] = Field(default_factory=list)
     denied_columns: list[str] = Field(default_factory=list)
     store_filter_required: bool = False
+    tool_grants: list[str] = Field(default_factory=list)
+    allowed_functions: list[str] = Field(default_factory=list)
 
 
 class ProjectConfig(BaseModel):

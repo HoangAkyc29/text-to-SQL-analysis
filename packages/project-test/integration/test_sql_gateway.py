@@ -40,7 +40,9 @@ def test_get_schema_snapshot_has_tables():
     from project_core.domain.access.acl import build_permissions_snapshot
 
     perms = build_permissions_snapshot("tester", "hq_analyst")
-    snap = get_schema_snapshot("tester", allowed_tables=perms.allowed_tables)
+    snap = get_schema_snapshot(
+        "tester", allowed_tables=perms.allowed_tables, tool_grants=perms.tool_grants
+    )
     assert "tables" in snap
     assert snap["tables"]  # agent bundle list
     assert len(snap["logical_tables"]) >= 30

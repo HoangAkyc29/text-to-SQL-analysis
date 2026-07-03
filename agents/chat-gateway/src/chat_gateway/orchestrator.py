@@ -9,6 +9,7 @@ from uuid import uuid4
 import httpx
 from project_core.config.loader import load_project_config
 from project_core.domain.access.acl import build_permissions_snapshot
+from project_core.domain.access.user_claims import claims_from_user_dict
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.budget import SessionTraceBudget, TraceBudget
 from project_core.domain.clarification.resolver import apply_clarification_reply
@@ -17,7 +18,11 @@ from project_core.domain.contracts.clarification import ClarificationReply, Clar
 from project_core.domain.contracts.feedback import SatisfactionSignal
 from project_core.domain.contracts.pipeline import ChatResponse
 from project_core.domain.contracts.workflow import WorkflowStatus
-from project_core.domain.errors.codes import BudgetExceededError, ClarifyRoundsExceededError
+from project_core.domain.errors.codes import (
+    BudgetExceededError,
+    ClarifyRoundsExceededError,
+    PermissionsUnavailableError,
+)
 from project_core.domain.feedback.analysis_tool_registry import AnalysisToolRegistry
 from project_core.domain.feedback.domain_rule_store import DomainRuleStore
 from project_core.domain.feedback.loop import CaseStudyIndexer, FeedbackLoop
@@ -54,7 +59,12 @@ class ChatOrchestrator:
             from project_core.domain.analysis.recipe_runtime import set_registry
             from project_core.llm.embedding_client import EmbeddingClient
 
-            mongo = MongoClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017/supermarket_agent"))
+            mongo_timeout = int(os.getenv("MONGODB_CONNECT_TIMEOUT_MS", "2000"))
+            mongo = MongoClient(
+                os.getenv("MONGODB_URI", "mongodb://localhost:18217/supermarket_agent"),
+                serverSelectionTimeoutMS=mongo_timeout,
+            )
+            mongo.admin.command("ping")
             db = mongo.get_default_database()
             indexer = CaseStudyIndexer(db["case_studies"])
 
@@ -85,9 +95,7 @@ class ChatOrchestrator:
             self.pipeline.sql_gateway.close()  # type: ignore[attr-defined]
 
     def handle_chat(self, *, session_id: str, message: str, user: dict[str, Any]) -> ChatResponse:
-        actor_id = user["sub"]
-        role = user.get("role", "hq_analyst")
-        store_ids = user.get("store_ids")
+        actor_id, role, store_ids = claims_from_user_dict(user)
         bundle = self.stm.load_session(session_id)
         if bundle.workflow is None:
             bundle.workflow = new_workflow(session_id, actor_id)
@@ -188,9 +196,7 @@ class ChatOrchestrator:
         self.stm.save_clarification(session_id, None)
         self.stm.save_workflow(session_id, bundle.workflow)
 
-        permissions = bundle.workflow.permissions_snapshot or self._build_permissions(
-            user["sub"], user.get("role", "hq_analyst"), user.get("store_ids")
-        )
+        permissions = bundle.workflow.permissions_snapshot or self._build_permissions(*claims_from_user_dict(user))
         invoker = HttpAgentInvoker(client=self._http)
         session_budget = self._session_budget(bundle)
         return self._run_pipeline_and_respond(
@@ -256,12 +262,30 @@ class ChatOrchestrator:
         )
 
     def _build_permissions(self, actor_id: str, role: str, store_ids: list[int] | None) -> Any:
-        permissions = build_permissions_snapshot(actor_id, role, store_ids=store_ids)
-        grants = set(permissions.tool_grants)
-        for agent in ("II", "III", "IV"):
-            grants.update(self.context_policy.allowed_mcp_tools(agent))
-        permissions.tool_grants = sorted(grants)
-        return permissions
+        perm_set = None
+        try:
+            from chat_gateway.auth_store import load_effective_permissions
+
+            perm_set = load_effective_permissions(actor_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("permission resolve error: %s", exc)
+            perm_set = None
+        if perm_set is not None:
+            return build_permissions_snapshot(
+                actor_id,
+                role,
+                store_ids=store_ids,
+                permission_set=perm_set,
+                all_tables=self.pipeline.catalog.logical_table_names(),
+            )
+        # Fail-closed: no capabilities resolvable from the AUTH DB -> deny access.
+        # Dev-only convenience: ALLOW_DEV_AUTH falls back to YAML roles so local
+        # runs work without an AUTH DB.
+        if os.getenv("ALLOW_DEV_AUTH") == "1":
+            return build_permissions_snapshot(actor_id, role, store_ids=store_ids)
+        raise PermissionsUnavailableError(
+            "cannot resolve permissions from AUTH DB (user inactive/absent or DB unavailable)"
+        )
 
     def _session_budget(self, bundle: SessionBundle) -> SessionTraceBudget:
         spent = bundle.workflow.budget_spent if bundle.workflow else {}
@@ -386,9 +410,7 @@ class ChatOrchestrator:
         resume_analysis(bundle.workflow)
         self.stm.save_clarification(session_id, None)
         self.stm.save_workflow(session_id, bundle.workflow)
-        permissions = bundle.workflow.permissions_snapshot or self._build_permissions(
-            user["sub"], user.get("role", "hq_analyst"), user.get("store_ids")
-        )
+        permissions = bundle.workflow.permissions_snapshot or self._build_permissions(*claims_from_user_dict(user))
         return self._run_pipeline_and_respond(
             session_id=session_id,
             analysis_id=analysis_id,

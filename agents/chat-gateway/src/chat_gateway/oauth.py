@@ -34,7 +34,7 @@ class AzureOAuthProvider(OAuthProvider):
         self.tenant = os.getenv("AZURE_TENANT_ID", "common")
         self.client_id = os.getenv("OAUTH_CLIENT_ID", "")
         self.client_secret = os.getenv("OAUTH_CLIENT_SECRET", "")
-        self.redirect_uri = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:8300/auth/callback")
+        self.redirect_uri = os.getenv("OAUTH_REDIRECT_URI", "http://localhost:18300/auth/callback")
 
     def authorization_url(self, state: str) -> str:
         params = urlencode(

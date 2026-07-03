@@ -20,13 +20,22 @@ from project_core.service.supermarket_agent import SupermarketAgentService
 
 class SqlPlannerService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
-        meta = ctx.request.metadata or {}
-        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
+        payload_in, meta = self.parse_payload(ctx)
         brief = AnalysisBrief.model_validate(payload_in.get("brief") or meta.get("brief") or {})
         inbox = payload_in.get("inbox") or meta.get("inbox") or {}
         attempt = int(payload_in.get("attempt") or meta.get("attempt") or 1)
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
         retrieval_context = payload_in.get("retrieval_context") or meta.get("retrieval_context") or []
+
+        permissions = self.resolve_permissions(payload_in, meta)
+        if permissions is None or not self.context_policy.can_invoke_tool(
+            permissions, "II", "validate_sql"
+        ):
+            return self.json_response(
+                ctx,
+                {"action": "impossible", "reason": "tool_not_granted:validate_sql"},
+            )
+
         if not retrieval_context and getattr(self, "retriever", None):
             chunks = self.retrieve(brief.intent, top_k=5)
             retrieval_context = [c.text for c in chunks]

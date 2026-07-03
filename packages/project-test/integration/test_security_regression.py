@@ -36,6 +36,7 @@ def test_agent_run_with_valid_token(monkeypatch):
             "sql": "SELECT TOP 1 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'",
             "actor_id": "u",
             "allowed_tables": ["STRANS"],
+            "tool_grants": ["tool:*"],
         },
         headers={"Authorization": "Bearer test-secret-token"},
     )

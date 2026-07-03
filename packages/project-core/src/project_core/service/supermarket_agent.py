@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_core.io.schemas import AgentRequest, AgentResponse
 from platform_core.config.schema import AgentSpec, PlatformConfig
@@ -11,9 +11,16 @@ from platform_core.service.base import BaseAgentService, DecisionContext
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.retrieval.mongo_vector import MongoVectorRetriever
 
+if TYPE_CHECKING:
+    from project_core.domain.contracts.workflow import PermissionsSnapshot
+
 
 class SupermarketAgentService(BaseAgentService):
     """Base supermarket agent with Mongo retriever and context policy."""
+
+    # Class-level default so bare instances (e.g. object.__new__ in tests) and
+    # subclasses share one stateless policy; __init__ still assigns per-instance.
+    context_policy: ContextPolicy = ContextPolicy()
 
     def __init__(
         self,
@@ -50,6 +57,26 @@ class SupermarketAgentService(BaseAgentService):
         if not self.retriever:
             return []
         return self.retriever.retrieve(query, top_k=top_k)
+
+    def parse_payload(self, ctx: DecisionContext) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Return ``(payload_in, metadata)`` from the request message + metadata."""
+        meta = ctx.request.metadata or {}
+        payload_in = json.loads(ctx.request.message or "{}") if ctx.request.message else {}
+        return payload_in, meta
+
+    def resolve_permissions(
+        self, payload_in: dict[str, Any], meta: dict[str, Any]
+    ) -> "PermissionsSnapshot | None":
+        """Parse the forwarded ``PermissionsSnapshot`` (payload or metadata).
+
+        Returns ``None`` when absent so callers can fail closed (deny).
+        """
+        raw = payload_in.get("permissions") or meta.get("permissions")
+        if not raw:
+            return None
+        from project_core.domain.contracts.workflow import PermissionsSnapshot
+
+        return PermissionsSnapshot.model_validate(raw)
 
     def llm_system_prompt(self, *, guide: str | None = None, extra: str | None = None) -> str:
         """Assemble system prompt from SKILL.md, TOOLS.md, and task guide markdown."""

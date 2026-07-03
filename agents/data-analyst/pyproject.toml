@@ -2,7 +2,14 @@
 name = "data-analyst"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["platform-core", "project-core", "fastapi", "uvicorn[standard]", "openai>=1.0"]
+dependencies = [
+    "platform-core",
+    "project-core",
+    "python-sandbox",
+    "fastapi",
+    "uvicorn[standard]",
+    "openai>=1.0",
+]
 
 [project.scripts]
 data-analyst = "data_analyst.app:main"
@@ -16,3 +23,6 @@ packages = ["src/data_analyst"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.uv.sources]
+python-sandbox = { workspace = true }

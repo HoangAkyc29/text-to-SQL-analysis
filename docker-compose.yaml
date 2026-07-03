@@ -2,6 +2,9 @@
 #   docker compose --profile docker-bases build
 #   docker compose build
 # Or: .\scripts\docker-build.ps1 all
+#
+# Pull infra images:  docker compose pull redis mongodb
+# Ports (host):        docs/PORTS.md
 
 x-agent-build: &agent-build
   context: .
@@ -41,72 +44,104 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    restart: unless-stopped
+    ports: ["18379:6379"]
+    volumes: [supermarket-redis:/data]
 
   mongodb:
     image: mongo:7
-    ports: ["27017:27017"]
+    restart: unless-stopped
+    ports: ["18217:27017"]
+    volumes: [supermarket-mongo:/data/db]
 
   sql-gateway:
     build:
       <<: *mcp-build
       dockerfile: mcp-servers/sql-gateway/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
       - ANALYTICS_DB_DSN=${ANALYTICS_DB_DSN}
       - ANALYTICS_DB_DSN_2=${ANALYTICS_DB_DSN_2}
-    ports: ["8101:8101"]
+      - SQL_GATEWAY_HTTP_PORT=18101
+    ports: ["18101:18101"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: [redis, mongodb]
 
   conversational-router:
     build:
       <<: *agent-build
       dockerfile: agents/conversational-router/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=8201
-    ports: ["8201:8201"]
+      - AGENT_HTTP_PORT=18201
+    ports: ["18201:18201"]
 
   sql-planner:
     build:
       <<: *agent-build
       dockerfile: agents/sql-planner/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=8202
-    ports: ["8202:8202"]
+      - AGENT_HTTP_PORT=18202
+    ports: ["18202:18202"]
 
   risk-reviewer:
     build:
       <<: *agent-build
       dockerfile: agents/risk-reviewer/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=8203
-    ports: ["8203:8203"]
+      - AGENT_HTTP_PORT=18203
+    ports: ["18203:18203"]
 
   data-analyst:
     build:
       <<: *agent-build
       dockerfile: agents/data-analyst/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=8204
-    ports: ["8204:8204"]
+      - AGENT_HTTP_PORT=18204
+    ports: ["18204:18204"]
+    # Shared with chat-gateway: pipeline (in chat-gateway) writes query parquet +
+    # uploads here; Agent IV reads/writes analysis artifacts on the same paths.
+    volumes:
+      - supermarket-artifacts:/app/data/artifacts
+      - supermarket-attachments:/app/data/attachments
 
   chat-gateway:
     build:
       <<: *agent-build
       dockerfile: agents/chat-gateway/Dockerfile
     env_file: .env
+    restart: unless-stopped
     environment:
-      - CHAT_GATEWAY_PORT=8300
+      - CHAT_GATEWAY_PORT=18300
       - REDIS_URL=redis://redis:6379/0
       - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
-      - ALLOW_DEV_AUTH=1
-      - SQL_GATEWAY_URL=http://sql-gateway:8101
-      - AGENT_I_URL=http://conversational-router:8201
-      - AGENT_II_URL=http://sql-planner:8202
-      - AGENT_III_URL=http://risk-reviewer:8203
-      - AGENT_IV_URL=http://data-analyst:8204
-    ports: ["8300:8300"]
+      - SQL_GATEWAY_URL=http://sql-gateway:18101
+      - AGENT_I_URL=http://conversational-router:18201
+      - AGENT_II_URL=http://sql-planner:18202
+      - AGENT_III_URL=http://risk-reviewer:18203
+      - AGENT_IV_URL=http://data-analyst:18204
+    ports: ["18300:18300"]
+    volumes:
+      - supermarket-artifacts:/app/data/artifacts
+      - supermarket-attachments:/app/data/attachments
+      # Pipeline (runs here) writes the SQL audit trail to data/state/audit.jsonl.
+      - supermarket-state:/app/data/state
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]
+
+volumes:
+  supermarket-redis:
+  supermarket-mongo:
+  supermarket-artifacts:
+  supermarket-attachments:
+  supermarket-state:

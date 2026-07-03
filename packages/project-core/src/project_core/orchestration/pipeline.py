@@ -136,7 +136,7 @@ class SupermarketAnalysisPipeline:
             shard_plan = suggest_query_plan(brief.model_dump(), self.catalog)
             schema_context = {**schema_context, "shard_plan": shard_plan.model_dump()}
             filtered_snapshot = self.context_policy.filter_schema_excerpt(
-                "II", permissions, self.catalog.snapshot()
+                permissions, self.catalog.snapshot()
             )
             if filtered_snapshot:
                 schema_context = {**schema_context, "filtered_table_snapshot": filtered_snapshot}
@@ -157,6 +157,7 @@ class SupermarketAnalysisPipeline:
                     "attempt": sql_attempt,
                     "schema_context": schema_context,
                     "retrieval_context": [getattr(c, "text", str(c)) for c in retrieval_context],
+                    "permissions": permissions.model_dump(mode="json"),
                 },
                 {"mode": "plan_sql"},
             )
@@ -270,6 +271,7 @@ class SupermarketAnalysisPipeline:
                             "store_ids": permissions.store_ids,
                             "store_filter_required": permissions.store_filter_required,
                             "explain_plan": inbox.get("explain_plan"),
+                            "permissions": permissions.model_dump(mode="json"),
                         },
                         {"mode": "review"},
                     )
@@ -297,7 +299,7 @@ class SupermarketAnalysisPipeline:
                         iii_parsed.needs_explain
                         or _needs_explain_from_feedback(iii_parsed.risk_feedback)
                     ):
-                        if self.context_policy.is_tool_allowed("III", "explain_sql"):
+                        if self.context_policy.can_invoke_tool(permissions, "III", "explain_sql"):
                             explain_result = self.sql_gateway.explain_sql(sanitized, acl, target_db=tdb)
                             inbox["explain_plan"] = explain_result
                             self.audit.log_sql_explain(
@@ -334,7 +336,7 @@ class SupermarketAnalysisPipeline:
                     )
                     continue
 
-                if not self.context_policy.is_tool_allowed("II", "validate_sql"):
+                if not self.context_policy.can_invoke_tool(permissions, "II", "validate_sql"):
                     return self._finish(
                         trace_id,
                         workflow,
@@ -342,6 +344,17 @@ class SupermarketAnalysisPipeline:
                         TechnicalSummary(
                             outcome=AnalysisOutcome.POLICY_BLOCKED.value,
                             caveats=["validate_sql not granted"],
+                        ),
+                    )
+
+                if not self.context_policy.can_execute_sql(permissions):
+                    return self._finish(
+                        trace_id,
+                        workflow,
+                        AnalysisOutcome.POLICY_BLOCKED,
+                        TechnicalSummary(
+                            outcome=AnalysisOutcome.POLICY_BLOCKED.value,
+                            caveats=["execute_readonly not granted"],
                         ),
                     )
 
@@ -427,12 +440,19 @@ class SupermarketAnalysisPipeline:
             analysis_tools: list[dict[str, Any]] = promoted_tools
             recipe_candidates: list[dict[str, Any]] = []
             candidates_by_subtask: dict[str, list] = {}
+
+            def _function_allowed(tool_id: str) -> bool:
+                # Recipes without a tool_id are inline steps (not a promoted
+                # function) and are gated by the sandbox tool grant instead.
+                return not tool_id or self.context_policy.can_invoke_function(permissions, tool_id)
+
             if brief.plan:
                 for subtask in brief.plan.subtasks:
                     if self.analysis_tool_registry:
                         ranked = self.analysis_tool_registry.find_candidates(subtask.intent, top_k=5)
                     else:
                         ranked = rank_candidates(subtask.intent, promoted_tools, top_k=5)
+                    ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
                     candidates_by_subtask[subtask.id] = ranked
                     for c in ranked:
                         recipe_candidates.append({**c.model_dump(), "subtask_id": subtask.id})
@@ -460,6 +480,7 @@ class SupermarketAnalysisPipeline:
                     "analysis_plan": brief.plan.model_dump() if brief.plan else None,
                     "execution_plan": [s.model_dump() for s in execution_steps],
                     "domain_rules_excerpt": domain_excerpt,
+                    "permissions": permissions.model_dump(mode="json"),
                 },
                 {"mode": "analyze"},
             )

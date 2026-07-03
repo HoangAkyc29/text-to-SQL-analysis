@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+from project_core.domain.access.permission_set import grant_denial
 
 import matplotlib
 
@@ -58,8 +59,27 @@ def preview_dataframe(path: str, n: int = 100) -> dict[str, Any]:
     return {"preview": loaded.get("preview", [])[:n]}
 
 
-def run_analysis_script(path: str, script: str, output_dir: str) -> dict[str, Any]:
-    """Execute constrained pandas script in an isolated subprocess."""
+def run_analysis_script(
+    path: str,
+    script: str,
+    output_dir: str,
+    tool_grants: list[str] | None = None,
+) -> dict[str, Any]:
+    """Execute constrained pandas script in an isolated subprocess.
+
+    This is an internal compute primitive (also reused by the recipe runtime).
+    Authorization is enforced upstream (Agent IV service + pipeline). When
+    ``tool_grants`` is supplied — the untrusted MCP surface — the sandbox tool
+    grant is re-checked here as defense-in-depth.
+    """
+    if tool_grants is not None:
+        denied = grant_denial(
+            tool_grants,
+            "tool:python-sandbox:run_analysis_script",
+            "tool_not_granted:python-sandbox:run_analysis_script",
+        )
+        if denied is not None:
+            return denied
     try:
         out = _guard_output_dir(output_dir)
     except ValueError as exc:
@@ -115,8 +135,27 @@ def plot_chart(path: str, output_path: str, x: str, y: str, title: str = "") -> 
     return {"status": "ok", "path": output_path}
 
 
-def run_recipe_tool(tool_id: str, path: str, output_dir: str, params_json: str = "{}") -> dict[str, Any]:
-    """Invoke a promoted analysis recipe by tool_id (requires recipe registry wiring)."""
+def run_recipe_tool(
+    tool_id: str,
+    path: str,
+    output_dir: str,
+    params_json: str = "{}",
+    allowed_functions: list[str] | None = None,
+) -> dict[str, Any]:
+    """Invoke a promoted analysis recipe by tool_id (requires recipe registry wiring).
+
+    When ``allowed_functions`` is supplied (untrusted MCP surface), the function
+    capability is re-checked as defense-in-depth (``function:<tool_id>`` or
+    ``function:*``); the authoritative gate is the pipeline / Agent IV service.
+    """
+    if allowed_functions is not None:
+        denied = grant_denial(
+            allowed_functions,
+            f"function:{tool_id}",
+            f"function_not_granted:{tool_id}",
+        )
+        if denied is not None:
+            return {**denied, "tool_id": tool_id}
     try:
         from project_core.domain.analysis.recipe_runtime import get_registry
 

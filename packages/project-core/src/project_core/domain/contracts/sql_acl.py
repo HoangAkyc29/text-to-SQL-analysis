@@ -14,6 +14,7 @@ class SqlAclContext(BaseModel):
     denied_columns: list[str] = Field(default_factory=list)
     store_ids: list[int] | None = None
     store_filter_required: bool = False
+    tool_grants: list[str] = Field(default_factory=list)
     role: str = ""
 
     @classmethod
@@ -24,6 +25,7 @@ class SqlAclContext(BaseModel):
             denied_columns=list(permissions.denied_columns),
             store_ids=permissions.store_ids,
             store_filter_required=permissions.store_filter_required,
+            tool_grants=list(permissions.tool_grants),
             role=permissions.role,
         )
 
@@ -34,4 +36,5 @@ class SqlAclContext(BaseModel):
             "denied_columns": self.denied_columns,
             "store_ids": self.store_ids,
             "store_filter_required": self.store_filter_required,
+            "tool_grants": self.tool_grants,
         }

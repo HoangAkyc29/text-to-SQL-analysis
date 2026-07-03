@@ -17,7 +17,7 @@ from project_core.llm.embedding_client import EmbeddingClient  # noqa: E402
 
 
 def main() -> None:
-    uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017/supermarket_agent")
+    uri = os.getenv("MONGODB_URI", "mongodb://localhost:18217/supermarket_agent")
     client = MongoClient(uri)
     db = client.get_default_database()
     embedder = EmbeddingClient()

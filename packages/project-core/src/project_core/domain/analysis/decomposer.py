@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -10,6 +11,8 @@ from project_core.domain.contracts.analysis_plan import AnalysisPlan, AnalysisSu
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.llm.openrouter_client import OpenRouterClient
 from project_core.models.loader import agent_profile
+
+logger = logging.getLogger(__name__)
 
 
 _ASPECT_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -37,7 +40,7 @@ def decompose_brief(brief: AnalysisBrief, *, min_tokens_for_split: int = 12, use
         try:
             return decompose_brief_llm(brief)
         except Exception:
-            pass
+            logger.warning("LLM decompose failed; falling back to heuristic", exc_info=True)
     return decompose_brief_heuristic(brief, min_tokens_for_split=min_tokens_for_split)
 
 

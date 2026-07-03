@@ -46,8 +46,35 @@ def test_hq_analyst_allowed_select():
 def test_empty_allowed_tables_denied_by_default():
     from sql_gateway.tools_impl import execute_readonly, validate_sql
 
-    acl = SqlAclContext(actor_id="anon", allowed_tables=[])
+    # Grant the tools so the ACL passes the tool gate; the empty table allowlist
+    # must still deny data access via the PolicyEngine.
+    acl = SqlAclContext(actor_id="anon", allowed_tables=[], tool_grants=["tool:*"])
     sql = "SELECT TOP 5 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"
     assert validate_sql(sql, acl=acl)["allowed"] is False
     result = execute_readonly(sql, acl=acl)
     assert result.get("error") == "policy_blocked"
+
+
+def test_tool_gate_denies_when_no_grants():
+    from sql_gateway.tools_impl import validate_sql
+
+    acl = SqlAclContext(actor_id="anon", allowed_tables=["STRANS"])  # no tool_grants
+    result = validate_sql("SELECT TOP 1 SKU_ID FROM STRANS", acl=acl)
+    assert result.get("status") == "policy_blocked"
+    assert any("tool_not_granted" in v for v in result.get("violations", []))
+
+
+def test_execute_denied_without_execute_tool_grant():
+    from sql_gateway.tools_impl import execute_readonly
+
+    acl = SqlAclContext(
+        actor_id="u",
+        allowed_tables=["STRANS"],
+        tool_grants=["tool:sql-gateway:validate"],  # has validate, not execute
+    )
+    result = execute_readonly(
+        "SELECT TOP 5 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'",
+        acl=acl,
+    )
+    assert result.get("error") == "policy_blocked"
+    assert any("tool_not_granted" in v for v in result.get("violations", []))

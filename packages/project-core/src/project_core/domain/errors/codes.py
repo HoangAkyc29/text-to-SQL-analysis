@@ -38,3 +38,7 @@ class ContractInvalidError(ProjectError):
 
 class WorkflowStaleError(ProjectError):
     code = "WORKFLOW_STALE"
+
+
+class PermissionsUnavailableError(ProjectError):
+    code = "PERMISSIONS_UNAVAILABLE"

@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from project_core.domain.access.permission_set import (
+    AGENT_TOOLS,
+    capability_granted,
+    tool_capability_for,
+)
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.contracts.workflow import PermissionsSnapshot, WorkflowState
@@ -41,25 +46,23 @@ class ContextPolicy:
         return ctx
 
     def allowed_mcp_tools(self, agent: str) -> list[str]:
-        if agent == "II":
-            return ["validate_sql"]
-        if agent == "III":
-            return ["explain_sql", "get_schema_snapshot"]
-        if agent == "IV":
-            return [
-                "run_analysis_script",
-                "preview_dataframe",
-                "export_excel",
-                "plot_chart",
-                "load_dataset",
-                "merge_datasets",
-            ]
-        return []
+        return list(AGENT_TOOLS.get(agent, ()))
 
     def is_tool_allowed(self, agent: str, tool: str) -> bool:
         return tool in self.allowed_mcp_tools(agent)
 
-    def filter_schema_excerpt(self, agent: str, snapshot: PermissionsSnapshot, catalog_tables: dict[str, Any]) -> dict[str, Any]:
+    def can_invoke_tool(self, permissions: PermissionsSnapshot, agent: str, tool: str) -> bool:
+        if not self.is_tool_allowed(agent, tool):
+            return False
+        return capability_granted(permissions.tool_grants, tool_capability_for(tool))
+
+    def can_execute_sql(self, permissions: PermissionsSnapshot) -> bool:
+        return capability_granted(permissions.tool_grants, "tool:sql-gateway:execute")
+
+    def can_invoke_function(self, permissions: PermissionsSnapshot, function_id: str) -> bool:
+        return capability_granted(permissions.allowed_functions, f"function:{function_id}")
+
+    def filter_schema_excerpt(self, snapshot: PermissionsSnapshot, catalog_tables: dict[str, Any]) -> dict[str, Any]:
         allowed = {t.lower() for t in snapshot.allowed_tables}
         return {k: v for k, v in catalog_tables.items() if k.lower() in allowed}
 

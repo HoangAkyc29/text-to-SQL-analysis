@@ -8,6 +8,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from project_core.domain.access.user_claims import normalize_store_ids
 from project_core.domain.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -29,10 +30,11 @@ _validate_jwt_secret_at_startup()
 
 
 def issue_token(actor_id: str, role: str, store_ids: list[int] | None = None) -> str:
+    normalized_stores = normalize_store_ids(store_ids)
     payload = {
         "sub": actor_id,
         "role": role,
-        "store_ids": store_ids,
+        "store_ids": normalized_stores,
         "exp": utc_now() + timedelta(hours=8),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
@@ -52,4 +54,6 @@ async def current_user(
         if os.getenv("ALLOW_DEV_AUTH") == "1":
             return {"sub": "dev-user", "role": "hq_analyst", "store_ids": None}
         raise HTTPException(status_code=401, detail="missing_token")
-    return decode_token(credentials.credentials)
+    claims = decode_token(credentials.credentials)
+    claims["store_ids"] = normalize_store_ids(claims.get("store_ids"))
+    return claims

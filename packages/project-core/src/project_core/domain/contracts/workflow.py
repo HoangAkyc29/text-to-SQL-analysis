@@ -66,6 +66,7 @@ class PermissionsSnapshot(BaseModel):
     store_ids: list[int] | None = None
     store_filter_required: bool = False
     tool_grants: list[str] = Field(default_factory=list)
+    allowed_functions: list[str] = Field(default_factory=list)
     captured_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -1,0 +1,76 @@
+# Production hardening overlay. Apply on top of the base compose:
+#   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+#
+# What it changes:
+# - Only chat-gateway is reachable, bound to 127.0.0.1 for a TLS reverse proxy
+#   (nginx/traefik/caddy) to sit in front. Internal services publish no host port.
+# - Redis/Mongo publish no host port and get healthchecks.
+# - Readiness gating via healthchecks + depends_on conditions.
+#
+# Still your responsibility (infra-specific, not encodable here):
+# - TLS termination + public DNS in front of chat-gateway.
+# - Redis/Mongo credentials: set REDIS_URL / MONGODB_URI with user:pass and
+#   configure the engines (e.g. redis `--requirepass`, mongo auth) via a secrets
+#   manager; do not commit secrets.
+
+services:
+  redis:
+    ports: []
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  mongodb:
+    ports: []
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sql-gateway:
+    ports: []
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18101/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
+  conversational-router:
+    ports: []
+
+  sql-planner:
+    ports: []
+
+  risk-reviewer:
+    ports: []
+
+  data-analyst:
+    ports: []
+
+  chat-gateway:
+    # Only local proxy reaches it; expose publicly via a TLS reverse proxy.
+    ports:
+      - "127.0.0.1:18300:18300"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      sql-gateway:
+        condition: service_healthy
+      conversational-router:
+        condition: service_started
+      sql-planner:
+        condition: service_started
+      risk-reviewer:
+        condition: service_started
+      data-analyst:
+        condition: service_started

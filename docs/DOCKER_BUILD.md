@@ -23,14 +23,18 @@ Image prefix: **`abstract-base/`**
 
 # Templates + bases
 .\scripts\docker-build.ps1 all
+docker compose pull redis mongodb
 docker compose up -d
 docker compose --profile runner up -d base-runner
 ```
+
+Supermarket: Redis/Mongo dùng image upstream (`docker compose pull`); app images build local. Ports: [`docs/PORTS.md`](PORTS.md).
 
 ## `--only-group` vs `--package`
 
 - **Bases** dùng `uv sync --only-group docker-*` — chỉ deps trong group, không leak root `[project]` deps
 - **Services** dùng `uv sync --package <name>` — thêm workspace wheel của service
+- **sql-gateway** image cài Microsoft ODBC Driver 18 (`msodbcsql18`) cho pyodbc → SQL Server
 - Service Dockerfiles set `ENV UV_NO_SYNC=1` để `uv run` không re-sync lúc start
 
 ## Thêm image mới

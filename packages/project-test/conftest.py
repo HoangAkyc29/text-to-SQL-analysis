@@ -23,6 +23,12 @@ sys.path.insert(0, str(ROOT / "mcp-servers" / "python-sandbox" / "src"))
 
 os.environ.setdefault("ALLOW_LLM_STUB", "1")
 os.environ.setdefault("ALLOW_DEV_AUTH", "1")
+os.environ.setdefault("REQUIRE_INTERNAL_AUTH", "0")
+os.environ.setdefault("REQUIRE_PROD_AUTH", "0")
+os.environ.setdefault(
+    "MONGODB_URI",
+    "mongodb://127.0.0.1:65530/supermarket_agent?serverSelectionTimeoutMS=200",
+)
 
 
 @pytest.fixture

@@ -7,19 +7,26 @@ import json
 import pytest
 
 from data_analyst.service import DataAnalystService
+from project_core.domain.access.acl import build_permissions_snapshot
 
 pytestmark = pytest.mark.unit
+
+_PERMS = build_permissions_snapshot("user-1", "hq_analyst").model_dump(mode="json")
 
 
 def _svc() -> DataAnalystService:
     return object.__new__(DataAnalystService)
 
 
+def _goal(payload: dict) -> str:
+    return json.dumps({**payload, "permissions": _PERMS})
+
+
 def test_IV_complete_with_rows(decision_ctx, sample_parquet, tmp_path):
     out = tmp_path / "out"
     out.mkdir()
     ctx = decision_ctx(
-        goal=json.dumps(
+        goal=_goal(
             {
                 "dataset_manifest": {"queries": [{"path": str(sample_parquet), "row_count": 2}]},
                 "result_profile": {"row_count": 50},
@@ -35,7 +42,7 @@ def test_IV_complete_with_rows(decision_ctx, sample_parquet, tmp_path):
 
 def test_IV_data_feedback_when_empty(decision_ctx):
     ctx = decision_ctx(
-        goal=json.dumps({"dataset_manifest": {"queries": []}, "result_profile": {"row_count": 0}})
+        goal=_goal({"dataset_manifest": {"queries": []}, "result_profile": {"row_count": 0}})
     )
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["action"] == "data_feedback"
@@ -47,7 +54,7 @@ def test_IV_artifact_paths_map_raw_to_out(decision_ctx, sample_parquet, tmp_path
     out = tmp_path / "artifacts" / "t" / "out"
     out.mkdir(parents=True)
     ctx = decision_ctx(
-        goal=json.dumps(
+        goal=_goal(
             {
                 "dataset_manifest": {"queries": [{"path": str(sample_parquet), "row_count": 3}]},
                 "result_profile": {"row_count": 3},
@@ -59,3 +66,12 @@ def test_IV_artifact_paths_map_raw_to_out(decision_ctx, sample_parquet, tmp_path
     assert payload["action"] in {"complete", "partial"}
     assert payload.get("artifact_paths")
     assert "coverage" in payload
+
+
+def test_IV_denied_without_permissions(decision_ctx):
+    ctx = decision_ctx(
+        goal=json.dumps({"dataset_manifest": {"queries": []}, "result_profile": {"row_count": 0}})
+    )
+    payload = json.loads(_svc().decide(ctx).content)
+    assert payload["action"] == "data_feedback"
+    assert payload["impossible_reason"] == "tool_not_granted:python-sandbox:run_analysis_script"

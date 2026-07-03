@@ -8,6 +8,7 @@ from typing import Any
 
 import pyodbc
 
+from project_core.domain.access.permission_set import grant_denial
 from project_core.domain.contracts.sql_acl import SqlAclContext
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.sql.policy_engine import PolicyEngine
@@ -40,6 +41,7 @@ def _acl_from_kwargs(
     denied_columns: list[str] | None = None,
     store_ids: list[int] | None = None,
     store_filter_required: bool = False,
+    tool_grants: list[str] | None = None,
     acl: SqlAclContext | None = None,
 ) -> SqlAclContext:
     if acl is not None:
@@ -50,6 +52,21 @@ def _acl_from_kwargs(
         denied_columns=list(denied_columns or []),
         store_ids=store_ids,
         store_filter_required=store_filter_required,
+        tool_grants=list(tool_grants or []),
+    )
+
+
+def _tool_denied(ctx: SqlAclContext, action: str) -> dict[str, Any] | None:
+    """Default-deny tool-grant gate.
+
+    Every real caller (chat-gateway ``HttpSqlGatewayClient`` over HTTP or
+    in-process) forwards ``tool_grants`` via ``SqlAclContext.to_gateway_args``,
+    so an empty grant set means the caller is unauthorized and is denied.
+    """
+    return grant_denial(
+        ctx.tool_grants,
+        f"tool:sql-gateway:{action}",
+        f"tool_not_granted:sql-gateway:{action}",
     )
 
 
@@ -89,17 +106,22 @@ def validate_sql(
     denied_columns: list[str] | None = None,
     store_ids: list[int] | None = None,
     store_filter_required: bool = False,
+    tool_grants: list[str] | None = None,
     acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
-    """Run PolicyEngine validation for a SQL statement."""
+    """Run PolicyEngine validation for a SQL statement (dry check)."""
     ctx = _acl_from_kwargs(
         actor_id,
         allowed_tables=allowed_tables,
         denied_columns=denied_columns,
         store_ids=store_ids,
         store_filter_required=store_filter_required,
+        tool_grants=tool_grants,
         acl=acl,
     )
+    denied = _tool_denied(ctx, "validate")
+    if denied is not None:
+        return denied
     verdict = _policy(ctx).validate(sql)
     return {
         "allowed": verdict.allowed,
@@ -117,6 +139,7 @@ def explain_sql(
     denied_columns: list[str] | None = None,
     store_ids: list[int] | None = None,
     store_filter_required: bool = False,
+    tool_grants: list[str] | None = None,
     acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
     """Return SHOWPLAN-style explanation after policy validation."""
@@ -126,8 +149,12 @@ def explain_sql(
         denied_columns=denied_columns,
         store_ids=store_ids,
         store_filter_required=store_filter_required,
+        tool_grants=tool_grants,
         acl=acl,
     )
+    denied = _tool_denied(ctx, "explain")
+    if denied is not None:
+        return denied
     _rate_limit(ctx.actor_id)
     verdict = _policy(ctx).validate(sql)
     if not verdict.allowed:
@@ -153,6 +180,7 @@ def execute_readonly(
     denied_columns: list[str] | None = None,
     store_ids: list[int] | None = None,
     store_filter_required: bool = False,
+    tool_grants: list[str] | None = None,
     acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
     """Execute validated readonly SQL and return rows as dicts."""
@@ -162,8 +190,12 @@ def execute_readonly(
         denied_columns=denied_columns,
         store_ids=store_ids,
         store_filter_required=store_filter_required,
+        tool_grants=tool_grants,
         acl=acl,
     )
+    denied = _tool_denied(ctx, "execute")
+    if denied is not None:
+        return denied
     _rate_limit(ctx.actor_id)
     db = _resolve_target_db(target_db)
     verdict = _policy(ctx).validate(sql)
@@ -185,6 +217,7 @@ def get_schema_snapshot(
     denied_columns: list[str] | None = None,
     store_ids: list[int] | None = None,
     store_filter_required: bool = False,
+    tool_grants: list[str] | None = None,
     acl: SqlAclContext | None = None,
 ) -> dict[str, Any]:
     """Return schema metadata from data_dictionary for agents."""
@@ -194,8 +227,12 @@ def get_schema_snapshot(
         denied_columns=denied_columns,
         store_ids=store_ids,
         store_filter_required=store_filter_required,
+        tool_grants=tool_grants,
         acl=acl,
     )
+    denied = _tool_denied(ctx, "explain")
+    if denied is not None:
+        return denied
     role = list(ctx.allowed_tables)
     bundle = _catalog.agent_schema_bundle(role) if role else {"tables": [], "domain_definitions_excerpt": ""}
     return {

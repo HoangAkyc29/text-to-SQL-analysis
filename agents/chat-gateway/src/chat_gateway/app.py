@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from project_core.config.env import load_project_env
 from project_core.domain.contracts.clarification import ClarificationReply
 from project_core.domain.contracts.feedback import FeedbackRecord
+from project_core.domain.errors.codes import PermissionsUnavailableError
 from project_core.ingest.attachments import ingest_file
 
 from chat_gateway.auth import current_user, issue_token
@@ -19,6 +20,16 @@ from chat_gateway.orchestrator import ChatOrchestrator
 load_project_env()
 
 app = FastAPI(title="chat-gateway")
+
+
+@app.exception_handler(PermissionsUnavailableError)
+async def _permissions_unavailable_handler(
+    _request: Request, exc: PermissionsUnavailableError
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "permissions_unavailable", "code": exc.code},
+    )
 _orchestrator: ChatOrchestrator | None = None
 
 
@@ -57,6 +68,11 @@ class DevLoginRequest(BaseModel):
     role: str = "hq_analyst"
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "redis": True, "mongo": get_orchestrator().feedback is not None, "agents": {}}
@@ -93,7 +109,23 @@ def dev_login(body: DevLoginRequest) -> dict[str, str]:
     if os.getenv("ALLOW_DEV_AUTH") != "1":
         raise HTTPException(status_code=403, detail="dev_auth_disabled")
     token = issue_token(body.actor_id, body.role)
-    return {"access_token": token}
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.post("/auth/login")
+def login(body: LoginRequest) -> dict[str, str]:
+    from chat_gateway.auth_store import authenticate
+
+    user = authenticate(body.username, body.password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="invalid_credentials")
+    token = issue_token(user.user_id, user.role, user.store_ids)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user.role,
+        "display_name": user.display_name,
+    }
 
 
 @app.get("/auth/login")
@@ -199,7 +231,7 @@ def get_artifact(
 def main() -> None:
     import uvicorn
 
-    uvicorn.run("chat_gateway.app:app", host="0.0.0.0", port=int(os.getenv("CHAT_GATEWAY_PORT", "8300")))
+    uvicorn.run("chat_gateway.app:app", host="0.0.0.0", port=int(os.getenv("CHAT_GATEWAY_PORT", "18300")))
 
 
 if __name__ == "__main__":

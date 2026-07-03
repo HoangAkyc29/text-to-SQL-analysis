@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved, ProbeRequest
 from project_core.domain.feedback.analysis_tool_registry import apply_params_to_script
+
+logger = logging.getLogger(__name__)
 
 
 def _sandbox():
@@ -72,7 +75,7 @@ def analyze_datasets(
                 paths = [merged_out] + paths
                 meta = [{"role": "merged", "join_key": merge_result.get("join_key")}] + meta
         except Exception:
-            pass
+            logger.warning("merge_datasets failed; continuing without merged upload", exc_info=True)
 
     exec_steps, coverage = _resolve_execution(
         plan=plan,
@@ -118,6 +121,7 @@ def analyze_datasets(
             if step.status == "generated":
                 new_steps.append(step)
         except Exception:
+            logger.warning("analysis step %s failed", step.step_id, exc_info=True)
             coverage.gaps.append(f"step_failed:{step.step_id}")
 
     if "chart" in (brief.output_format or []) and paths and steps_run < max_steps:
@@ -131,7 +135,7 @@ def analyze_datasets(
                     artifacts.append(chart_path)
                     steps_run += 1
                 except Exception:
-                    pass
+                    logger.warning("plot_chart failed for %s", primary, exc_info=True)
 
     if brief.exploration_mode and main_rows > 0 and steps_run < max_steps:
         clarify = _exploration_clarify(brief, paths, row_counts)
@@ -241,6 +245,7 @@ def _column_names(path: str) -> list[str]:
         df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
         return list(df.columns.astype(str))
     except Exception:
+        logger.warning("could not read columns from %s", path, exc_info=True)
         return []
 
 

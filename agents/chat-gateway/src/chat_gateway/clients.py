@@ -26,10 +26,10 @@ class HttpAgentInvoker(AgentInvoker):
         analysis_id: str | None = None,
     ) -> None:
         self.urls = {
-            "I": os.getenv("AGENT_I_URL", "http://localhost:8201"),
-            "II": os.getenv("AGENT_II_URL", "http://localhost:8202"),
-            "III": os.getenv("AGENT_III_URL", "http://localhost:8203"),
-            "IV": os.getenv("AGENT_IV_URL", "http://localhost:8204"),
+            "I": os.getenv("AGENT_I_URL", "http://localhost:18201"),
+            "II": os.getenv("AGENT_II_URL", "http://localhost:18202"),
+            "III": os.getenv("AGENT_III_URL", "http://localhost:18203"),
+            "IV": os.getenv("AGENT_IV_URL", "http://localhost:18204"),
         }
         self._client = client
         self._owns_client = client is None
@@ -97,7 +97,7 @@ class HttpSqlGatewayClient(SqlGatewayClient):
         circuit: CircuitBreaker | None = None,
         trace_id: str | None = None,
     ) -> None:
-        self.base = os.getenv("SQL_GATEWAY_URL", "http://localhost:8101")
+        self.base = os.getenv("SQL_GATEWAY_URL", "http://localhost:18101")
         self._client = client
         self._owns_client = client is None
         self._circuit = circuit or CircuitBreaker()

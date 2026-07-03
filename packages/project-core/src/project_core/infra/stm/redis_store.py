@@ -17,7 +17,7 @@ from project_core.domain.memory.session_bundle import SessionBundle, TranscriptT
 class RedisSessionStore:
     def __init__(self, url: str | None = None, *, ttl_days: int | None = None) -> None:
         cfg = load_project_config()
-        self.url = url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        self.url = url or os.getenv("REDIS_URL", "redis://localhost:18379/0")
         self.ttl_seconds = int((ttl_days or cfg.stm.session_ttl_days) * 86400)
         self.client = redis.from_url(self.url, decode_responses=True)
 

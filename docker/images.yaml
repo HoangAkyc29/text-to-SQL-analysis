@@ -38,29 +38,29 @@ services:
     base: mcp
     package: sql-gateway
     dockerfile: mcp-servers/sql-gateway/Dockerfile
-    port: 8101
+    port: 18101
   conversational-router:
     base: agent
     package: conversational-router
     dockerfile: agents/conversational-router/Dockerfile
-    port: 8201
+    port: 18201
   sql-planner:
     base: agent
     package: sql-planner
     dockerfile: agents/sql-planner/Dockerfile
-    port: 8202
+    port: 18202
   risk-reviewer:
     base: agent
     package: risk-reviewer
     dockerfile: agents/risk-reviewer/Dockerfile
-    port: 8203
+    port: 18203
   data-analyst:
     base: agent
     package: data-analyst
     dockerfile: agents/data-analyst/Dockerfile
-    port: 8204
+    port: 18204
   chat-gateway:
     base: agent
     package: chat-gateway
     dockerfile: agents/chat-gateway/Dockerfile
-    port: 8300
+    port: 18300

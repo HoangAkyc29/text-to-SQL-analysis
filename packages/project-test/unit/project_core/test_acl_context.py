@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from project_core.domain.access.acl import build_permissions_snapshot, can_access_table
+from project_core.domain.access.acl import build_permissions_snapshot
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.memory.session_bundle import SessionBundle
 
