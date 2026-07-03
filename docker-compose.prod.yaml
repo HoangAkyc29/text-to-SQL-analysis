@@ -1,29 +1,34 @@
 # Production hardening overlay. Apply on top of the base compose:
 #   docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
 #
-# What it changes:
-# - Only chat-gateway is reachable, bound to 127.0.0.1 for a TLS reverse proxy
-#   (nginx/traefik/caddy) to sit in front. Internal services publish no host port.
-# - Redis/Mongo publish no host port and get healthchecks.
+# What it changes vs. base:
+# - Redis requires a password (--requirepass); Mongo runs with root auth.
+#   chat-gateway / sql-planner get credentialed connection URLs.
+# - A Caddy reverse proxy terminates TLS and is the ONLY service published to the
+#   host (80/443). No app/infra container exposes a host port.
 # - Readiness gating via healthchecks + depends_on conditions.
 #
-# Still your responsibility (infra-specific, not encodable here):
-# - TLS termination + public DNS in front of chat-gateway.
-# - Redis/Mongo credentials: set REDIS_URL / MONGODB_URI with user:pass and
-#   configure the engines (e.g. redis `--requirepass`, mongo auth) via a secrets
-#   manager; do not commit secrets.
+# Required .env values (see .env): REDIS_PASSWORD, MONGO_ROOT_USER,
+# MONGO_ROOT_PASSWORD, PUBLIC_DOMAIN, TLS_EMAIL.
+#
+# Still your responsibility (infra-specific): public DNS record pointing at this
+# host, and a secrets manager instead of a plaintext .env for real deployments.
 
 services:
   redis:
     ports: []
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
 
   mongodb:
     ports: []
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
@@ -48,6 +53,12 @@ services:
 
   sql-planner:
     ports: []
+    environment:
+      - AGENT_HTTP_PORT=18202
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   risk-reviewer:
     ports: []
@@ -56,9 +67,17 @@ services:
     ports: []
 
   chat-gateway:
-    # Only local proxy reaches it; expose publicly via a TLS reverse proxy.
-    ports:
-      - "127.0.0.1:18300:18300"
+    # Fronted by Caddy over the internal network; no host port.
+    ports: []
+    environment:
+      - CHAT_GATEWAY_PORT=18300
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
+      - SQL_GATEWAY_URL=http://sql-gateway:18101
+      - AGENT_I_URL=http://conversational-router:18201
+      - AGENT_II_URL=http://sql-planner:18202
+      - AGENT_III_URL=http://risk-reviewer:18203
+      - AGENT_IV_URL=http://data-analyst:18204
     depends_on:
       redis:
         condition: service_healthy
@@ -74,3 +93,24 @@ services:
         condition: service_started
       data-analyst:
         condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - PUBLIC_DOMAIN=${PUBLIC_DOMAIN}
+      - TLS_EMAIL=${TLS_EMAIL}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      chat-gateway:
+        condition: service_started
+
+volumes:
+  caddy-data:
+  caddy-config:

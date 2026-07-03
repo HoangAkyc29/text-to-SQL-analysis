@@ -87,7 +87,10 @@ services:
     restart: unless-stopped
     environment:
       - AGENT_HTTP_PORT=18202
+      # Schema-doc hybrid retriever connects to Mongo; use the internal service DNS.
+      - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
     ports: ["18202:18202"]
+    depends_on: [mongodb]
 
   risk-reviewer:
     build:
