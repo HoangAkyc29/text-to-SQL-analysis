@@ -26,6 +26,40 @@ def _artifacts_root() -> Path:
     return root
 
 
+def _attachments_root() -> Path:
+    return Path(os.getenv("ATTACHMENTS_DIR", "data/attachments")).resolve()
+
+
+def _guard_input_path(path: str) -> tuple[Path | None, str | None]:
+    p = Path(path).resolve()
+    if not p.exists() or not p.is_file():
+        return None, "file_not_found"
+    for root in (_artifacts_root(), _attachments_root()):
+        try:
+            p.relative_to(root)
+            return p, None
+        except ValueError:
+            continue
+    return None, "path_not_allowed"
+
+
+def _minimal_child_env() -> dict[str, str]:
+    keep = {
+        "PATH",
+        "MPLBACKEND",
+        "SYSTEMROOT",
+        "SystemRoot",
+        "SANDBOX_MAX_ROWS",
+        "ARTIFACTS_DIR",
+        "ATTACHMENTS_DIR",
+    }
+    env = {k: v for k, v in os.environ.items() if k in keep}
+    env["MPLBACKEND"] = "Agg"
+    env["SANDBOX_MAX_ROWS"] = str(_MAX_ROWS)
+    env.setdefault("ARTIFACTS_DIR", str(_artifacts_root()))
+    return env
+
+
 def _guard_output_dir(output_dir: str) -> Path:
     out = Path(output_dir).resolve()
     root = _artifacts_root()
@@ -39,9 +73,9 @@ def _guard_output_dir(output_dir: str) -> Path:
 
 def load_dataset(path: str) -> dict[str, Any]:
     """Load parquet/csv dataset from artifact path."""
-    p = Path(path)
-    if not p.exists():
-        return {"error": "file_not_found", "path": path}
+    p, err = _guard_input_path(path)
+    if err:
+        return {"error": err, "path": path}
     if p.suffix == ".parquet":
         df = pd.read_parquet(p)
     else:
@@ -84,11 +118,10 @@ def run_analysis_script(
         out = _guard_output_dir(output_dir)
     except ValueError as exc:
         return {"error": str(exc)}
-    dataset = Path(path).resolve()
-    if not dataset.exists():
-        return {"error": "file_not_found", "path": path}
-    child_env = os.environ.copy()
-    child_env["MPLBACKEND"] = "Agg"
+    dataset, err = _guard_input_path(path)
+    if err:
+        return {"error": err, "path": path}
+    child_env = _minimal_child_env()
     proc = subprocess.run(
         [sys.executable, str(_RUNNER), str(dataset), str(out)],
         input=script,
@@ -114,25 +147,68 @@ def run_analysis_script(
 
 def export_excel(path: str, output_path: str) -> dict[str, Any]:
     """Export dataset to Excel."""
+    src, err = _guard_input_path(path)
+    if err:
+        return {"error": err, "path": path}
+    out_p = Path(output_path).resolve()
+    try:
+        out_p.relative_to(_artifacts_root())
+    except ValueError:
+        return {"error": "output_path_must_be_under_artifacts_root", "path": output_path}
+    out_p.parent.mkdir(parents=True, exist_ok=True)
     loaded = load_dataset(path)
     if "error" in loaded:
         return loaded
-    df = pd.read_parquet(path) if Path(path).suffix == ".parquet" else pd.read_csv(path)
-    df.to_excel(output_path, index=False)
-    return {"status": "ok", "path": output_path}
+    df = pd.read_parquet(src) if src.suffix == ".parquet" else pd.read_csv(src)
+    if len(df) > _MAX_ROWS:
+        df = df.head(_MAX_ROWS)
+    df.to_excel(out_p, index=False)
+    return {"status": "ok", "path": str(out_p)}
 
 
-def plot_chart(path: str, output_path: str, x: str, y: str, title: str = "") -> dict[str, Any]:
-    """Create simple line/bar chart from dataset columns."""
-    df = pd.read_parquet(path) if Path(path).suffix == ".parquet" else pd.read_csv(path)
+def plot_chart(
+    path: str,
+    output_path: str,
+    x: str,
+    y: str,
+    title: str = "",
+    kind: str = "line",
+) -> dict[str, Any]:
+    """Create a line/bar/pie chart from dataset columns.
+
+    ``kind`` selects the chart type (``line`` default, ``bar``, ``pie``). Falls
+    back to a line chart for unknown kinds.
+    """
+    src, err = _guard_input_path(path)
+    if err:
+        return {"error": err, "path": path}
+    out_p = Path(output_path).resolve()
+    try:
+        out_p.relative_to(_artifacts_root())
+    except ValueError:
+        return {"error": "output_path_must_be_under_artifacts_root", "path": output_path}
+    out_p.parent.mkdir(parents=True, exist_ok=True)
+    df = pd.read_parquet(src) if src.suffix == ".parquet" else pd.read_csv(src)
+    if len(df) > _MAX_ROWS:
+        df = df.head(_MAX_ROWS)
+    if x not in df.columns or y not in df.columns:
+        return {"error": "column_not_found", "x": x, "y": y}
+    kind = (kind or "line").lower()
     plt.figure(figsize=(10, 6))
-    plt.plot(df[x], df[y])
-    if title:
-        plt.title(title)
-    plt.tight_layout()
-    plt.savefig(output_path)
-    plt.close()
-    return {"status": "ok", "path": output_path}
+    try:
+        if kind == "bar":
+            plt.bar(df[x].astype(str), df[y])
+        elif kind == "pie":
+            plt.pie(df[y], labels=df[x].astype(str), autopct="%1.1f%%")
+        else:
+            plt.plot(df[x], df[y])
+        if title:
+            plt.title(title)
+        plt.tight_layout()
+        plt.savefig(out_p)
+    finally:
+        plt.close()
+    return {"status": "ok", "path": str(out_p), "kind": kind}
 
 
 def run_recipe_tool(
@@ -170,16 +246,29 @@ def run_recipe_tool(
 
 def merge_datasets(primary_path: str, secondary_path: str, output_path: str, on: str = "") -> dict[str, Any]:
     """Join SQL dataset with external upload (parquet/csv) on shared key when possible."""
-    left = pd.read_parquet(primary_path) if Path(primary_path).suffix == ".parquet" else pd.read_csv(primary_path)
-    right = (
-        pd.read_parquet(secondary_path) if Path(secondary_path).suffix == ".parquet" else pd.read_csv(secondary_path)
-    )
+    left_p, err = _guard_input_path(primary_path)
+    if err:
+        return {"error": err, "path": primary_path}
+    right_p, err2 = _guard_input_path(secondary_path)
+    if err2:
+        return {"error": err2, "path": secondary_path}
+    out_p = Path(output_path).resolve()
+    try:
+        out_p.relative_to(_artifacts_root())
+    except ValueError:
+        return {"error": "output_path_must_be_under_artifacts_root", "path": output_path}
+    left = pd.read_parquet(left_p) if left_p.suffix == ".parquet" else pd.read_csv(left_p)
+    right = pd.read_parquet(right_p) if right_p.suffix == ".parquet" else pd.read_csv(right_p)
+    if len(left) > _MAX_ROWS:
+        left = left.head(_MAX_ROWS)
+    if len(right) > _MAX_ROWS:
+        right = right.head(_MAX_ROWS)
     join_key = on or _guess_join_key(left.columns, right.columns)
     if join_key:
         merged = left.merge(right, on=join_key, how="left", suffixes=("", "_ext"))
     else:
         merged = pd.concat([left, right], axis=1)
-    out = Path(output_path)
+    out = out_p
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.suffix == ".parquet":
         merged.to_parquet(out, index=False)

@@ -108,7 +108,7 @@ def _path_for_subtask(
 def _generated_step_for_subtask(subtask: AnalysisSubtask, params: dict | None = None) -> RecipeStep:
     params = params or {}
     group_cols = subtask.dimensions or [params.get("group_by") or "month"]
-    group_expr = ", ".join(f"'{c}'" for c in group_cols if c)
+    group_expr = ", ".join(json.dumps(c) for c in group_cols if c)
     metric = params.get("metric", "AMOUNT")
     card_prefix = params.get("card_prefix")
     filter_line = ""

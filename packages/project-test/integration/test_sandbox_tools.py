@@ -25,7 +25,7 @@ def test_sandbox_preview_dataframe(sample_parquet):
 def test_sandbox_export_excel(sample_parquet, tmp_path):
     from python_sandbox.tools_impl import export_excel
 
-    out = tmp_path / "out.xlsx"
+    out = sample_parquet.parent.parent / "out" / "out.xlsx"
     result = export_excel(str(sample_parquet), str(out))
     assert result["status"] == "ok"
     assert out.exists()
@@ -34,7 +34,7 @@ def test_sandbox_export_excel(sample_parquet, tmp_path):
 def test_sandbox_plot_chart(sample_parquet, tmp_path):
     from python_sandbox.tools_impl import plot_chart
 
-    out = tmp_path / "chart.png"
+    out = sample_parquet.parent.parent / "out" / "chart.png"
     result = plot_chart(str(sample_parquet), str(out), x="month", y="amount", title="t")
     assert result["status"] == "ok"
     assert out.exists()
@@ -43,7 +43,7 @@ def test_sandbox_plot_chart(sample_parquet, tmp_path):
 def test_sandbox_run_analysis_script(sample_parquet, tmp_path, monkeypatch):
     from python_sandbox.tools_impl import run_analysis_script
 
-    artifacts_root = tmp_path / "artifacts"
+    artifacts_root = sample_parquet.parent.parent
     monkeypatch.setenv("ARTIFACTS_DIR", str(artifacts_root))
     out_dir = artifacts_root / "trace" / "out"
     script = "df=pd.read_parquet(path); (out / 'summary.txt').write_text(str(len(df)))"

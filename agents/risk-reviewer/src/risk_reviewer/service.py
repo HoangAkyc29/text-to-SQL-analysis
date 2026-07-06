@@ -28,6 +28,9 @@ class RiskReviewerService(SupermarketAgentService):
             payload_in.get("store_filter_required", meta.get("store_filter_required", False))
         )
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
+        explain_plan = payload_in.get("explain_plan") or meta.get("explain_plan")
+        risk_feedback = payload_in.get("risk_feedback") or meta.get("risk_feedback")
+        risk_attempt = int(payload_in.get("risk_attempt") or meta.get("risk_attempt") or 1)
 
         permissions = self.resolve_permissions(payload_in, meta)
         cp = self.context_policy
@@ -104,6 +107,9 @@ class RiskReviewerService(SupermarketAgentService):
                             "store_filter_required": store_filter_required,
                             "schema_context": schema_context,
                             "policy_result": {"allowed": verdict.allowed, "violations": verdict.violations},
+                            "explain_plan": explain_plan,
+                            "risk_feedback": risk_feedback,
+                            "risk_attempt": risk_attempt,
                         },
                         ensure_ascii=False,
                     ),

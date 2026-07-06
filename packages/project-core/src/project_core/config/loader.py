@@ -18,6 +18,7 @@ class PipelineConfig(BaseModel):
     max_clarify_rounds: int = 3
     max_sync_seconds: int = 120
     iv_max_steps: int = 8
+    iv_llm_enabled: bool = True
     poll_enabled: bool = True
     workflow_stale_ttl_seconds: int = 900
     workflow_steps_max: int = 200

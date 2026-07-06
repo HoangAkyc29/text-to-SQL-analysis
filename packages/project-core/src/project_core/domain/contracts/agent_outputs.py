@@ -22,8 +22,17 @@ class RiskReviewResponse(BaseModel):
     concerns: list[str] = Field(default_factory=list)
 
 
+AnalystAction = Literal[
+    "complete",
+    "partial",
+    "data_feedback",
+    "suggest_clarify",
+    "impossible",
+]
+
+
 class AnalystResponse(BaseModel):
-    action: str
+    action: AnalystAction
     data_feedback: dict[str, Any] | None = None
     artifact_paths: list[str] = Field(default_factory=list)
     headline_metrics: dict[str, Any] = Field(default_factory=dict)
@@ -37,3 +46,8 @@ class AnalystResponse(BaseModel):
     caveats: list[str] = Field(default_factory=list)
     new_steps: list[dict[str, Any]] = Field(default_factory=list)
     analysis_script: str | None = None
+    # LLM reasoning-loop extensions (Agent IV as analysis brain)
+    insight_vi: str | None = None
+    chart_artifacts: list[str] = Field(default_factory=list)
+    excel_artifacts: list[str] = Field(default_factory=list)
+    steps_trace: list[dict[str, Any]] = Field(default_factory=list)

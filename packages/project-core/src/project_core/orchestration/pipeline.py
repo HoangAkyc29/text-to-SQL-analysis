@@ -42,6 +42,8 @@ from project_core.domain.budget import AgentInvoker, SqlGatewayClient, Supermark
 from project_core.domain.sql.policy_engine import PolicyEngine
 from project_core.domain.sql.shard_resolver import suggest_query_plan
 from project_core.domain.schema.catalog import SchemaCatalog
+from project_core.domain.workflow.steps import has_step_type
+from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
 
 
 class SupermarketAnalysisPipeline:
@@ -75,6 +77,7 @@ class SupermarketAnalysisPipeline:
         trace_budget: TraceBudget | None = None,
         on_progress: Callable[[WorkflowState], None] | None = None,
         deadline: float | None = None,
+        cancel_token: CancellationToken | None = None,
     ) -> PipelineResult:
         trace_id = str(uuid4())
         analysis_id = workflow.active_analysis_id or trace_id
@@ -109,7 +112,11 @@ class SupermarketAnalysisPipeline:
         if self.domain_rule_store is not None:
             domain_excerpt = self.domain_rule_store.excerpt_for_agents()
 
-        if brief.plan is None:
+        iv_llm_enabled = bool(getattr(self.cfg.pipeline, "iv_llm_enabled", False))
+        # When Agent IV is the LLM analysis brain it decomposes/plans its own
+        # steps, so the pipeline no longer pre-decomposes. The deterministic
+        # brain still needs brief.plan, so decompose only in fallback mode.
+        if brief.plan is None and not iv_llm_enabled:
             brief.plan = decompose_brief(brief)
 
         promoted_tools: list[dict[str, Any]] = []
@@ -117,6 +124,14 @@ class SupermarketAnalysisPipeline:
             promoted_tools = self.analysis_tool_registry.find_promoted()
 
         for sql_attempt in range(1, self.cfg.pipeline.max_sql_retries + 1):
+            if cancel_token and cancel_token.cancelled:
+                mark_cancelled(workflow)
+                return self._finish(
+                    trace_id,
+                    workflow,
+                    AnalysisOutcome.CANCELLED,
+                    TechnicalSummary(outcome=AnalysisOutcome.CANCELLED.value, caveats=["user_cancelled"]),
+                )
             if self._deadline_exceeded(sync_deadline):
                 return self._finish(
                     trace_id,
@@ -161,6 +176,7 @@ class SupermarketAnalysisPipeline:
                 },
                 {"mode": "plan_sql"},
             )
+            budget.add_tokens(int(ii_result.get("usage_tokens", 0) or 0))
             try:
                 ii_parsed = parse_agent_response("II", ii_result)
             except ContractInvalidError as exc:
@@ -271,10 +287,12 @@ class SupermarketAnalysisPipeline:
                             "store_ids": permissions.store_ids,
                             "store_filter_required": permissions.store_filter_required,
                             "explain_plan": inbox.get("explain_plan"),
+                            "risk_feedback": inbox.get("risk_feedback"),
                             "permissions": permissions.model_dump(mode="json"),
                         },
                         {"mode": "review"},
                     )
+                    budget.add_tokens(int(iii_raw.get("usage_tokens", 0) or 0))
                     try:
                         iii_parsed = parse_agent_response("III", iii_raw)
                     except ContractInvalidError as exc:
@@ -446,25 +464,36 @@ class SupermarketAnalysisPipeline:
                 # function) and are gated by the sandbox tool grant instead.
                 return not tool_id or self.context_policy.can_invoke_function(permissions, tool_id)
 
-            if brief.plan:
-                for subtask in brief.plan.subtasks:
-                    if self.analysis_tool_registry:
-                        ranked = self.analysis_tool_registry.find_candidates(subtask.intent, top_k=5)
-                    else:
-                        ranked = rank_candidates(subtask.intent, promoted_tools, top_k=5)
-                    ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
-                    candidates_by_subtask[subtask.id] = ranked
-                    for c in ranked:
-                        recipe_candidates.append({**c.model_dump(), "subtask_id": subtask.id})
+            execution_steps: list[Any] = []
+            if iv_llm_enabled:
+                # Agent IV brain plans its own steps; give it flat recipe
+                # candidates ranked against the intent (no pre-built exec plan).
+                if self.analysis_tool_registry:
+                    ranked = self.analysis_tool_registry.find_candidates(brief.intent, top_k=5)
+                else:
+                    ranked = rank_candidates(brief.intent, promoted_tools, top_k=5)
+                ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
+                recipe_candidates = [c.model_dump() for c in ranked]
+            else:
+                if brief.plan:
+                    for subtask in brief.plan.subtasks:
+                        if self.analysis_tool_registry:
+                            ranked = self.analysis_tool_registry.find_candidates(subtask.intent, top_k=5)
+                        else:
+                            ranked = rank_candidates(subtask.intent, promoted_tools, top_k=5)
+                        ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
+                        candidates_by_subtask[subtask.id] = ranked
+                        for c in ranked:
+                            recipe_candidates.append({**c.model_dump(), "subtask_id": subtask.id})
 
-            paths_for_plan = [q.path for q in query_files]
-            execution_steps, _coverage_preview = build_execution_plan(
-                brief.plan,
-                dataset_paths=paths_for_plan,
-                query_meta=query_meta,
-                candidates_by_subtask=candidates_by_subtask,
-                brief=brief,
-            )
+                paths_for_plan = [q.path for q in query_files]
+                execution_steps, _coverage_preview = build_execution_plan(
+                    brief.plan,
+                    dataset_paths=paths_for_plan,
+                    query_meta=query_meta,
+                    candidates_by_subtask=candidates_by_subtask,
+                    brief=brief,
+                )
 
             iv_raw = self.agent_invoker.invoke(
                 "IV",
@@ -484,6 +513,7 @@ class SupermarketAnalysisPipeline:
                 },
                 {"mode": "analyze"},
             )
+            budget.add_tokens(int(iv_raw.get("usage_tokens", 0) or 0))
             try:
                 iv_parsed = parse_agent_response("IV", iv_raw)
             except ContractInvalidError as exc:
@@ -639,6 +669,14 @@ class SupermarketAnalysisPipeline:
                             "analysis_script": iv_parsed.analysis_script,
                         },
                     )
+                if self.analysis_tool_registry and outcome == AnalysisOutcome.SUCCESS:
+                    first_shot = sql_attempt == 1 and not has_step_type(
+                        workflow.steps, WorkflowStepType.DATA_FEEDBACK
+                    )
+                    if first_shot:
+                        tool = self.analysis_tool_registry.find_by_trace(trace_id)
+                        if tool and tool.get("status") == "staged":
+                            self.analysis_tool_registry.promote(tool["tool_id"])
                 return self._finish(trace_id, workflow, outcome, summary)
 
         return self._finish(

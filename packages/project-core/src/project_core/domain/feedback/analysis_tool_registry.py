@@ -16,7 +16,7 @@ def apply_params_to_script(script: str, params: dict[str, Any]) -> str:
     for key, value in params.items():
         out = out.replace(f"params['{key}']", json.dumps(value))
         out = out.replace(f'params["{key}"]', json.dumps(value))
-        out = out.replace(f":param_{key}", str(value))
+        out = out.replace(f":param_{key}", json.dumps(value))
     return out
 
 
@@ -126,6 +126,15 @@ class AnalysisToolRegistry:
             {"tool_id": tool_id},
             {"$set": {"status": "demoted", "demoted_at": datetime.utcnow()}},
         )
+
+    def bump_promote_score(self, tool_id: str, delta: float) -> None:
+        tool = self.collection.find_one({"tool_id": tool_id})
+        if not tool:
+            return
+        new_score = float(tool.get("promote_score", 0)) + delta
+        self.collection.update_one({"tool_id": tool_id}, {"$set": {"promote_score": new_score}})
+        if new_score >= 1.0:
+            self.promote(tool_id)
 
     def find_by_trace(self, trace_id: str) -> dict[str, Any] | None:
         return self.collection.find_one({"source_trace_id": trace_id})

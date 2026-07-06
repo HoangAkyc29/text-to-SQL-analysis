@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +12,8 @@ from project_core.config.loader import load_project_config
 from project_core.domain.analysis.iv_analyzer import analyze_datasets
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.service.supermarket_agent import SupermarketAgentService
+
+logger = logging.getLogger(__name__)
 
 
 class DataAnalystService(SupermarketAgentService):
@@ -59,6 +63,22 @@ class DataAnalystService(SupermarketAgentService):
         execution_plan = payload_in.get("execution_plan") or meta.get("execution_plan")
         domain_rules_excerpt = payload_in.get("domain_rules_excerpt") or meta.get("domain_rules_excerpt") or ""
 
+        cfg = load_project_config()
+        if self._should_use_brain(cfg):
+            brain_payload = self._run_brain(
+                brief=brief,
+                manifest=manifest,
+                profile=profile,
+                out_dir=out_dir,
+                max_steps=max_steps,
+                query_meta=query_meta,
+                recipe_candidates=recipe_candidates,
+                domain_rules_excerpt=domain_rules_excerpt,
+                permissions=permissions,
+            )
+            if brain_payload is not None:
+                return self.json_response(ctx, brain_payload)
+
         payload = analyze_datasets(
             brief=brief,
             manifest=manifest,
@@ -73,6 +93,51 @@ class DataAnalystService(SupermarketAgentService):
             domain_rules_excerpt=domain_rules_excerpt,
         )
         return self.json_response(ctx, payload)
+
+    @staticmethod
+    def _should_use_brain(cfg: Any) -> bool:
+        """LLM reasoning brain is used only when enabled and a real LLM is available."""
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            return False
+        return bool(getattr(cfg.pipeline, "iv_llm_enabled", False))
+
+    def _run_brain(
+        self,
+        *,
+        brief: AnalysisBrief,
+        manifest: dict[str, Any],
+        profile: dict[str, Any],
+        out_dir: str,
+        max_steps: int,
+        query_meta: list[dict[str, Any]],
+        recipe_candidates: list[dict[str, Any]],
+        domain_rules_excerpt: str,
+        permissions: Any,
+    ) -> dict[str, Any] | None:
+        """Run the Agent IV reasoning loop; return None to trigger fallback."""
+        try:
+            from project_core.domain.analysis.iv_brain import run_analysis_brain
+            from project_core.llm.openrouter_client import OpenRouterClient
+            from project_core.models.loader import agent_profile
+
+            return run_analysis_brain(
+                brief=brief,
+                manifest=manifest,
+                profile=profile,
+                out_dir=out_dir,
+                max_steps=max_steps,
+                query_meta=query_meta,
+                recipe_candidates=recipe_candidates,
+                domain_rules_excerpt=domain_rules_excerpt,
+                permissions=permissions,
+                context_policy=self.context_policy,
+                llm=OpenRouterClient(),
+                profile_name=agent_profile("analyst"),
+                system_prompt=self.llm_system_prompt(guide="reason_loop_guide"),
+            )
+        except Exception:
+            logger.warning("Agent IV brain failed; falling back to analyze_datasets", exc_info=True)
+            return None
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> DataAnalystService:

@@ -162,11 +162,13 @@ def test_registry_mcp_descriptors_and_invoke(monkeypatch, tmp_path):
     desc = reg.list_mcp_tool_descriptors()
     assert desc and desc[0]["tool_id"] == tid
 
-    ds = tmp_path / "d.parquet"
+    ds = tmp_path / "artifacts" / "d.parquet"
+    ds.parent.mkdir(parents=True, exist_ok=True)
     import pandas as pd
 
     pd.DataFrame({"AMOUNT": [1, 2]}).to_parquet(ds)
     out = tmp_path / "artifacts" / "out"
+    monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     result = reg.invoke_tool(tid, dataset_path=str(ds), output_dir=str(out))
     assert result.get("status") == "ok"
 

@@ -55,5 +55,15 @@ async def current_user(
             return {"sub": "dev-user", "role": "hq_analyst", "store_ids": None}
         raise HTTPException(status_code=401, detail="missing_token")
     claims = decode_token(credentials.credentials)
+    if os.getenv("ALLOW_DEV_AUTH") != "1":
+        try:
+            from chat_gateway.auth_store import get_user_by_id
+
+            if get_user_by_id(claims["sub"]) is None:
+                raise HTTPException(status_code=401, detail="user_inactive")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("is_active check skipped: %s", exc)
     claims["store_ids"] = normalize_store_ids(claims.get("store_ids"))
     return claims

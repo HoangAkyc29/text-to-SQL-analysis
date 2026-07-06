@@ -889,5 +889,19 @@ Ghi chú đếm dòng: phần §Z.2.6–§Z.2.15 bổ sung từ mã nguồn `pro
 
 Kết thúc phụ lục orchestration pipeline cho bốn tệp yêu cầu trong phiên ghi này.
 
+---
+
+## §AH.1 — Cập nhật orchestration (2026-07)
+
+| Luồng | Thay đổi |
+|-------|----------|
+| Circuit breaker | Một `CircuitBreaker` dùng chung cho mọi `HttpAgentInvoker` / `HttpSqlGatewayClient` trong orchestrator |
+| Workflow | `workflow_stale_ttl_seconds` → `STALE`; `CancellationToken` + `confirm_cancel` route; `rephrase_retry` re-run pipeline |
+| Clarify | `bridge_min_confidence` từ `config/project.yaml` wire vào `ClarificationBridge` |
+| Agent III | LLM prompt nhận `explain_plan`, `risk_feedback`, `risk_attempt` từ pipeline retry |
+| Learning | `FeedbackLoop` cập nhật `promote_score` recipe; auto-promote recipe khi success first-shot |
+| Token budget | Pipeline ghi `usage_tokens` II/III/IV qua `budget.add_tokens()` |
+
+*Phụ lục §AH.1 — đối chiếu refactor Pha 3–4.*
 
 

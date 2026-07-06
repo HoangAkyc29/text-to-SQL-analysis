@@ -79,11 +79,13 @@ class FeedbackLoop:
         retriever: Any | None = None,
         audit: Any | None = None,
         embed_fn: Any | None = None,
+        tool_registry: Any | None = None,
     ) -> None:
         self.indexer = indexer
         self.retriever = retriever
         self.audit = audit
         self.embed_fn = embed_fn
+        self.tool_registry = tool_registry
 
     def on_pipeline_step(self, trace_id: str, step: Any) -> None:
         if self.audit:
@@ -138,27 +140,37 @@ class FeedbackLoop:
         if not signal.applies_to_trace_id:
             return
         case = self.indexer.find_by_trace(signal.applies_to_trace_id)
-        if not case:
-            return
-        if signal.sentiment == "positive" and signal.confidence >= 0.75:
-            self.indexer.promote(case["case_id"])
-        elif signal.sentiment == "negative" and signal.confidence >= 0.75:
-            self.indexer.demote(case["case_id"])
+        if case:
+            if signal.sentiment == "positive" and signal.confidence >= 0.75:
+                self.indexer.promote(case["case_id"])
+            elif signal.sentiment == "negative" and signal.confidence >= 0.75:
+                self.indexer.demote(case["case_id"])
+        if self.tool_registry:
+            tool = self.tool_registry.find_by_trace(signal.applies_to_trace_id)
+            if not tool:
+                return
+            if signal.sentiment == "positive" and signal.confidence >= 0.75:
+                self.tool_registry.promote(tool["tool_id"])
+            elif signal.sentiment == "negative" and signal.confidence >= 0.75:
+                self.tool_registry.demote(tool["tool_id"])
 
     def on_behavioral_signal(self, session_id: str, signal: BehavioralSignal) -> None:
         if not signal.trace_id:
             return
         case = self.indexer.find_by_trace(signal.trace_id)
-        if not case:
-            return
-        delta = signal.weight
-        new_score = float(case.get("promote_score", 0)) + delta
-        self.indexer.collection.update_one(
-            {"case_id": case["case_id"]},
-            {"$set": {"promote_score": new_score}},
-        )
-        if new_score >= 1.0:
-            self.indexer.promote(case["case_id"])
+        if case:
+            delta = signal.weight
+            new_score = float(case.get("promote_score", 0)) + delta
+            self.indexer.collection.update_one(
+                {"case_id": case["case_id"]},
+                {"$set": {"promote_score": new_score}},
+            )
+            if new_score >= 1.0:
+                self.indexer.promote(case["case_id"])
+        if self.tool_registry:
+            tool = self.tool_registry.find_by_trace(signal.trace_id)
+            if tool:
+                self.tool_registry.bump_promote_score(tool["tool_id"], signal.weight)
 
     def retrieve_context(self, agent: str, query: str, actor_id: str) -> list[Any]:
         if not self.retriever:

@@ -108,10 +108,12 @@ def mini_schema_catalog():
 
 
 @pytest.fixture
-def sample_parquet(tmp_path):
+def sample_parquet(tmp_path, monkeypatch):
     import pandas as pd
 
-    path = tmp_path / "raw" / "query_0.parquet"
+    artifacts = tmp_path / "artifacts"
+    monkeypatch.setenv("ARTIFACTS_DIR", str(artifacts))
+    path = artifacts / "raw" / "query_0.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame({"month": ["2025-01", "2025-02"], "amount": [100, 200]}).to_parquet(path, index=False)
     return path

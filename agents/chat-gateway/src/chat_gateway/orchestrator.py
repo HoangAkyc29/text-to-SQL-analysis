@@ -12,12 +12,13 @@ from project_core.domain.access.acl import build_permissions_snapshot
 from project_core.domain.access.user_claims import claims_from_user_dict
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.budget import SessionTraceBudget, TraceBudget
+from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.clarification.resolver import apply_clarification_reply
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationReply, ClarificationRequest
 from project_core.domain.contracts.feedback import SatisfactionSignal
 from project_core.domain.contracts.pipeline import ChatResponse
-from project_core.domain.contracts.workflow import WorkflowStatus
+from project_core.domain.contracts.workflow import AnalysisOutcome, WorkflowStatus
 from project_core.domain.errors.codes import (
     BudgetExceededError,
     ClarifyRoundsExceededError,
@@ -33,6 +34,8 @@ from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.state import new_workflow, resume_analysis, start_analysis
 from project_core.domain.time import utc_now
 from project_core.infra.stm.redis_store import RedisSessionStore
+from project_core.infra.resilience import CircuitBreaker
+from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
 from project_core.orchestration.clarification_coordinator import ClarificationCoordinator
 from project_core.orchestration.pipeline import SupermarketAnalysisPipeline
 
@@ -48,8 +51,13 @@ class ChatOrchestrator:
         self.stm = RedisSessionStore()
         self.cfg = load_project_config()
         self.context_policy = ContextPolicy()
-        self.clarify = ClarificationCoordinator()
+        self.clarify = ClarificationCoordinator(
+            bridge=ClarificationBridge(min_confidence=self.cfg.clarification.bridge_min_confidence),
+        )
         self._http = httpx.Client(timeout=120.0)
+        self._agent_circuit = CircuitBreaker()
+        self._sql_circuit = CircuitBreaker()
+        self._cancel_tokens: dict[str, CancellationToken] = {}
         self.feedback: FeedbackLoop | None = None
         self.analysis_tool_registry: AnalysisToolRegistry | None = None
         self.domain_rule_store: DomainRuleStore | None = None
@@ -75,12 +83,17 @@ class ChatOrchestrator:
             self.analysis_tool_registry = AnalysisToolRegistry(db["analysis_tools"], embed_fn=_embed_text)
             set_registry(self.analysis_tool_registry)
             self.domain_rule_store = DomainRuleStore(db["domain_rules"])
-            self.feedback = FeedbackLoop(indexer=indexer, retriever=retriever, embed_fn=_embed_text)
+            self.feedback = FeedbackLoop(
+                indexer=indexer,
+                retriever=retriever,
+                embed_fn=_embed_text,
+                tool_registry=self.analysis_tool_registry,
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Mongo/RAG unavailable: %s", exc)
         self.pipeline = SupermarketAnalysisPipeline(
-            agent_invoker=HttpAgentInvoker(client=self._http),
-            sql_gateway=HttpSqlGatewayClient(client=self._http),
+            agent_invoker=HttpAgentInvoker(client=self._http, circuit=self._agent_circuit),
+            sql_gateway=HttpSqlGatewayClient(client=self._http, circuit=self._sql_circuit),
             catalog=SchemaCatalog.from_dictionary_dir(),
             feedback_loop=self.feedback,
             analysis_tool_registry=self.analysis_tool_registry,
@@ -94,11 +107,16 @@ class ChatOrchestrator:
         if hasattr(self.pipeline.sql_gateway, "close"):
             self.pipeline.sql_gateway.close()  # type: ignore[attr-defined]
 
+    def _make_invoker(self) -> HttpAgentInvoker:
+        return HttpAgentInvoker(client=self._http, circuit=self._agent_circuit)
+
     def handle_chat(self, *, session_id: str, message: str, user: dict[str, Any]) -> ChatResponse:
         actor_id, role, store_ids = claims_from_user_dict(user)
         bundle = self.stm.load_session(session_id)
         if bundle.workflow is None:
             bundle.workflow = new_workflow(session_id, actor_id)
+
+        self._refresh_workflow_staleness(session_id, bundle)
 
         if self.clarify.on_ingress_clarify(bundle):
             return self._resume_from_pending_clarification(
@@ -114,7 +132,8 @@ class ChatOrchestrator:
         bundle.transcript.append(turn)
         self.stm.save_transcript(session_id, bundle.transcript)
 
-        invoker = HttpAgentInvoker(client=self._http)
+        invoker = self._make_invoker()
+        self._cancel_tokens[session_id] = CancellationToken()
         session_budget = self._session_budget(bundle)
         external_sources = []
         if bundle.workflow.brief and bundle.workflow.brief.external_sources:
@@ -138,7 +157,36 @@ class ChatOrchestrator:
 
         self._handle_satisfaction_signal(ingress, bundle)
 
-        if ingress.get("route") != "analysis":
+        route = ingress.get("route", "analysis")
+        if route == "confirm_cancel":
+            return self._handle_confirm_cancel(session_id, bundle, ingress)
+        if route == "wait":
+            assistant = TranscriptTurn(
+                id=str(uuid4()),
+                role="assistant",
+                content=ingress.get("user_message", "Đã ghi nhận."),
+                at=utc_now().isoformat(),
+            )
+            bundle.transcript.append(assistant)
+            self.stm.save_transcript(session_id, bundle.transcript)
+            return ChatResponse(
+                session_id=session_id,
+                workflow_status=bundle.workflow.status.value,
+                message=ingress.get("user_message", "Đã ghi nhận."),
+            )
+
+        retry = self._maybe_rephrase_retry(
+            session_id=session_id,
+            ingress=ingress,
+            bundle=bundle,
+            permissions=self._build_permissions(actor_id, role, store_ids),
+            invoker=invoker,
+            session_budget=session_budget,
+        )
+        if retry is not None:
+            return retry
+
+        if route != "analysis":
             assistant = TranscriptTurn(
                 id=str(uuid4()),
                 role="assistant",
@@ -197,8 +245,9 @@ class ChatOrchestrator:
         self.stm.save_workflow(session_id, bundle.workflow)
 
         permissions = bundle.workflow.permissions_snapshot or self._build_permissions(*claims_from_user_dict(user))
-        invoker = HttpAgentInvoker(client=self._http)
+        invoker = self._make_invoker()
         session_budget = self._session_budget(bundle)
+        self._cancel_tokens[session_id] = CancellationToken()
         return self._run_pipeline_and_respond(
             session_id=session_id,
             analysis_id=reply.analysis_id,
@@ -356,6 +405,88 @@ class ChatOrchestrator:
                 ),
             )
 
+    def _refresh_workflow_staleness(self, session_id: str, bundle: SessionBundle) -> None:
+        wf = bundle.workflow
+        if wf is None or wf.status != WorkflowStatus.AWAITING_CLARIFICATION:
+            return
+        age = (utc_now() - wf.updated_at).total_seconds()
+        if age <= self.cfg.pipeline.workflow_stale_ttl_seconds:
+            return
+        wf.status = WorkflowStatus.STALE
+        self.stm.save_clarification(session_id, None)
+        self.stm.save_workflow(session_id, wf)
+
+    def _handle_confirm_cancel(
+        self,
+        session_id: str,
+        bundle: SessionBundle,
+        ingress: dict[str, Any],
+    ) -> ChatResponse:
+        token = self._cancel_tokens.get(session_id)
+        if token is not None:
+            token.cancel()
+        wf = bundle.workflow
+        if wf is None:
+            return ChatResponse(
+                session_id=session_id,
+                workflow_status=WorkflowStatus.IDLE.value,
+                message=ingress.get("user_message", "Đã hủy."),
+            )
+        if wf.status == WorkflowStatus.RUNNING:
+            mark_cancelled(wf)
+        else:
+            wf.status = WorkflowStatus.IDLE
+        wf.pending_clarification = None
+        wf.progress_step = None
+        self.stm.save_clarification(session_id, None)
+        self.stm.save_workflow(session_id, wf)
+        msg = ingress.get("user_message", "Đã hủy phân tích.")
+        assistant = TranscriptTurn(
+            id=str(uuid4()),
+            role="assistant",
+            content=msg,
+            at=utc_now().isoformat(),
+        )
+        bundle.transcript.append(assistant)
+        self.stm.save_transcript(session_id, bundle.transcript)
+        return ChatResponse(
+            session_id=session_id,
+            workflow_status=wf.status.value,
+            outcome=AnalysisOutcome.CANCELLED.value if wf.status == WorkflowStatus.CANCELLED else None,
+            message=msg,
+        )
+
+    def _maybe_rephrase_retry(
+        self,
+        *,
+        session_id: str,
+        ingress: dict[str, Any],
+        bundle: SessionBundle,
+        permissions: Any,
+        invoker: HttpAgentInvoker,
+        session_budget: SessionTraceBudget,
+    ) -> ChatResponse | None:
+        raw = ingress.get("satisfaction_signal") or {}
+        if raw.get("intent") != "rephrase_retry":
+            return None
+        wf = bundle.workflow
+        if wf is None or not wf.brief:
+            return None
+        analysis_id = wf.active_analysis_id or wf.last_completed_trace_id or str(uuid4())
+        resume_analysis(wf)
+        wf.brief = AnalysisBrief.model_validate(wf.brief.model_dump())
+        self.stm.save_workflow(session_id, wf)
+        self._cancel_tokens[session_id] = CancellationToken()
+        return self._run_pipeline_and_respond(
+            session_id=session_id,
+            analysis_id=analysis_id,
+            brief=wf.brief,
+            bundle=bundle,
+            permissions=permissions,
+            invoker=invoker,
+            session_budget=session_budget,
+        )
+
     def _resume_from_pending_clarification(
         self,
         *,
@@ -364,7 +495,7 @@ class ChatOrchestrator:
         user: dict[str, Any],
         bundle: SessionBundle,
     ) -> ChatResponse:
-        invoker = HttpAgentInvoker(client=self._http)
+        invoker = self._make_invoker()
         session_budget = self._session_budget(bundle)
         request = ClarificationRequest.model_validate(bundle.clarification)
         try:
@@ -436,6 +567,7 @@ class ChatOrchestrator:
             self.stm.save_workflow(session_id, workflow)
 
         deadline = time.monotonic() + float(self.cfg.pipeline.max_sync_seconds)
+        cancel_token = self._cancel_tokens.get(session_id)
         try:
             result = self.pipeline.run(
                 brief=brief,
@@ -444,6 +576,7 @@ class ChatOrchestrator:
                 trace_budget=session_budget.trace_budget,
                 on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
                 deadline=deadline,
+                cancel_token=cancel_token,
             )
         except ClarifyRoundsExceededError as exc:
             brief.exploration_mode = True
@@ -459,6 +592,7 @@ class ChatOrchestrator:
                     trace_budget=session_budget.trace_budget,
                     on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
                     deadline=deadline,
+                    cancel_token=cancel_token,
                 )
             except ClarifyRoundsExceededError:
                 return ChatResponse(

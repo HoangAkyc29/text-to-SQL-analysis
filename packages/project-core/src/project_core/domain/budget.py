@@ -52,6 +52,19 @@ class SupermarketBudgetGuard(BudgetGuard):
         if self.trace_budget.spent["tokens"] > (self.limits.max_tokens or 0):
             raise BudgetExceededError("Token budget exceeded for trace")
 
+    def add_tokens(self, tokens: int) -> None:
+        """Charge tokens reported by an agent AFTER its call (no call count).
+
+        Used by the pipeline to meter II/III/IV LLM usage once the response
+        (and its ``usage_tokens``) is known. Raises when the per-trace token
+        cap is exceeded so the trace fails closed.
+        """
+        if not tokens:
+            return
+        self.trace_budget.charge("tokens", calls=0, tokens=int(tokens))
+        if self.trace_budget.spent["tokens"] > (self.limits.max_tokens or 0):
+            raise BudgetExceededError("Token budget exceeded for trace")
+
     def charge(self, *, tokens: int = 0, cost_usd: float = 0.0, tool_calls: int = 0) -> None:
         self.trace_budget.charge("tokens", calls=0, tokens=tokens)
         if self.limits.max_tokens and self.trace_budget.spent["tokens"] > self.limits.max_tokens:

@@ -8,6 +8,7 @@ from typing import Any
 from platform_core.config.schema import AgentSpec, PlatformConfig
 from platform_core.service.base import DecisionContext
 
+from project_core.config.loader import load_project_config
 from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
@@ -91,7 +92,8 @@ class ConversationalRouterService(SupermarketAgentService):
         meta = ctx.request.metadata or {}
         request = ClarificationRequest.model_validate(meta["clarification_request"])
         transcript = meta.get("transcript") or []
-        bridge = ClarificationBridge()
+        cfg = load_project_config()
+        bridge = ClarificationBridge(min_confidence=cfg.clarification.bridge_min_confidence)
         if os.getenv("ALLOW_LLM_STUB") == "1":
             from project_core.domain.memory.session_bundle import TranscriptTurn
 

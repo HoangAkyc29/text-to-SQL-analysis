@@ -13,6 +13,7 @@ from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.contracts.feedback import DataFeedback
 from project_core.domain.product.resolver import resolve_product_code
+from project_core.domain.sql.shard_resolver import build_db1_union_sql
 from project_core.llm.openrouter_client import OpenRouterClient
 from project_core.models.loader import agent_profile
 from project_core.service.supermarket_agent import SupermarketAgentService
@@ -73,7 +74,7 @@ class SqlPlannerService(SupermarketAgentService):
             ],
             response_format={"type": "json_object"},
         )
-        return self.json_response(ctx, json.loads(result.content))
+        return self.json_response(ctx, json.loads(result.content), usage_tokens=result.usage_tokens)
 
     def _stub_plan(
         self,
@@ -196,6 +197,18 @@ class SqlPlannerService(SupermarketAgentService):
                 ]
                 query_meta = [{"role": "main", "purpose": "line_level"}]
                 target_dbs = ["db2"]
+
+        shard_plan = (schema_context or {}).get("shard_plan") or {}
+        if shard_plan.get("needs_db1") and shard_plan.get("shards"):
+            shards = shard_plan["shards"]
+            union_sql: list[str] = []
+            union_dbs: list[str] = []
+            for q in sql:
+                union_sql.append(build_db1_union_sql(q, shards))
+                union_dbs.append("db1")
+            if union_sql:
+                sql = union_sql
+                target_dbs = union_dbs
 
         return self.json_response(
             ctx,

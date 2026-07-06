@@ -103,3 +103,14 @@ def suggest_query_plan(
         cutoff=cutoff,
         union_hint=union_hint,
     )
+
+
+def build_db1_union_sql(base_sql: str, shards: list[str], logical_table: str = "STRANS") -> str:
+    """Wrap base SQL as UNION ALL across db1 physical shard tables."""
+    if not shards:
+        return base_sql
+    parts: list[str] = []
+    for shard in shards:
+        shard_sql = base_sql.replace(logical_table, shard)
+        parts.append(f"({shard_sql})")
+    return " UNION ALL ".join(parts)

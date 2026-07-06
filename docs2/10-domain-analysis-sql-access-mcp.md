@@ -2505,4 +2505,18 @@ Ghi chú đếm: Phần AB bắt đầu dòng 14259; kết thúc tại dòng H�
 
 ---
 
-*Hết Phần AB–AN — tài liệu domain analysis, access, sql, MCP sandbox từ mã nguồn (phụ lục §AH–§AO bổ sung chi tiết).*
+
+---
+
+## §AP — Cập nhật refactor (2026-07)
+
+| Thành phần | Thay đổi |
+|------------|----------|
+| Agent IV brain | `iv_brain.py`: vòng `plan→run→eval`; pipeline bỏ `decompose_brief` khi `iv_llm_enabled` |
+| Sandbox | `_minimal_child_env()` whitelist; `_guard_input_path()`; `runner_child` cap `SANDBOX_MAX_ROWS` |
+| SQL policy | `_has_forbidden_patterns` dùng AST sqlglot thay substring |
+| Recipe | `apply_params_to_script` dùng `json.dumps` cho `:param_*`; auto-promote recipe first-shot success |
+| Shard | `build_db1_union_sql()` + stub II áp dụng khi `shard_plan.needs_db1` |
+
+*Phụ lục §AP — đối chiếu refactor toàn hệ thống vs docs2/00.*
+

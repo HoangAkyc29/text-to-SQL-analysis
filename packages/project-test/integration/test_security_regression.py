@@ -64,3 +64,27 @@ def test_sandbox_output_dir_outside_artifacts_rejected(tmp_path, monkeypatch):
 
     result = run_analysis_script(str(tmp_path / "x.parquet"), "x=1", str(tmp_path / "escape"))
     assert result.get("error") == "output_dir_must_be_under_artifacts_root"
+
+
+def test_sandbox_dataset_outside_artifacts_rejected(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
+    artifacts = tmp_path / "artifacts"
+    out_dir = artifacts / "t" / "out"
+    out_dir.mkdir(parents=True)
+    outside = tmp_path / "secret.parquet"
+    outside.write_bytes(b"")
+    from python_sandbox.tools_impl import run_analysis_script
+
+    result = run_analysis_script(str(outside), "x=1", str(out_dir))
+    assert result.get("error") == "path_not_allowed"
+
+
+def test_sandbox_child_env_strips_secrets(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "super-secret")
+    monkeypatch.setenv("AUTH_DB_DSN", "Driver=...")
+    from python_sandbox.tools_impl import _minimal_child_env
+
+    env = _minimal_child_env()
+    assert "JWT_SECRET" not in env
+    assert "AUTH_DB_DSN" not in env
+    assert env.get("MPLBACKEND") == "Agg"

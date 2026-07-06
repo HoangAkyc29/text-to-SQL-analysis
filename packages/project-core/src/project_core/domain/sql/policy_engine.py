@@ -86,9 +86,19 @@ class PolicyEngine:
         return PolicyVerdict(True, sanitized_sql=sanitized.sql(dialect="tsql"))
 
     def _has_forbidden_patterns(self, sql: str) -> bool:
+        if ";" in sql:
+            return True
         lowered = sql.lower()
-        forbidden = (";", " insert ", " update ", " delete ", " drop ", " exec ", " xp_")
-        return any(token in lowered for token in forbidden)
+        if re.search(r"\bxp_\w+", lowered):
+            return True
+        try:
+            tree = sqlglot.parse_one(sql, read="tsql")
+            forbidden = (exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Alter, exp.Command)
+            if any(tree.find(t) for t in forbidden):
+                return True
+        except Exception:
+            pass
+        return any(token in lowered for token in (" insert ", " update ", " delete ", " drop ", " exec "))
 
     def _inject_top(self, statement: exp.Select) -> exp.Select:
         if statement.args.get("limit"):
