@@ -1,11 +1,16 @@
 CREATE TABLE users (
     user_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    username NVARCHAR(128) NULL,
     email NVARCHAR(255) NOT NULL UNIQUE,
     display_name NVARCHAR(255) NOT NULL,
     role NVARCHAR(64) NOT NULL DEFAULT 'store_manager',
     store_ids NVARCHAR(512) NULL,
+    password_hash NVARCHAR(255) NULL,
+    is_active BIT NOT NULL DEFAULT 1,
     created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
 );
+
+CREATE UNIQUE INDEX UX_users_username ON users(username) WHERE username IS NOT NULL;
 
 CREATE TABLE oauth_accounts (
     oauth_id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
