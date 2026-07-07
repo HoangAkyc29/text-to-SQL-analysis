@@ -1,0 +1,892 @@
+{
+  "generated_at": "2026-07-06T23:51:42.136283+00:00",
+  "models_tested": [
+    {
+      "key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "vision": true,
+      "note": "Default trong config/models.yaml"
+    },
+    {
+      "key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "vision": true,
+      "note": "Agent III risk reviewer"
+    },
+    {
+      "key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "vision": true,
+      "note": "Gemini 2.5 flash"
+    },
+    {
+      "key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "vision": true,
+      "note": "OpenAI vision nhẹ"
+    },
+    {
+      "key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "vision": true,
+      "note": "Anthropic nhanh"
+    },
+    {
+      "key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "vision": true,
+      "note": "Vision chuyên dụng"
+    },
+    {
+      "key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "vision": false,
+      "note": "Text-only baseline"
+    },
+    {
+      "key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "vision": false,
+      "note": "Text-only Qwen"
+    }
+  ],
+  "results": [
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2479,
+      "error": null,
+      "response_preview": "```json\n{\n  \"intent\": \"compare_revenue\",\n  \"metrics\": [\"revenue\"],\n  \"dimensions\": [\"store_id\", \"customer_type\", \"month\"],\n  \"filters\": {\n    \"customer_type\": \"VIP\",\n    \"store_id\": \"10001\"\n  },\n  \"time_range\": {\n    \"grain\": \"month\",\n    \"start\": \"2025-05-01\",\n    \"end\": \"2025-06-30\"\n  },\n  \"output_format\": \"bar_chart\"\n}\n```",
+      "details": {
+        "parsed": {
+          "intent": "compare_revenue",
+          "metrics": [
+            "revenue"
+          ],
+          "dimensions": [
+            "store_id",
+            "customer_type",
+            "month"
+          ],
+          "filters": {
+            "customer_type": "VIP",
+            "store_id": "10001"
+          },
+          "time_range": {
+            "grain": "month",
+            "start": "2025-05-01",
+            "end": "2025-06-30"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 10192,
+      "error": null,
+      "response_preview": "## Giải thích cho Quản lý cửa hàng\n\n1. **Quyền hạn bảo mật**: Bảng `STRANS` chứa dữ liệu nhạy cảm về **giá vốn hàng bán (COGS)**, nên hệ thống không cấp quyền `SELECT` cho vai trò `store_manager` — nhằm bảo vệ thông tin tài chính nội bộ.\n\n2. **TRANS_CODE '113'**: Đây là mã giao dịch thường biểu thị **bán hàng (sales transaction)**, đại diện cho các phiếu thu/phiếu bán tại cửa hàng.\n\n3. **Chỉ xem được cửa 10001**: Dữ liệu bị lọc bởi **chính sách bảo mật cấp hàng (row-level security)**, hạn chế `s",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 4652,
+      "error": null,
+      "response_preview": "## Tính trung bình doanh thu mỗi tháng\n\n\n\n**Công thức:**\n\n$$\\text{Trung bình} = \\frac{\\text{Tổng doanh thu}}{\\text{Số tháng}}$$\n\n**Thực hiện:**\n\n$$\\frac{120 + 150 + 90}{3} = \\frac{360}{3} = 120 \\text{ (triệu đồng)}$$\n\n**Kết quả:** Trung bình mỗi tháng doanh thu là **120 triệu đồng**.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 10535,
+      "error": null,
+      "response_preview": "Dựa vào biểu đồ bạn cung cấp, tôi có thể đọc được thông tin như sau:\n\n1) **Ba giá trị doanh thu từng tháng (số triệu VND):**\n*   **Tháng 1:** 120 triệu VND\n*   **Tháng 2:** 150 triệu VND\n*   **Tháng 3:** 90 triệu VND\n\n2) **Tháng nào cao nhất?**\n*   **Tháng 2** là tháng có doanh thu cao nhất (150 triệu VND).",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 3799,
+      "error": null,
+      "response_preview": "Dựa trên bảng SKU trong ảnh, đây là thông tin tôi đọc được:\n\n| Mã SKU | Tên hàng | Doanh thu (triệu) |\n| :--- | :--- | :--- |\n| SKU-001 | Sữa tươi 1L | 45 |\n| SKU-002 | Gạo ST25 5kg | 62 |\n| SKU-003 | Nước suối 500ml | 28 |\n\nBảng trên nằm trong danh sách \"Top SKU — tuần 12/2025\".",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20",
+      "model_id": "google/gemini-2.0-flash-001",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini25",
+      "model_id": "google/gemini-2.5-flash-preview-05-20",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 3.0,
+      "max_score": 5.0,
+      "latency_ms": 3534,
+      "error": null,
+      "response_preview": "{\n  \"intent\": \"compare_revenue\",\n  \"metrics\": [\"revenue\"],\n  \"dimensions\": [\"store_id\", \"month\"],\n  \"filters\": {\n    \"customer_type\": \"VIP\",\n    \"store_id\": \"10001\"\n  },\n  \"time_range\": {\n    \"grain\": \"monthly\"\n  },\n  \"output_format\": \"bar_chart\"\n}",
+      "details": {
+        "parsed": {
+          "intent": "compare_revenue",
+          "metrics": [
+            "revenue"
+          ],
+          "dimensions": [
+            "store_id",
+            "month"
+          ],
+          "filters": {
+            "customer_type": "VIP",
+            "store_id": "10001"
+          },
+          "time_range": {
+            "grain": "monthly"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 2449,
+      "error": null,
+      "response_preview": "Store_manager không được phép SELECT cột cogs từ STRANS vì thông tin này có thể liên quan đến chi phí và lợi nhuận, mà chỉ có quản lý cấp cao mới có quyền truy cập để bảo vệ thông tin nhạy cảm. TRANS_CODE '113' thường liên quan đến các giao dịch trả hàng hoặc điều chỉnh, cho thấy rằng sản phẩm đã được trả lại. Họ chỉ được phép xem cửa 10001 để hạn chế quyền truy cập và đảm bảo an toàn cho dữ liệu kinh doanh.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 3795,
+      "error": null,
+      "response_preview": "Để tính trung bình doanh thu mỗi tháng, ta cộng tổng doanh thu của 3 tháng lại với nhau và sau đó chia cho số tháng.\n\nDoanh thu 3 tháng là:\n- Tháng 1: 120 triệu đồng\n- Tháng 2: 150 triệu đồng\n- Tháng 3: 90 triệu đồng\n\nTổng doanh thu = 120 + 150 + 90 = 360 triệu đồng.\n\nSố tháng = 3.\n\nTrung bình doanh thu mỗi tháng = Tổng doanh thu / Số tháng = 360 triệu đồng / 3 = 120 triệu đồng.\n\nVậy trung bình mỗi tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2108,
+      "error": null,
+      "response_preview": "1) Ba giá trị doanh thu từng tháng (số triệu VND) là:\n   - Tháng 1: 120 triệu VND\n   - Tháng 2: 150 triệu VND\n   - Tháng 3: 90 triệu VND\n\n2) Tháng cao nhất là tháng 2 với doanh thu 150 triệu VND.",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 16850,
+      "error": null,
+      "response_preview": "Dưới đây là thông tin về mã SKU, tên hàng và doanh thu:\n\n1. **Mã SKU:** SKU-001\n   - **Tên hàng:** Sữa tươi 1L\n   - **Doanh thu:** 45 triệu\n\n2. **Mã SKU:** SKU-002\n   - **Tên hàng:** Gạo ST25 5kg\n   - **Doanh thu:** 62 triệu\n\n3. **Mã SKU:** SKU-003\n   - **Tên hàng:** Nước suối 500ml\n   - **Doanh thu:** 28 triệu",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude_haiku",
+      "model_id": "anthropic/claude-3.5-haiku",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 5.0,
+      "latency_ms": 694,
+      "error": null,
+      "response_preview": "",
+      "details": {
+        "reason": "json_parse_failed"
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 2918,
+      "error": null,
+      "response_preview": "Store_manager không được SELECT cột cogs từ bảng STRANS vì cột này chứa thông tin chi phí hàng hóa, có thể nhạy cảm và không cần thiết cho quản lý cửa hàng. TRANS_CODE '113' thường đại diện cho một loại giao dịch cụ thể, như bán hàng hoặc trả hàng. Quản lý chỉ được xem dữ liệu của cửa hàng 10001 để đảm bảo họ tập trung vào hoạt động của cửa hàng mình phụ trách.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 2588,
+      "error": null,
+      "response_preview": "Để tìm trung bình doanh thu mỗi tháng, ta cần cộng tổng doanh thu của 3 tháng và chia cho 3.\n\nPhép tính: (120 + 150 + 90) / 3 = 360 / 3 = 120 triệu đồng\n\nVậy trung bình mỗi tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2343,
+      "error": null,
+      "response_preview": "1) Ba giá trị doanh thu từng tháng (số triệu VND):\n   - Tháng 1: 120 triệu VND\n   - Tháng 2: 150 triệu VND\n   - Tháng 3: 90 triệu VND\n\n2) Tháng có doanh thu cao nhất là Tháng 2 với 150 triệu VND.",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 3109,
+      "error": null,
+      "response_preview": "Dưới đây là thông tin về mã SKU, tên hàng và doanh thu từ bảng:\n\n1. Mã SKU: SKU-001\n   Tên hàng: Sữa tươi 1L\n   Doanh thu: 45 triệu\n\n2. Mã SKU: SKU-002\n   Tên hàng: Gạo ST25 5kg\n   Doanh thu: 62 triệu\n\n3. Mã SKU: SKU-003\n   Tên hàng: Nước suối 500ml\n   Doanh thu: 28 triệu",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 2.0,
+      "max_score": 5.0,
+      "latency_ms": 9973,
+      "error": null,
+      "response_preview": "{\"intent\": \"so_sanh_doanh_thu\", \"metrics\": [\"doanh_thu\"], \"dimensions\": [\"thang\", \"cua_hang\"], \"filters\": {\"loai_khach\": \"VIP\", \"ma_cua_hang\": \"10001\"}, \"time_range\": {\"grain\": \"thang\", \"start\": \"2023-05-01\", \"end\": \"2023-06-30\"}, \"output_format\": \"bieu_do_cot\"}",
+      "details": {
+        "parsed": {
+          "intent": "so_sanh_doanh_thu",
+          "metrics": [
+            "doanh_thu"
+          ],
+          "dimensions": [
+            "thang",
+            "cua_hang"
+          ],
+          "filters": {
+            "loai_khach": "VIP",
+            "ma_cua_hang": "10001"
+          },
+          "time_range": {
+            "grain": "thang",
+            "start": "2023-05-01",
+            "end": "2023-06-30"
+          },
+          "output_format": "bieu_do_cot"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 3.0,
+      "max_score": 4.0,
+      "latency_ms": 3922,
+      "error": null,
+      "response_preview": "Store_manager không được SELECT cột cogs từ STRANS vì họ không có quyền truy cập vào thông tin chi tiết về giá vốn (cogs) của các giao dịch. \n\nTRANS_CODE '113' thường đại diện cho một loại giao dịch cụ thể, có thể là giao dịch liên quan đến việc nhập hàng hoặc xuất hàng. \n\nStore_manager chỉ có thể xem được cửa hàng 10001 vì họ chỉ được phân quyền quản lý cửa hàng đó, và không có quyền truy cập vào thông tin của các cửa hàng khác.",
+      "details": {
+        "checks": {
+          "trans_code_113": false,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 1331,
+      "error": null,
+      "response_preview": "Lời giải:\n\nDoanh thu trung bình một tháng là: \n\n(120 + 150 + 90) : 3 = 360 : 3 = 120 (triệu đồng)\n\nVậy doanh thu trung bình một tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 39021,
+      "error": null,
+      "response_preview": "{\"intent\":\"compare\",\"metrics\":[\"revenue\"],\"dimensions\":[\"store_id\",\"month\"],\"filters\":{\"store_id\":\"10001\",\"customer_type\":\"VIP\"},\"time_range\":{\"grain\":\"month\"},\"output_format\":\"bar_chart\"}",
+      "details": {
+        "parsed": {
+          "intent": "compare",
+          "metrics": [
+            "revenue"
+          ],
+          "dimensions": [
+            "store_id",
+            "month"
+          ],
+          "filters": {
+            "store_id": "10001",
+            "customer_type": "VIP"
+          },
+          "time_range": {
+            "grain": "month"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 4.0,
+      "latency_ms": 5492,
+      "error": null,
+      "response_preview": "",
+      "details": {
+        "checks": {
+          "trans_code_113": false,
+          "store_filter": false,
+          "deny_cogs": false,
+          "vietnamese": false
+        }
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 11217,
+      "error": null,
+      "response_preview": "Để tính trung bình doanh thu mỗi tháng, ta cần thực hiện các bước sau:\n\n1. Tính tổng doanh thu 3 tháng:\n   120 + 150 + 90 = 360 triệu đồng\n\n2. Chia tổng doanh thu cho số tháng:\n   360 ÷ 3 = 120 triệu đồng\n\nVậy trung bình mỗi tháng doanh thu là 120 triệu đồng.\n\nPhép tính: (120 + 150 + 90) ÷ 3 = 120 triệu đồng",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120,
+          120,
+          150,
+          90,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    }
+  ],
+  "summary": {
+    "by_model": {
+      "mimo": {
+        "model_id": "xiaomi/mimo-v2.5",
+        "text_score": 10.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 90.9,
+        "vision_pct": 100.0,
+        "combined_pct": 95.0
+      },
+      "gpt4o_mini": {
+        "model_id": "openai/gpt-4o-mini",
+        "text_score": 9.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 81.8,
+        "vision_pct": 100.0,
+        "combined_pct": 90.0
+      },
+      "qwen_vl": {
+        "model_id": "qwen/qwen2.5-vl-72b-instruct",
+        "text_score": 6.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 54.5,
+        "vision_pct": 100.0,
+        "combined_pct": 75.0
+      },
+      "llama33": {
+        "model_id": "meta-llama/llama-3.3-70b-instruct",
+        "text_score": 7.0,
+        "text_max": 11.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vision_chart:model_marked_text_only",
+          "vision_table:model_marked_text_only"
+        ],
+        "text_pct": 63.6,
+        "vision_pct": 0.0,
+        "combined_pct": 53.8
+      },
+      "qwen72": {
+        "model_id": "qwen/qwen-2.5-72b-instruct",
+        "text_score": 6.0,
+        "text_max": 11.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vision_chart:model_marked_text_only",
+          "vision_table:model_marked_text_only"
+        ],
+        "text_pct": 54.5,
+        "vision_pct": 0.0,
+        "combined_pct": 46.2
+      },
+      "gemini20": {
+        "model_id": "google/gemini-2.0-flash-001",
+        "text_score": 0.0,
+        "text_max": 3.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vi_brief:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_domain:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_chart:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_table:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-001.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 0.0,
+        "vision_pct": 0.0,
+        "combined_pct": 0.0
+      },
+      "gemini25": {
+        "model_id": "google/gemini-2.5-flash-preview-05-20",
+        "text_score": 0.0,
+        "text_max": 3.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vi_brief:HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_domain:HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_chart:HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_table:HTTP 400: {\"error\":{\"message\":\"google/gemini-2.5-flash-preview-05-20 is not a valid model ID\",\"code\":400},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 0.0,
+        "vision_pct": 0.0,
+        "combined_pct": 0.0
+      },
+      "claude_haiku": {
+        "model_id": "anthropic/claude-3.5-haiku",
+        "text_score": 0.0,
+        "text_max": 3.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vi_brief:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_domain:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_chart:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_table:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3.5-haiku.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 0.0,
+        "vision_pct": 0.0,
+        "combined_pct": 0.0
+      }
+    },
+    "ranking": [
+      "mimo",
+      "gpt4o_mini",
+      "qwen_vl",
+      "llama33",
+      "qwen72",
+      "gemini20",
+      "gemini25",
+      "claude_haiku"
+    ]
+  }
+}

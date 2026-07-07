@@ -1,0 +1,946 @@
+{
+  "generated_at": "2026-07-06T23:55:50.205789+00:00",
+  "models_tested": [
+    {
+      "key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "vision": true,
+      "note": "Default trong config/models.yaml"
+    },
+    {
+      "key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "vision": true,
+      "note": "Gemini 2.5 Flash"
+    },
+    {
+      "key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "vision": true,
+      "note": "Gemini 2.0 Flash (free tier)"
+    },
+    {
+      "key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "vision": true,
+      "note": "OpenAI vision nhẹ"
+    },
+    {
+      "key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "vision": true,
+      "note": "Claude 3.5 Haiku"
+    },
+    {
+      "key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "vision": true,
+      "note": "Vision chuyên dụng"
+    },
+    {
+      "key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "vision": false,
+      "note": "Text-only baseline"
+    },
+    {
+      "key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "vision": false,
+      "note": "Text-only Qwen"
+    }
+  ],
+  "results": [
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 3403,
+      "error": null,
+      "response_preview": "```json\n{\n  \"intent\": \"compare_revenue\",\n  \"metrics\": [\"doanh thu\"],\n  \"dimensions\": [\"cửa hàng\", \"tháng\"],\n  \"filters\": [\n    {\"field\": \"loại_khách\", \"operator\": \"=\", \"value\": \"VIP\"},\n    {\"field\": \"mã_cửa_hàng\", \"operator\": \"=\", \"value\": \"10001\"}\n  ],\n  \"time_range\": {\n    \"start\": \"2025-05-01\",\n    \"end\": \"2025-06-30\",\n    \"grain\": \"month\"\n  },\n  \"output_format\": \"bar_chart\"\n}\n```",
+      "details": {
+        "parsed": {
+          "intent": "compare_revenue",
+          "metrics": [
+            "doanh thu"
+          ],
+          "dimensions": [
+            "cửa hàng",
+            "tháng"
+          ],
+          "filters": [
+            {
+              "field": "loại_khách",
+              "operator": "=",
+              "value": "VIP"
+            },
+            {
+              "field": "mã_cửa_hàng",
+              "operator": "=",
+              "value": "10001"
+            }
+          ],
+          "time_range": {
+            "start": "2025-05-01",
+            "end": "2025-06-30",
+            "grain": "month"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 18999,
+      "error": null,
+      "response_preview": "## Giải thích cho quản lý cửa hàng\n\n**Vì sao không xem được cột `cogs` (giá vốn hàng bán) từ `STRANS`:**\nCột `cogs` chứa thông tin **giá vốn**, thuộc dữ liệu tài chính nhạy cảm — chỉ ban tài chính hoặc ban quản trị cấp trên mới được truy cập. Quản lý cửa hàng chỉ được xem dữ liệu doanh thu/bán hàng, không được phép xem lợi nhuận hay chi phí vốn.\n\n**TRANS_CODE '113' là gì genau vẫn cần xác nhận**, nhưng trong ngữ cảnh này, mã giao dịch `'113'` có thể là loại giao dịch liên quan đến **nhập kho/điề",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 1786,
+      "error": null,
+      "response_preview": "## Tính trung bình doanh thu mỗi tháng\n\n**Phép tính:**\n\n$$\\bar{x} = \\frac{120 + 150 + 90}{3} = \\frac{360}{3} = 120 \\text{ (triệu đồng)}$$\n\n**Kết quả:** Trung bình mỗi tháng doanh thu là **120 triệu đồng**.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 9753,
+      "error": null,
+      "response_preview": "Dựa vào biểu đồ bạn cung cấp, dưới đây là câu trả lời cho các câu hỏi của bạn:\n\n1) **Ba giá trị doanh thu từng tháng (số triệu VND):**\n*   **Tháng 1:** 120 triệu VND\n*   **Tháng 2:** 150 triệu VND\n*   **Tháng 3:** 90 triệu VND\n\n2) **Tháng nào cao nhất?**\n*   **Tháng 2** là tháng có doanh thu cao nhất (150 triệu VND).",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "mimo",
+      "model_id": "xiaomi/mimo-v2.5",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 5196,
+      "error": null,
+      "response_preview": "Dưới đây là thông tin bạn yêu cầu từ bảng ảnh:\n\n| Mã SKU   | Tên hàng         | Doanh thu (triệu) |\n|----------|------------------|--------------------|\n| SKU-001  | Sữa tươi 1L      | 45                 |\n| SKU-002  | Gạo ST25 5kg     | 62                 |\n| SKU-003  | Nước suối 500ml  | 28                 |",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 1516,
+      "error": null,
+      "response_preview": "```json\n{\n  \"intent\": \"compare_revenue\",\n  \"metrics\": [\n    {\n      \"name\": \"revenue\",\n      \"aggregation\": \"sum\"\n    }\n  ],\n  \"dimensions\": [\n    \"store_id\"\n  ],\n  \"filters\": {\n    \"customer_type\": \"VIP\",\n    \"store_id\": \"10001\"\n  },\n  \"time_range\": {\n    \"start_date\": \"2023-05-01\",\n    \"end_date\": \"2023-06-30\",\n    \"grain\": \"month\"\n  },\n  \"output_format\": {\n    \"type\": \"bar_chart\",\n    \"x_axis\": \"month\",\n    \"y_axis\": \"revenue\",\n    \"series\": \"store_id\"\n  }\n}\n```",
+      "details": {
+        "parsed": {
+          "intent": "compare_revenue",
+          "metrics": [
+            {
+              "name": "revenue",
+              "aggregation": "sum"
+            }
+          ],
+          "dimensions": [
+            "store_id"
+          ],
+          "filters": {
+            "customer_type": "VIP",
+            "store_id": "10001"
+          },
+          "time_range": {
+            "start_date": "2023-05-01",
+            "end_date": "2023-06-30",
+            "grain": "month"
+          },
+          "output_format": {
+            "type": "bar_chart",
+            "x_axis": "month",
+            "y_axis": "revenue",
+            "series": "store_id"
+          }
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 1328,
+      "error": null,
+      "response_preview": "Chào quản lý,\n\nBạn không thể SELECT cột `cogs` từ bảng `STRANS` vì cột này chứa thông tin nhạy cảm về giá vốn hàng bán, chỉ dành cho các bộ phận có thẩm quyền. `TRANS_CODE '113'` là mã giao dịch cho biết đây là một giao dịch bán hàng thông thường. Bạn chỉ xem được cửa hàng 10001 vì quyền truy cập của bạn được giới hạn ở cửa hàng này để đảm bảo an toàn dữ liệu và tuân thủ chính sách bảo mật.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 1641,
+      "error": null,
+      "response_preview": "Để tính trung bình doanh thu mỗi tháng, chúng ta sẽ cộng tổng doanh thu của 3 tháng rồi chia cho số tháng.\n\n**Phép tính:**\n\n*   **Tổng doanh thu:** 120 triệu + 150 triệu + 90 triệu = 360 triệu đồng\n*   **Số tháng:** 3 tháng\n*   **Trung bình mỗi tháng:** 360 triệu đồng / 3 = 120 triệu đồng\n\n**Vậy, trung bình mỗi tháng là 120 triệu đồng.**",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2096,
+      "error": null,
+      "response_preview": "Dựa vào biểu đồ doanh thu siêu thị, tôi có thể trả lời như sau:\n\n1) **Ba giá trị doanh thu từng tháng (số triệu VND):**\n   *   Tháng 1: 120 triệu VND\n   *   Tháng 2: 150 triệu VND\n   *   Tháng 3: 90 triệu VND\n\n2) **Tháng nào cao nhất?**\n   *   Tháng 2 có doanh thu cao nhất với 150 triệu VND.",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "gemini25flash",
+      "model_id": "google/gemini-2.5-flash",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 2995,
+      "error": null,
+      "response_preview": "Dưới đây là danh sách Mã SKU, Tên hàng và Doanh thu đọc được từ ảnh:\n\n*   **SKU-001**: Sữa tươi 1L - Doanh thu: 45 (triệu)\n*   **SKU-002**: Gạo ST25 5kg - Doanh thu: 62 (triệu)\n*   **SKU-003**: Nước suối 500ml - Doanh thu: 28 (triệu)",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gemini20flash",
+      "model_id": "google/gemini-2.0-flash-exp:free",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 3.0,
+      "max_score": 5.0,
+      "latency_ms": 2105,
+      "error": null,
+      "response_preview": "{\n  \"intent\": \"compare_revenue\",\n  \"metrics\": [\"revenue\"],\n  \"dimensions\": [\"store_id\", \"month\"],\n  \"filters\": {\n    \"customer_type\": \"VIP\",\n    \"store_id\": \"10001\"\n  },\n  \"time_range\": {\n    \"grain\": \"monthly\"\n  },\n  \"output_format\": \"bar_chart\"\n}",
+      "details": {
+        "parsed": {
+          "intent": "compare_revenue",
+          "metrics": [
+            "revenue"
+          ],
+          "dimensions": [
+            "store_id",
+            "month"
+          ],
+          "filters": {
+            "customer_type": "VIP",
+            "store_id": "10001"
+          },
+          "time_range": {
+            "grain": "monthly"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 1745,
+      "error": null,
+      "response_preview": "Store_manager không được phép SELECT cột cogs từ STRANS vì thông tin này có thể nhạy cảm và liên quan đến chi phí, ảnh hưởng đến quyết định kinh doanh. TRANS_CODE '113' thường chỉ định một loại giao dịch cụ thể, có thể là trả hàng hoặc điều chỉnh. Họ chỉ được xem cửa 10001 để đảm bảo kiểm soát và bảo mật thông tin, tránh việc lạm dụng hoặc sai sót trong quản lý.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 2214,
+      "error": null,
+      "response_preview": "Để tính trung bình doanh thu mỗi tháng, ta cộng tổng doanh thu của 3 tháng lại và chia cho số tháng.\n\nDoanh thu 3 tháng là:\n- Tháng 1: 120 triệu đồng\n- Tháng 2: 150 triệu đồng\n- Tháng 3: 90 triệu đồng\n\nTổng doanh thu = 120 + 150 + 90 = 360 triệu đồng.\n\nSố tháng = 3.\n\nTrung bình doanh thu mỗi tháng = Tổng doanh thu / Số tháng = 360 triệu đồng / 3 = 120 triệu đồng.\n\nVậy trung bình mỗi tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2932,
+      "error": null,
+      "response_preview": "1) Ba giá trị doanh thu từng tháng (số triệu VND) là:\n   - Tháng 1: 120 triệu VND\n   - Tháng 2: 150 triệu VND\n   - Tháng 3: 90 triệu VND\n\n2) Tháng có doanh thu cao nhất là tháng 2 với 150 triệu VND.",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "gpt4o_mini",
+      "model_id": "openai/gpt-4o-mini",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 2500,
+      "error": null,
+      "response_preview": "Dưới đây là thông tin về mã SKU, tên hàng và doanh thu:\n\n1. **Mã SKU:** SKU-001\n   - **Tên hàng:** Sữa tươi 1L\n   - **Doanh thu:** 45 triệu\n\n2. **Mã SKU:** SKU-002\n   - **Tên hàng:** Gạo ST25 5kg\n   - **Doanh thu:** 62 triệu\n\n3. **Mã SKU:** SKU-003\n   - **Tên hàng:** Nước suối 500ml\n   - **Doanh thu:** 28 triệu",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "test_id": "vi_domain",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "claude35haiku",
+      "model_id": "anthropic/claude-3-5-haiku-20241022",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"qwen/qwen2.5-vl-72b-instruct is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Parasail\",\"is_byok\":false}},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 2663,
+      "error": null,
+      "response_preview": "Store_manager không được SELECT cột cogs từ bảng STRANS vì cột này chứa thông tin về chi phí hàng hóa đã bán, cần được bảo mật để tránh rò rỉ thông tin nhạy cảm. TRANS_CODE '113' thường liên quan đến các giao dịch bán hàng cụ thể. Quản lý chỉ được xem dữ liệu của cửa hàng 10001 để đảm bảo tuân thủ quy định về quyền truy cập.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"qwen/qwen2.5-vl-72b-instruct is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Parasail\",\"is_byok\":false}},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vision_chart",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 2833,
+      "error": null,
+      "response_preview": "1) Ba giá trị doanh thu từng tháng (số triệu VND):\n- Tháng 1: 120 triệu VND\n- Tháng 2: 150 triệu VND\n- Tháng 3: 90 triệu VND\n\n2) Tháng có doanh thu cao nhất là Tháng 2 với 150 triệu VND.",
+      "details": {
+        "numbers_found": [
+          "120",
+          "150",
+          "90"
+        ],
+        "expected": [
+          "120",
+          "150",
+          "90"
+        ]
+      }
+    },
+    {
+      "model_key": "qwen_vl",
+      "model_id": "qwen/qwen2.5-vl-72b-instruct",
+      "test_id": "vision_table",
+      "ok": true,
+      "score": 5.0,
+      "max_score": 4.0,
+      "latency_ms": 3172,
+      "error": null,
+      "response_preview": "Dưới đây là thông tin về mã SKU, tên hàng và doanh thu từ bảng:\n\n1. Mã SKU: SKU-001\n   Tên hàng: Sữa tươi 1L\n   Doanh thu: 45 triệu\n\n2. Mã SKU: SKU-002\n   Tên hàng: Gạo ST25 5kg\n   Doanh thu: 62 triệu\n\n3. Mã SKU: SKU-003\n   Tên hàng: Nước suối 500ml\n   Doanh thu: 28 triệu",
+      "details": {
+        "checks": {
+          "sku001": true,
+          "sku002": true,
+          "milk": true,
+          "revenue_62": true,
+          "revenue_45": true
+        }
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_brief",
+      "ok": false,
+      "score": 2.0,
+      "max_score": 5.0,
+      "latency_ms": 7813,
+      "error": null,
+      "response_preview": "{\"intent\": \"so_sanh_doanh_thu\", \"metrics\": [\"doanh_thu\"], \"dimensions\": [\"thang\", \"cua_hang\"], \"filters\": {\"loai_khach\": \"VIP\", \"ma_cua_hang\": \"10001\"}, \"time_range\": {\"grain\": \"thang\", \"start\": \"2023-05-01\", \"end\": \"2023-06-30\"}, \"output_format\": \"bieu_do_cot\"}",
+      "details": {
+        "parsed": {
+          "intent": "so_sanh_doanh_thu",
+          "metrics": [
+            "doanh_thu"
+          ],
+          "dimensions": [
+            "thang",
+            "cua_hang"
+          ],
+          "filters": {
+            "loai_khach": "VIP",
+            "ma_cua_hang": "10001"
+          },
+          "time_range": {
+            "grain": "thang",
+            "start": "2023-05-01",
+            "end": "2023-06-30"
+          },
+          "output_format": "bieu_do_cot"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 3.0,
+      "max_score": 4.0,
+      "latency_ms": 4749,
+      "error": null,
+      "response_preview": "Store_manager không được SELECT cột cogs từ STRANS vì họ không có quyền truy cập vào thông tin chi tiết về giá vốn (cogs) của các giao dịch. \n\nTRANS_CODE '113' thường đại diện cho một loại giao dịch cụ thể, chẳng hạn như một loại hình chuyển khoản hoặc giao dịch đặc biệt, và store_manager có thể không có quyền xem thông tin này.\n\nHọ chỉ có thể xem được cửa hàng 10001 vì họ chỉ được cấp quyền truy cập vào thông tin của cửa hàng cụ thể đó, và không có quyền xem thông tin của các cửa hàng khác.",
+      "details": {
+        "checks": {
+          "trans_code_113": false,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 2193,
+      "error": null,
+      "response_preview": "Lời giải:\n\nDoanh thu trung bình một tháng là: \n\n(120 + 150 + 90) : 3 = 360 : 3 = 120 (triệu đồng)\n\nVậy doanh thu trung bình một tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "llama33",
+      "model_id": "meta-llama/llama-3.3-70b-instruct",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_brief",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 5.0,
+      "latency_ms": 3278,
+      "error": null,
+      "response_preview": "{\"intent\":\"compare\",\"metrics\":[\"revenue\"],\"dimensions\":[\"store_id\"],\"filters\":{\"customer_type\":\"VIP\",\"store_id\":\"10001\"},\"time_range\":{\"grain\":\"month\",\"from\":\"2023-05-01\",\"to\":\"2023-06-30\"},\"output_format\":\"bar_chart\"}",
+      "details": {
+        "parsed": {
+          "intent": "compare",
+          "metrics": [
+            "revenue"
+          ],
+          "dimensions": [
+            "store_id"
+          ],
+          "filters": {
+            "customer_type": "VIP",
+            "store_id": "10001"
+          },
+          "time_range": {
+            "grain": "month",
+            "from": "2023-05-01",
+            "to": "2023-06-30"
+          },
+          "output_format": "bar_chart"
+        },
+        "checks": "vip,revenue,store,month,chart"
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_domain",
+      "ok": true,
+      "score": 4.0,
+      "max_score": 4.0,
+      "latency_ms": 3427,
+      "error": null,
+      "response_preview": "Quản lý cửa hàng không được SELECT cột COGS từ bảng STRANS vì đây là thông tin chi phí hàng hóa đã bán, nhạy cảm về mặt tài chính. TRANS_CODE '113' thường đại diện cho việc trả hàng từ khách hàng. Quản lý chỉ được xem dữ liệu của cửa hàng 10001 để đảm bảo tính bảo mật và hạn chế quyền truy cập.",
+      "details": {
+        "checks": {
+          "trans_code_113": true,
+          "store_filter": true,
+          "deny_cogs": true,
+          "vietnamese": true
+        }
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vi_reasoning",
+      "ok": true,
+      "score": 2.0,
+      "max_score": 2.0,
+      "latency_ms": 8317,
+      "error": null,
+      "response_preview": "Để tính trung bình doanh thu mỗi tháng, chúng ta cần thực hiện các bước sau:\n\n1. Tổng doanh thu 3 tháng:\n   120 + 150 + 90 = 360 triệu đồng\n\n2. Số tháng cần tính: 3 tháng\n\n3. Trung bình doanh thu mỗi tháng:\n   360 ÷ 3 = 120 triệu đồng\n\nVậy trung bình doanh thu mỗi tháng là 120 triệu đồng.",
+      "details": {
+        "has_avg_120": true,
+        "nums_found": [
+          120,
+          150,
+          90,
+          120,
+          120
+        ]
+      }
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vision_chart",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    },
+    {
+      "model_key": "qwen72",
+      "model_id": "qwen/qwen-2.5-72b-instruct",
+      "test_id": "vision_table",
+      "ok": false,
+      "score": 0.0,
+      "max_score": 1.0,
+      "latency_ms": 0,
+      "error": "model_marked_text_only",
+      "response_preview": "",
+      "details": {}
+    }
+  ],
+  "summary": {
+    "by_model": {
+      "mimo": {
+        "model_id": "xiaomi/mimo-v2.5",
+        "text_score": 10.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 90.9,
+        "vision_pct": 100.0,
+        "combined_pct": 95.0
+      },
+      "gemini25flash": {
+        "model_id": "google/gemini-2.5-flash",
+        "text_score": 10.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 90.9,
+        "vision_pct": 100.0,
+        "combined_pct": 95.0
+      },
+      "gpt4o_mini": {
+        "model_id": "openai/gpt-4o-mini",
+        "text_score": 9.0,
+        "text_max": 11.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [],
+        "text_pct": 81.8,
+        "vision_pct": 100.0,
+        "combined_pct": 90.0
+      },
+      "qwen_vl": {
+        "model_id": "qwen/qwen2.5-vl-72b-instruct",
+        "text_score": 4.0,
+        "text_max": 6.0,
+        "vision_score": 9.0,
+        "vision_max": 9.0,
+        "errors": [
+          "vi_brief:HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"qwen/qwen2.5-vl-72b-instruct is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Parasail\",\"is_byok\":false}},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 429: {\"error\":{\"message\":\"Provider returned error\",\"code\":429,\"metadata\":{\"raw\":\"qwen/qwen2.5-vl-72b-instruct is temporarily rate-limited upstream. Please retry shortly, or add your own key to accumulate your rate limits: https://openrouter.ai/settings/integrations\",\"provider_name\":\"Parasail\",\"is_byok\":false}},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 66.7,
+        "vision_pct": 100.0,
+        "combined_pct": 86.7
+      },
+      "qwen72": {
+        "model_id": "qwen/qwen-2.5-72b-instruct",
+        "text_score": 10.0,
+        "text_max": 11.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vision_chart:model_marked_text_only",
+          "vision_table:model_marked_text_only"
+        ],
+        "text_pct": 90.9,
+        "vision_pct": 0.0,
+        "combined_pct": 76.9
+      },
+      "llama33": {
+        "model_id": "meta-llama/llama-3.3-70b-instruct",
+        "text_score": 7.0,
+        "text_max": 11.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vision_chart:model_marked_text_only",
+          "vision_table:model_marked_text_only"
+        ],
+        "text_pct": 63.6,
+        "vision_pct": 0.0,
+        "combined_pct": 53.8
+      },
+      "gemini20flash": {
+        "model_id": "google/gemini-2.0-flash-exp:free",
+        "text_score": 0.0,
+        "text_max": 3.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vi_brief:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_domain:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_chart:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_table:HTTP 404: {\"error\":{\"message\":\"No endpoints found for google/gemini-2.0-flash-exp:free.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 0.0,
+        "vision_pct": 0.0,
+        "combined_pct": 0.0
+      },
+      "claude35haiku": {
+        "model_id": "anthropic/claude-3-5-haiku-20241022",
+        "text_score": 0.0,
+        "text_max": 3.0,
+        "vision_score": 0.0,
+        "vision_max": 2.0,
+        "errors": [
+          "vi_brief:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_domain:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vi_reasoning:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_chart:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}",
+          "vision_table:HTTP 404: {\"error\":{\"message\":\"No endpoints found for anthropic/claude-3-5-haiku-20241022.\",\"code\":404},\"user_id\":\"user_3EfAOH8q0iOPyaLH8pzTqBUOPMS\"}"
+        ],
+        "text_pct": 0.0,
+        "vision_pct": 0.0,
+        "combined_pct": 0.0
+      }
+    },
+    "ranking": [
+      "mimo",
+      "gemini25flash",
+      "gpt4o_mini",
+      "qwen_vl",
+      "qwen72",
+      "llama33",
+      "gemini20flash",
+      "claude35haiku"
+    ]
+  }
+}
