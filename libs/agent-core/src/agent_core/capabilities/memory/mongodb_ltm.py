@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from agent_core.capabilities.memory.base import LongTermMemory, MemoryRecord
@@ -34,7 +35,10 @@ class MongoLongTermMemory(LongTermMemory):
     ) -> list[MemoryRecord]:
         filt: dict = {"actor_id": actor_id}
         if query:
-            filt["content"] = {"$regex": query, "$options": "i"}
+            q = query.strip()
+            # Skip regex search for large/structured payloads (supermarket agent /run JSON).
+            if len(q) <= 200 and not q.startswith("{"):
+                filt["content"] = {"$regex": re.escape(q), "$options": "i"}
         docs = self._col.find(filt).sort("created_at", -1).limit(limit)
         return [
             MemoryRecord(

@@ -7,8 +7,8 @@ memory:
     url_env: REDIS_URL
   ltm:
     backend: mongodb
-    uri_env: MONGODB_URI
-    db_name: supermarket_agent
+    url_env: MONGODB_URI
+    database: supermarket_agent
   checkpoint_db_path: ./data/checkpoints.db
 
 mcp_servers:

@@ -9,6 +9,8 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "openai>=1.0",
+    "redis>=5.0",
+    "pymongo>=4.6",
 ]
 
 [project.scripts]

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -11,7 +12,8 @@ from pydantic import BaseModel
 from project_core.config.env import load_project_env
 from project_core.domain.contracts.clarification import ClarificationReply
 from project_core.domain.contracts.feedback import FeedbackRecord
-from project_core.domain.errors.codes import PermissionsUnavailableError
+from project_core.domain.contracts.pipeline import ChatResponse
+from project_core.domain.errors.codes import AgentUnavailableError, PermissionsUnavailableError
 from project_core.ingest.attachments import ingest_file
 
 from chat_gateway.auth import current_user, issue_token
@@ -146,7 +148,15 @@ def oauth_callback(code: str) -> dict[str, Any]:
 
 @app.post("/chat")
 def chat(body: ChatRequest, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    resp = get_orchestrator().handle_chat(session_id=body.session_id, message=body.message, user=user)
+    try:
+        resp = get_orchestrator().handle_chat(session_id=body.session_id, message=body.message, user=user)
+    except (httpx.ReadTimeout, httpx.HTTPError, AgentUnavailableError) as exc:
+        resp = ChatResponse(
+            session_id=body.session_id,
+            workflow_status="error",
+            message="Hệ thống đang xử lý chậm, vui lòng thử lại sau.",
+            error={"code": "AGENT_TIMEOUT", "retryable": True, "detail": str(exc)},
+        )
     return resp.model_dump()
 
 

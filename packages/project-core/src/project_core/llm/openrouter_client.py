@@ -72,8 +72,31 @@ class OpenRouterClient:
                 f"OpenRouter HTTP {response.status_code}: {response.text[:500]}"
             )
         data = response.json()
-        message = data["choices"][0]["message"]
-        content = message.get("content") or ""
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        content = message.get("content")
+        if isinstance(content, list):
+            parts: list[str] = []
+            for block in content:
+                if isinstance(block, dict):
+                    text = block.get("text") or block.get("content")
+                    if isinstance(text, str) and text.strip():
+                        parts.append(text.strip())
+                elif isinstance(block, str) and block.strip():
+                    parts.append(block.strip())
+            content = "\n".join(parts) if parts else ""
+        elif content is None:
+            content = ""
+        else:
+            content = str(content)
+        if not content.strip():
+            reasoning = message.get("reasoning")
+            if isinstance(reasoning, str):
+                content = reasoning
+            elif isinstance(reasoning, dict):
+                content = str(
+                    reasoning.get("content") or reasoning.get("text") or reasoning.get("summary") or ""
+                )
         usage = data.get("usage") or {}
         tokens = int(usage.get("total_tokens") or 0)
         return ChatCompletionResult(content=content, raw=data, usage_tokens=tokens)

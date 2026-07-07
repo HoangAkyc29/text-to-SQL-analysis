@@ -203,17 +203,22 @@ def execute_readonly(
     if not verdict.allowed:
         return {"error": "policy_blocked", "violations": verdict.violations}
     sanitized = verdict.sanitized_sql or sql
-    with _semaphore, _connect(db) as conn:
-        cur = conn.cursor()
-        cur.execute(sanitized)
-        columns = [c[0] for c in cur.description] if cur.description else []
-        # Decode legacy TCVN3 text at the SQL boundary so every downstream
-        # consumer (agents, parquet, Excel export) sees correct Unicode.
-        rows = [
-            maybe_decode_row(dict(zip(columns, row, strict=False)))
-            for row in cur.fetchmany(50000)
-        ]
-        return {"columns": columns, "rows": rows, "row_count": len(rows), "target_db": db}
+    try:
+        with _semaphore, _connect(db) as conn:
+            cur = conn.cursor()
+            cur.execute(sanitized)
+            columns = [c[0] for c in cur.description] if cur.description else []
+            # Decode legacy TCVN3 text at the SQL boundary so every downstream
+            # consumer (agents, parquet, Excel export) sees correct Unicode.
+            rows = [
+                maybe_decode_row(dict(zip(columns, row, strict=False)))
+                for row in cur.fetchmany(50000)
+            ]
+            return {"columns": columns, "rows": rows, "row_count": len(rows), "target_db": db}
+    except pyodbc.Error as exc:
+        return {"error": "db_error", "target_db": db, "message": str(exc)[:500]}
+    except RuntimeError as exc:
+        return {"error": "db_unavailable", "target_db": db, "message": str(exc)[:500]}
 
 
 def get_schema_snapshot(

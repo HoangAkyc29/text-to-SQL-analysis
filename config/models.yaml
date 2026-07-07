@@ -2,7 +2,7 @@ default_profile: openrouter_mimo
 
 agent_profiles:
   router: openrouter_mimo
-  sql_planner: openrouter_mimo
+  sql_planner: openrouter_fast
   risk_reviewer: openrouter_fast
   analyst: openrouter_mimo
   analyst_vision: openrouter_vision
@@ -14,21 +14,21 @@ profiles:
     model_id: xiaomi/mimo-v2.5
     supports_vision: true
     params:
-      max_tokens: 4096
-      temperature: 0.5
+      max_tokens: 8192
+      temperature: 0.3
   openrouter_fast:
     provider: openrouter
     model_id: google/gemini-2.5-flash
     params:
-      max_tokens: 4096
-      temperature: 0.5
+      max_tokens: 8192
+      temperature: 0.3
   openrouter_vision:
     provider: openrouter
     model_id: xiaomi/mimo-v2.5
     supports_vision: true
     params:
-      max_tokens: 4096
-      temperature: 0.5
+      max_tokens: 8192
+      temperature: 0.3
   openrouter_embed:
     provider: openrouter
     model_id: openai/text-embedding-3-small

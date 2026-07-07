@@ -36,9 +36,33 @@ class SupermarketAgentService(BaseAgentService):
         self.retriever = retriever
         self.context_policy = ContextPolicy()
 
-    def _persist(self, ctx: DecisionContext, response: AgentResponse) -> None:
+    def _persist(self, request: AgentRequest, session_id: str, response: AgentResponse) -> None:
         # Disable auto LTM persist — CaseStudyIndexer controls vector writes.
         return
+
+    @staticmethod
+    def _intent_from_request(request: AgentRequest) -> str:
+        try:
+            payload = json.loads(request.message or "{}")
+            if isinstance(payload, dict):
+                if isinstance(payload.get("brief"), dict) and payload["brief"].get("intent"):
+                    return str(payload["brief"]["intent"])[:2000]
+                if payload.get("intent"):
+                    return str(payload["intent"])[:2000]
+                if payload.get("text"):
+                    return str(payload["text"])[:2000]
+        except json.JSONDecodeError:
+            pass
+        return (request.message or "")[:2000]
+
+    def run(self, request: AgentRequest) -> AgentResponse:
+        saved_retriever = self.retriever
+        # Pipeline supplies retrieval_context in payload; avoid duplicate embed in BaseAgentService.run.
+        self.retriever = None
+        try:
+            return super().run(request)
+        finally:
+            self.retriever = saved_retriever
 
     def build_context(self, ctx: DecisionContext, extra: dict[str, Any] | None = None) -> dict[str, Any]:
         session = extra.get("session") if extra else None

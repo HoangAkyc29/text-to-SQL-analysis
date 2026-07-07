@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -13,10 +14,16 @@ from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.brief.templates import brief_templates_excerpt
+from project_core.domain.errors.codes import LLMProviderError
 from project_core.domain.feedback.satisfaction_rules import detect_satisfaction
-from project_core.llm.openrouter_client import OpenRouterClient
+from project_core.llm.json_parse import completion_text, parse_llm_json
+from project_core.llm.openrouter_client import ChatCompletionResult, OpenRouterClient
 from project_core.models.loader import agent_profile
 from project_core.service.supermarket_agent import SupermarketAgentService
+
+logger = logging.getLogger(__name__)
+
+_ANALYSIS_HINTS = ("vip", "doanh", "bán", "chart", "điểm", "revenue", "tồn kho", "inventory")
 
 
 class ConversationalRouterService(SupermarketAgentService):
@@ -29,6 +36,40 @@ class ConversationalRouterService(SupermarketAgentService):
         if mode == "synthesize":
             return self._synthesize(ctx)
         return self._ingress(ctx)
+
+    def _ingress_heuristic(self, text: str, external_sources: list[Any]) -> dict[str, Any]:
+        lowered = text.lower()
+        route = "analysis" if any(k in lowered for k in _ANALYSIS_HINTS) else "chitchat"
+        brief: AnalysisBrief | None = None
+        if route == "analysis":
+            brief = AnalysisBrief(intent=text, metrics=["revenue"], output_format=["table"])
+            if external_sources:
+                from project_core.domain.contracts.external_source import ExternalSource
+
+                brief.external_sources = [ExternalSource.model_validate(s) for s in external_sources]
+                excerpts = [s.get("text_excerpt", "")[:500] for s in external_sources if s.get("text_excerpt")]
+                if excerpts:
+                    brief.intent = f"{text}\n\n[Attachments]\n" + "\n".join(excerpts)
+        return {
+            "route": route,
+            "user_message": "Đã nhận yêu cầu phân tích." if route == "analysis" else "Xin chào, tôi có thể giúp gì?",
+            "brief": brief.model_dump() if brief else None,
+        }
+
+    def _parse_json_payload(
+        self,
+        result: ChatCompletionResult,
+        *,
+        fallback_text: str = "",
+        external_sources: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            return parse_llm_json(result)
+        except LLMProviderError as exc:
+            logger.warning("router LLM JSON parse failed: %s; content=%r", exc, completion_text(result)[:200])
+            if fallback_text.strip():
+                return self._ingress_heuristic(fallback_text, external_sources or [])
+            raise
 
     def _ingress(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}
@@ -44,23 +85,8 @@ class ConversationalRouterService(SupermarketAgentService):
                 pass
         satisfaction = detect_satisfaction(text)
         if os.getenv("ALLOW_LLM_STUB") == "1":
-            route = "analysis" if any(k in text.lower() for k in ("vip", "doanh", "bán", "chart", "điểm")) else "chitchat"
-            brief = None
-            if route == "analysis":
-                brief = AnalysisBrief(intent=text, metrics=["points"], output_format=["chart"])
-                if external_sources:
-                    from project_core.domain.contracts.external_source import ExternalSource
-
-                    brief.external_sources = [ExternalSource.model_validate(s) for s in external_sources]
-                    excerpts = [s.get("text_excerpt", "")[:500] for s in external_sources if s.get("text_excerpt")]
-                    if excerpts:
-                        brief.intent = f"{text}\n\n[Attachments]\n" + "\n".join(excerpts)
-            payload_out = {
-                "route": route,
-                "user_message": "Đã nhận yêu cầu phân tích." if route == "analysis" else "Xin chào, tôi có thể giúp gì?",
-                "brief": brief.model_dump() if brief else None,
-                "satisfaction_signal": satisfaction,
-            }
+            payload_out = self._ingress_heuristic(text, external_sources)
+            payload_out["satisfaction_signal"] = satisfaction
             return self.json_response(ctx, payload_out)
         user_content: dict[str, Any] = {"text": text}
         if external_sources:
@@ -83,7 +109,7 @@ class ConversationalRouterService(SupermarketAgentService):
             ],
             response_format={"type": "json_object"},
         )
-        payload = json.loads(result.content)
+        payload = self._parse_json_payload(result, fallback_text=text, external_sources=external_sources)
         if satisfaction:
             payload["satisfaction_signal"] = satisfaction
         return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
@@ -115,7 +141,7 @@ class ConversationalRouterService(SupermarketAgentService):
                 ],
                 response_format={"type": "json_object"},
             )
-            result = ClarificationBridge.parse_llm_bridge(llm.content, request)
+            result = ClarificationBridge.parse_llm_bridge(completion_text(llm), request)
         return self.json_response(ctx, result.model_dump())
 
     def _clarify(self, ctx: DecisionContext):
@@ -143,7 +169,7 @@ class ConversationalRouterService(SupermarketAgentService):
             ],
             response_format={"type": "json_object"},
         )
-        payload = json.loads(result.content)
+        payload = parse_llm_json(result)
         payload.setdefault("clarification", request.model_dump())
         return self.json_response(ctx, payload)
 
@@ -165,7 +191,7 @@ class ConversationalRouterService(SupermarketAgentService):
             ],
             response_format={"type": "json_object"},
         )
-        return self.json_response(ctx, json.loads(result.content))
+        return self.json_response(ctx, parse_llm_json(result))
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> ConversationalRouterService:

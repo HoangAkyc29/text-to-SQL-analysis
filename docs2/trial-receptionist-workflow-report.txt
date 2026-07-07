@@ -1,0 +1,253 @@
+================================================================================
+BÁO CÁO TRIAL: ROLE-PLAY LỄ TÂN — QUÀ TẶNG 0030344/348/355 (1–6/7/2026)
+Ngày chạy: 2026-07-07
+Môi trường: Docker Compose local, chat-gateway :18300, branch pre-deploy
+================================================================================
+
+1. TÓM TẮT ĐIỀU HÀNH
+--------------------------------------------------------------------------------
+Đã chạy 3 phiên trial với cùng câu hỏi nghiệp vụ (script: scripts/receptionist_trial.py).
+Không có vòng clarify nào được kích hoạt — Agent I/II xử lý một lần từ câu hỏi ban đầu.
+
+| Lần | session_id              | trace_id                             | outcome        | Thời gian ~ | Kết quả nghiệp vụ |
+|-----|-------------------------|--------------------------------------|----------------|-------------|-------------------|
+| 1   | receptionist-trial-cdcedb9c | 6866cc17-68c8-423e-a9be-d951f24a7b74 | policy_blocked | ~43s        | SQL bị chặn 9 lần (forbidden_pattern) |
+| 2   | receptionist-trial-8926b665 | e84a833d-6ba7-4b2c-9ddd-a54d54fbcc48 | AGENT_TIMEOUT  | ~38s        | SQL attempt 2 qua policy → db2 lỗi login → HTTP 500 |
+| 3   | receptionist-trial-7bbae5ba | 4faf9970-220d-40c0-b4d0-182352b76587 | policy_blocked | ~90s        | SQL bị chặn (bảng ảo rankedbills/productskus/strans_202607) |
+
+Kết luận: Pipeline agent hoạt động đúng luồng I→II→(III)→execute, nhưng KHÔNG hoàn thành
+yêu cầu nghiệp vụ vì (a) lỗi sinh SQL của Agent II, (b) hạ tầng db2 không truy cập được,
+(c) không có vòng làm rõ để kiểm tra khả năng suy luận trans_num / mã 8 số.
+
+Agent III và IV: KHÔNG được gọi (không có SQL execute thành công).
+Case study / học hỏi Mongo: 0 bản ghi mới (case_studies collection rỗng).
+RAG schema_chunks: 42 chunk indexed (dùng cho context schema, không ghi log per-trace).
+
+================================================================================
+2. CÂU HỎI GỐC (VAI LỄ TÂN — KHÔNG GIẢI THÍCH THÊM 600K / TRANS_NUM)
+--------------------------------------------------------------------------------
+"Trong ngày 1/7/2026 tới ngày 6/7/2026, hãy xuất dữ liệu sau để tôi có thông tin về
+mặt hàng mã 0030344, 0030348 và 0030355. Đây là các mặt hàng quà tặng cho khách.
+Tôi cần biết số lượng mỗi quà tặng là bao nhiêu và kiểm tra tính hợp lệ của bill
+600k trở lên. Sau đó xuất ra danh sách 5 bill gần nhất tương ứng với mỗi mặt hàng trên."
+
+Ghi chú thiết kế trial:
+- Quy tắc "bill <600k không tính" KHÔNG được nói thêm trừ khi agent hỏi clarify.
+- Lễ tân giả vờ không biết trans_num / mã 8 số — không được kiểm tra vì không có clarify.
+
+================================================================================
+3. AGENT I (CONVERSATIONAL ROUTER) — INGRESS & BRIEF
+--------------------------------------------------------------------------------
+Chất lượng: TỐT về mặt hiểu intent; YẾU về clarify và persona-test.
+
+Brief được tạo (lần 3, đại diện):
+  intent: Phân tích mã 0030344, 0030348, 0030355 (quà tặng) 1/7–6/7/2026.
+          Kiểm tra số lượng, xác thực bill >=600k, 5 bill gần nhất/mã.
+  filters: product_code [0030344, 0030348, 0030355], min_amount/min_bill_value 600000
+  time_range: start 2026-07-01, end 2026-07-06, grain day
+  output_format: table, excel
+  user_knowledge_level: expert  ← đáng ngờ với persona lễ tân
+  clarify_round: 0
+
+Nhận xét suy luận:
+  (+) Trích đúng 3 SKU, khoảng ngày, yêu cầu số lượng + bill 600k + top 5 bill/SKU.
+  (+) Đặt min_bill_value vào filters mà không cần vòng clarify (user đã nói "600k" trong câu hỏi).
+  (-) Không hỏi clarify về: mã hàng 6 vs 8 số, định danh bill (trans_num), cách tính tổng bill.
+  (-) Gán user_knowledge_level=expert → pipeline bỏ qua exploration/clarify sớm.
+  (-) Không decompose plan (plan=null) — để Agent II tự lên SQL phức tạp.
+
+Budget lần 1: I:2, II:3, tokens ~85934 | lần 3: tokens ~84642
+
+Transcript Redis (lần 1): chỉ 2 message (user + assistant từ chối policy_blocked).
+
+================================================================================
+4. AGENT II (SQL PLANNER) — LẬP KẾ HOẠCH SQL
+--------------------------------------------------------------------------------
+Chất lượng: TRUNG BÌNH–YẾU cho bài toán multi-SKU + ngưỡng bill + top-N.
+
+Các lỗi SQL quan sát được qua workflow steps:
+
+Lần 1 — forbidden_pattern (9 query, 3 attempts × 3 queries):
+  Nguyên nhân gốc: PolicyEngine._has_forbidden_patterns() từ chối mọi SQL có ';'
+  kể cả dấu chấm phẩy cuối câu do LLM sinh ra.
+  → ĐÃ FIX: strip trailing ';' trước validate (policy_engine.py).
+
+Lần 2 — attempt 1:
+  table_not_in_dictionary:strans_202607 (3 queries)
+  LLM đoán shard tháng 7/2026 nhưng shards.yaml chỉ liệt kê tới STRANS_202604;
+  tháng 7/2026 theo data dictionary phải dùng db2.STRANS (live, không shard).
+
+Lần 2 — attempt 2:
+  SQL qua policy → target_db=db2 → pyodbc:
+  "Cannot open database RESTORED_DB2 requested by the login. The login failed. (4060)"
+  → Hạ tầng: user analysisagentreadonly không có quyền RESTORED_DB2.
+  → db1 OK (RESTORED_DB), db2 FAIL.
+
+Lần 3 — 3 attempts, mỗi attempt 1 query bị reject:
+  attempt 1: table_not_in_dictionary:rankedbills; productskus
+  attempt 2: + strans_202607
+  attempt 3: rankedbills; productskus
+  LLM dùng CTE/tên alias như tên bảng thật — policy đúng khi chặn.
+
+Feedback loop policy → II:
+  Pipeline ghi inbox["policy_feedback"] sau mỗi reject và gọi lại II ở attempt tiếp.
+  Retry KHÔNG cải thiện đủ: vẫn sinh tên bảng ảo hoặc shard sai.
+
+Shard routing hint (schema_context.shard_plan):
+  BUG phát hiện: suggest_query_plan() chỉ đọc filters.date_from/date_to,
+  KHÔNG đọc brief.time_range.start/end → shard_plan thiếu gợi ý db2 cho tháng 7/2026.
+  → ĐÃ FIX: shard_resolver đọc thêm time_range.start/end.
+
+RAG Agent II:
+  feedback_loop.retrieve_context("II", brief.intent) được gọi nếu feedback_loop != None.
+  Không có log per-chunk trong Redis/docker; Mongo schema_chunks=42 (global index).
+
+================================================================================
+5. AGENT III (RISK REVIEWER) & AGENT IV (DATA ANALYST)
+--------------------------------------------------------------------------------
+KHÔNG CHẠY — không có SQL nào vượt policy + execute thành công.
+
+Thiết kế mong đợi nếu thành công:
+  III: review SQL (TRANS_CODE=113, join TRANSHDR tổng bill, filter SKU_ID)
+  IV: aggregate số lượng/quà, lọc bill >=600k, top 5 TRANS_NUM/SKU, export excel
+
+================================================================================
+6. POLICY ENGINE & SQL GATEWAY
+--------------------------------------------------------------------------------
+Policy (đúng hướng):
+  - select_only, dictionary tables, max_rows inject TOP/LIMIT
+  - forbidden_pattern: semicolon injection, DML/DDL
+
+Fix đã áp dụng:
+  1. policy_engine.py: sql.strip().rstrip(";") trước parse và forbidden scan
+  2. tools_impl.py execute_readonly: bắt pyodbc.Error → {"error":"db_error",...}
+     thay vì HTTP 500 uncaught (tránh AGENT_TIMEOUT che lỗi thật)
+  3. pipeline.py: ghi WorkflowStepType.ERROR khi db_error/db_unavailable
+
+Kiểm tra hạ tầng (trong container sql-gateway):
+  ANALYTICS_DB_DSN  → RESTORED_DB OK
+  ANALYTICS_DB_DSN_2 → RESTORED_DB2 FAIL (4060 login)
+  db1 tables: STRANS_202604 EXISTS; STRANS, STRANS_202607, TRANSHDR NOT on db1
+
+→ Yêu cầu 1–6/7/2026 BẮT BUỘC db2 theo thiết kế data dictionary; không thể hoàn thành
+  cho đến khi cấp quyền RESTORED_DB2 cho analysisagentreadonly.
+
+================================================================================
+7. CLARIFY / RECEPTIONIST TEST
+--------------------------------------------------------------------------------
+Kết quả: THẤT BẠI mục tiêu kiểm tra persona lễ tân.
+
+  clarify_round = 0 ở cả 3 phiên.
+  Script receptionist_answers() không được gọi.
+  Agent không hỏi: "bill là gì?", "mã 6 hay 8 số?", "600k tính như thế nào?".
+
+Nguyên nhân có thể:
+  - User message đã chứa "600k" → I điền sẵn filter, II không cần hỏi.
+  - hard_enforce clarify nhưng confidence/schema đủ cao → II action=plan_sql trực tiếp.
+  - user_knowledge_level=expert → giảm xu hướng clarify.
+
+Khuyến nghị: Với câu hỏi multi-constraint (3 SKU × ngưỡng bill × top 5),
+  Agent II nên clarify ít nhất 1 lần về định danh bill hoặc mapping mã hàng
+  khi filters.product_code là chuỗi 7 chữ số (0030344) chưa khớp SKU_ID 8 số.
+
+================================================================================
+8. WORKFLOW / CoT / AUDIT — KHẢ NĂNG QUAN SÁT
+--------------------------------------------------------------------------------
+CoT (chain-of-thought) LLM: KHÔNG được persist ra log/docker/Redis.
+Chỉ quan sát được:
+  - Redis stm:{session_id}:workflow — steps[], brief, budget_spent, sql_attempt
+  - Redis stm:{session_id}:transcript — user/assistant messages
+  - Docker logs — chỉ HTTP access, không nội dung agent
+  - audit.jsonl — file không tạo trên volume host (SQL_AUDIT_LOG_PATH trong container)
+
+Mongo LTM:
+  case_studies: 0 documents
+  schema_chunks: 42 documents (RAG tĩnh từ data dictionary)
+
+Learning loop: Không index case study vì trace kết thúc policy_blocked/error
+  trước khi có dataset/artifact thành công.
+
+================================================================================
+9. LOGIC NGHIỆP VỤ — ĐÁNH GIÁ
+--------------------------------------------------------------------------------
+Yêu cầu nghiệp vụ (ground truth từ ngữ cảnh ẩn):
+  - 3 mã quà: 0030344, 0030348, 0030355 (có thể cần map sang SKU_ID 8 số qua PLU/BARCODE)
+  - Chỉ tính giao dịch trong bill có TỔNG >= 600.000 VND (TRANS_NUM / TRANSHDR)
+  - Đếm số lượng từng quà; liệt kê 5 TRANS_NUM gần nhất cho mỗi SKU
+
+Agent suy luận:
+  (+) Intent brief phản ánh đủ 3 phần yêu cầu.
+  (+) Chọn STRANS + filter SKU + ngưỡng bill là hướng đúng theo domain_definitions.md.
+  (-) Không resolve mã 7 số → SKU_ID (probe BARCODE/SKU_DEF).
+  (-) Không join TRANSHDR/PMTRANS để lọc bill tổng >=600k đúng nghĩa.
+  (-) Sinh SQL với pseudo-table (rankedbills, productskus) thay vì subquery/CTE hợp lệ
+      hoặc bảng dictionary STRANS/TRANSHDR.
+  (-) Dùng strans_202607 trên db1 trong khi shard chưa có và tháng 7 thuộc db2 live.
+
+Workflow orchestration:
+  (+) Retry SQL tối đa 3 lần, policy feedback vào inbox.
+  (+) Budget caps I/II/III/IV được ghi nhận.
+  (-) Outcome cuối policy_blocked không phân biệt "SQL sai" vs "chính sách bảo mật"
+      → message user chung chung, khó debug.
+  (-) Không escalate db_error thành outcome riêng (IMPOSSIBLE/infra_error).
+
+================================================================================
+10. FIX CODE ĐÃ THỰC HIỆN TRONG PHIÊN NÀY
+--------------------------------------------------------------------------------
+| File | Thay đổi |
+|------|----------|
+| packages/project-core/.../policy_engine.py | Strip ';' cuối SQL — fix forbidden_pattern false positive |
+| packages/project-core/.../shard_resolver.py | Đọc time_range.start/end trong suggest_query_plan |
+| packages/project-core/.../pipeline.py | Xử lý db_error từ sql-gateway, ghi step ERROR |
+| mcp-servers/sql-gateway/.../tools_impl.py | try/except pyodbc trong execute_readonly |
+
+Cần làm thêm (ngoài scope đã fix):
+  - Cấp quyền RESTORED_DB2 cho ANALYTICS_DB_DSN_2 (hạ tầng)
+  - Agent II prompt: cấm alias CTE trùng tên bảng; bắt buộc STRANS/TRANSHDR trên db2 cho date >= cutoff
+  - resolve_product_code hỗ trợ list SKU + zero-pad 8 số
+  - Persist rejected SQL vào workflow.summary hoặc audit.jsonl
+  - Outcome riêng cho infra/db_error thay vì policy_blocked
+
+================================================================================
+11. PHỤ LỤC — WORKFLOW STEPS (RÚT GỌN)
+--------------------------------------------------------------------------------
+
+--- Lần 1 (cdcedb9c / 6866cc17) ---
+sql_attempt 1-3, mỗi attempt 3× policy_reject / forbidden_pattern
+budget: I:2 II:3 tokens:85934
+outcome: policy_blocked
+
+--- Lần 2 (8926b665 / e84a833d) ---
+attempt 1: 3× policy_reject / table_not_in_dictionary:strans_202607
+attempt 2: progress execute → db2 connection fail → AGENT_TIMEOUT (trước fix)
+workflow status: running (khi timeout)
+
+--- Lần 3 (7bbae5ba / 4faf9970) ---
+attempt 1: policy_reject rankedbills;productskus
+attempt 2: + strans_202607
+attempt 3: rankedbills;productskus
+budget: I:2 II:3 tokens:84642
+outcome: policy_blocked
+message: "Xin lỗi, hệ thống không thể thực hiện yêu cầu phân tích này do chính sách an toàn dữ liệu..."
+
+================================================================================
+12. KẾT LUẬN CHẤT LƯỢNG TỔNG THỂ
+--------------------------------------------------------------------------------
+| Tiêu chí | Điểm | Ghi chú |
+|----------|------|---------|
+| Hiểu intent (Agent I) | 8/10 | Brief đầy đủ, thiếu clarify |
+| SQL planning (Agent II) | 4/10 | Pseudo-tables, shard sai, chưa map SKU |
+| Policy an toàn | 9/10 | Chặn đúng; đã fix false positive ';' |
+| Risk/Analysis | N/A | Không chạy |
+| Persona/clarify test | 2/10 | Không hỏi lại lễ tân |
+| Hạ tầng dữ liệu | 3/10 | db2 không truy cập; tháng 7 không có trên db1 |
+| Workflow orchestration | 7/10 | Retry OK; messaging/outcome cần cải thiện |
+
+Trial KHÔNG xuất được số lượng quà, danh sách bill, hay file excel như yêu cầu.
+Nguyên nhân chính: SQL không execute được (policy + db2), không phải thiếu Agent IV.
+
+================================================================================
+Hết báo cáo.
+Session log HTTP: docs2/trial-receptionist-session.jsonl (lần chạy cuối: 7bbae5ba)
+Script tái lập: uv run python scripts/receptionist_trial.py
+================================================================================

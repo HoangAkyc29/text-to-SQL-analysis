@@ -149,7 +149,7 @@ class SupermarketAnalysisPipeline:
             budget.record("II")
             schema_context = self.catalog.agent_schema_bundle(permissions.allowed_tables)
             shard_plan = suggest_query_plan(brief.model_dump(), self.catalog)
-            schema_context = {**schema_context, "shard_plan": shard_plan.model_dump()}
+            schema_context = {**schema_context, "shard_plan": shard_plan.model_dump(mode="json")}
             filtered_snapshot = self.context_policy.filter_schema_excerpt(
                 permissions, self.catalog.snapshot()
             )
@@ -399,6 +399,29 @@ class SupermarketAnalysisPipeline:
                             sql_attempt=sql_attempt,
                             query_index=idx,
                             summary="gateway_policy_blocked",
+                        )
+                    )
+                    continue
+                if exec_result.get("error") in {"db_error", "db_unavailable"}:
+                    err_msg = str(exec_result.get("message") or exec_result.get("error"))[:200]
+                    self.audit.log_sql_execute(
+                        trace_id=trace_id,
+                        actor_id=acl.actor_id,
+                        role=acl.role,
+                        sql=sanitized,
+                        target_db=tdb,
+                        row_count=0,
+                        outcome=exec_result.get("error", "db_error"),
+                    )
+                    workflow.steps.append(
+                        WorkflowStep(
+                            step_id=str(uuid4()),
+                            trace_id=trace_id,
+                            analysis_id=workflow.active_analysis_id or trace_id,
+                            step_type=WorkflowStepType.ERROR,
+                            sql_attempt=sql_attempt,
+                            query_index=idx,
+                            summary=f"{exec_result.get('error')}:target_db={tdb}:{err_msg}",
                         )
                     )
                     continue

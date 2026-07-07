@@ -71,8 +71,19 @@ def suggest_query_plan(
     """Suggest db1/db2 routing and shard union from brief date filters."""
     cutoff = rolling_cutoff(now)
     filters = brief.get("filters") or {}
-    date_from_raw = filters.get("date_from") or filters.get("from_date")
-    date_to_raw = filters.get("date_to") or filters.get("to_date")
+    time_range = brief.get("time_range") or {}
+    date_from_raw = (
+        filters.get("date_from")
+        or filters.get("from_date")
+        or time_range.get("start")
+        or time_range.get("from")
+    )
+    date_to_raw = (
+        filters.get("date_to")
+        or filters.get("to_date")
+        or time_range.get("end")
+        or time_range.get("to")
+    )
 
     def _parse(d: Any) -> date | None:
         if d is None:

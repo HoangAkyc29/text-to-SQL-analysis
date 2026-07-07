@@ -842,6 +842,8 @@ dependencies = [
     { name = "openai" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pymongo" },
+    { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -851,6 +853,8 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
+    { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 
@@ -928,7 +932,9 @@ dependencies = [
     { name = "openai" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pymongo" },
     { name = "python-sandbox" },
+    { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -938,7 +944,9 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
     { name = "python-sandbox", editable = "mcp-servers/python-sandbox" },
+    { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 
@@ -2030,6 +2038,8 @@ docker-agent = [
     { name = "openai" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pymongo" },
+    { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 docker-mcp = [
@@ -2064,6 +2074,8 @@ docker-agent = [
     { name = "openai", specifier = ">=1.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
+    { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 docker-mcp = [
@@ -3731,6 +3743,8 @@ dependencies = [
     { name = "openai" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pymongo" },
+    { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -3740,6 +3754,8 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
+    { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 
@@ -3986,6 +4002,8 @@ dependencies = [
     { name = "openai" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pymongo" },
+    { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -3995,6 +4013,8 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
+    { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 

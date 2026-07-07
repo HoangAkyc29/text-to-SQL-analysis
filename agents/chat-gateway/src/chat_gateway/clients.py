@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any
 
 import httpx
 from agent_core.io.schemas import AgentRequest
+from pydantic_core import to_jsonable_python
 
 from project_core.domain.budget import AgentInvoker, SqlGatewayClient
 from project_core.domain.contracts.sql_acl import SqlAclContext
@@ -39,7 +41,7 @@ class HttpAgentInvoker(AgentInvoker):
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(timeout=120.0)
+            self._client = httpx.Client(timeout=600.0)
         return self._client
 
     def close(self) -> None:
@@ -60,7 +62,7 @@ class HttpAgentInvoker(AgentInvoker):
         req = AgentRequest(
             session_id=metadata.get("session_id", "system"),
             actor_id=metadata.get("actor_id", "system"),
-            message=__import__("json").dumps(payload),
+            message=json.dumps(to_jsonable_python(payload)),
             metadata=metadata,
         )
         headers = {**internal_auth_headers()}

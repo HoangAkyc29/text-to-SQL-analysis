@@ -12,11 +12,13 @@ from pymongo import MongoClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
 
+from project_core.config.env import load_project_env  # noqa: E402
 from project_core.domain.schema.catalog import SchemaCatalog  # noqa: E402
 from project_core.llm.embedding_client import EmbeddingClient  # noqa: E402
 
 
 def main() -> None:
+    load_project_env(ROOT)
     uri = os.getenv("MONGODB_URI", "mongodb://localhost:18217/supermarket_agent")
     client = MongoClient(uri)
     db = client.get_default_database()

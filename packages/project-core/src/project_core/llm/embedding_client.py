@@ -45,5 +45,10 @@ class EmbeddingClient:
                 f"OpenRouter embeddings HTTP {response.status_code}: {response.text[:500]}"
             )
         data = response.json()
-        items = sorted(data["data"], key=lambda x: x["index"])
+        items = data.get("data")
+        if not items:
+            raise LLMProviderError(
+                f"OpenRouter embeddings missing data: {response.text[:500]}"
+            )
+        items = sorted(items, key=lambda x: x["index"])
         return [item["embedding"] for item in items]

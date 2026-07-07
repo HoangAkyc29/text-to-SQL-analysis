@@ -40,6 +40,7 @@ class PolicyEngine:
 
     def validate(self, sql: str) -> PolicyVerdict:
         violations: list[str] = []
+        sql = sql.strip().rstrip(";").strip()
         try:
             statements = sqlglot.parse(sql, read="tsql")
         except Exception as exc:  # noqa: BLE001
@@ -86,6 +87,7 @@ class PolicyEngine:
         return PolicyVerdict(True, sanitized_sql=sanitized.sql(dialect="tsql"))
 
     def _has_forbidden_patterns(self, sql: str) -> bool:
+        sql = sql.strip().rstrip(";").strip()
         if ";" in sql:
             return True
         lowered = sql.lower()

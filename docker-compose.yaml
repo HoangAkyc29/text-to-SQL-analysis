@@ -11,6 +11,10 @@ x-agent-build: &agent-build
   args:
     BASE_IMAGE: abstract-base/agent-base:local
 
+x-agent-env: &agent-env
+  REDIS_URL: redis://redis:6379/0
+  MONGODB_URI: mongodb://mongodb:27017/supermarket_agent
+
 x-mcp-build: &mcp-build
   context: .
   args:
@@ -76,8 +80,10 @@ services:
     env_file: .env
     restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=18201
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18201
     ports: ["18201:18201"]
+    depends_on: [redis, mongodb]
 
   sql-planner:
     build:
@@ -86,11 +92,10 @@ services:
     env_file: .env
     restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=18202
-      # Schema-doc hybrid retriever connects to Mongo; use the internal service DNS.
-      - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18202
     ports: ["18202:18202"]
-    depends_on: [mongodb]
+    depends_on: [redis, mongodb]
 
   risk-reviewer:
     build:
@@ -99,8 +104,10 @@ services:
     env_file: .env
     restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=18203
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18203
     ports: ["18203:18203"]
+    depends_on: [redis, mongodb]
 
   data-analyst:
     build:
@@ -109,8 +116,10 @@ services:
     env_file: .env
     restart: unless-stopped
     environment:
-      - AGENT_HTTP_PORT=18204
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18204
     ports: ["18204:18204"]
+    depends_on: [redis, mongodb]
     # Shared with chat-gateway: pipeline (in chat-gateway) writes query parquet +
     # uploads here; Agent IV reads/writes analysis artifacts on the same paths.
     volumes:
