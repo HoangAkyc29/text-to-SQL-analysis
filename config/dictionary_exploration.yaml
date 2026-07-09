@@ -1,0 +1,28 @@
+# Column / dictionary data exploration ONLY.
+# Consumed by scripts/dictionary_exploration_db.py and scripts/explore_*.py
+# NOT used by agents, sql-gateway, or any runtime orchestration code.
+
+env_file: .env.dictionary_exploration
+
+connection:
+  driver: "ODBC Driver 18 for SQL Server"
+  trust_server_certificate: true
+
+# Local Windows host — use this when running explore scripts on the host machine.
+# Port 14330 = same endpoint as agent DSN (host.docker.internal,14330 from Docker).
+# host.docker.internal is for containers only (see .env / docker-compose for agents).
+local:
+  server: DESKTOP-AUQEDC5,14330
+
+databases:
+  db1:
+    database: RESTORED_DB
+    dsn_env: DICTIONARY_EXPLORE_DB1_DSN
+  db2:
+    database: RESTORED_DB2
+    dsn_env: DICTIONARY_EXPLORE_DB2_DSN
+
+# Shared credentials when building DSN from local.server + database (optional).
+credential_env:
+  uid: DICTIONARY_EXPLORE_UID
+  pwd: DICTIONARY_EXPLORE_PWD

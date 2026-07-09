@@ -8,7 +8,14 @@
   "inbox": { "policy_feedback": {}, "data_feedback": {}, "probe_mode": false },
   "attempt": 1,
   "schema_context": { "tables": [], "domain_definitions_excerpt": "...", "logical_tables": [] },
-  "retrieval_context": ["(0.82) case study text...", "..."]
+  "retrieval_context": {
+    "phase": "hierarchical",
+    "columns": [{"semantic_key": "amount_bill_header", "text": "...", "score": 0.82, "tables": [], "facts_excerpt": "..."}],
+    "tables": [{"table_ref": "db2:strans", "text": "...", "score": 0.75, "join_hints": []}],
+    "case_studies": [{"text": "...", "score": 0.7, "links": []}],
+    "candidate_tables": ["db2:strans", "db2:transhdr"],
+    "candidate_semantic_keys": ["sku_id", "amount_bill_header", "trans_code"]
+  }
 }
 ```
 
@@ -26,8 +33,23 @@
   "target_db": "db2",
   "reasoning": "short explanation",
   "attempt": 1,
-  "schema_tables_used": ["STRANS", "PMTRANS"]
+  "schema_tables_used": ["STRANS", "TRANSHDR"],
+  "semantic_keys_used": ["sku_id", "amount_bill_header", "trans_code"]
 }
+```
+
+## Column-first reasoning (hierarchical retrieval)
+
+When `retrieval_context.phase` is `hierarchical`:
+
+1. Read **`retrieval_context.columns` first** — map brief terms (bill, SKU, quantity, gift) to `semantic_key` and `facts_excerpt`.
+2. Derive **candidate tables** from column `tables` refs and `candidate_tables`.
+3. Confirm grain/join from column facts (`amount_bill_header` = TRANSHDR.AMOUNT for min bill; `amount_line_item` = STRANS line).
+4. Read **`retrieval_context.tables`** for join hints and column lists.
+5. Check **`retrieval_context.case_studies`** with matching `links` for SQL patterns.
+6. Emit `schema_tables_used` (logical names) and `semantic_keys_used` in your JSON response.
+
+Legacy flat `retrieval_context` as `list[str]` is still supported — treat each string as a hint chunk.
 ```
 
 Rules:
@@ -124,7 +146,14 @@ When brief asks quantity per SKU **and** bill total threshold **and** top-N bill
 
 ## Retrieval context
 
-When `retrieval_context` contains similar SQL templates:
+Structured hierarchical payload (preferred) or legacy flat strings.
+
+When hierarchical:
+- Phase 1 columns define **which data points** matter and their **semantic grain**.
+- Phase 2 tables confirm **where** those columns live and how to join.
+- Case studies with `links` matching your semantic keys are high-trust patterns.
+
+When flat list of strings:
 - Reuse join patterns and `TRANS_CODE` filters.
 - Re-parameterize dates, `STK_ID`, card prefix from current `brief`.
 - Prefer promoted case studies over inventing new join paths.

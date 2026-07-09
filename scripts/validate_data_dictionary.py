@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from datetime import date, datetime
@@ -11,10 +10,11 @@ from pathlib import Path
 
 import pyodbc
 import yaml
-from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from dictionary_exploration_db import connect, load_exploration_env  # noqa: E402
 
 DB1_JSON = ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B3.json"
 DB2_JSON = ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B5.json"
@@ -22,13 +22,6 @@ SHARDS_YAML = ROOT / "data_dictionary" / "db1" / "shards.yaml"
 TABLES_DB1 = ROOT / "data_dictionary" / "tables" / "db1"
 TABLES_DB2 = ROOT / "data_dictionary" / "tables" / "db2"
 OUT_PATH = ROOT / "docs" / "db_exploration_samples" / "dictionary_validation.json"
-
-
-def connect(dsn_env: str) -> pyodbc.Connection:
-    dsn = os.getenv(dsn_env)
-    if not dsn:
-        raise RuntimeError(f"{dsn_env} not set in .env")
-    return pyodbc.connect(dsn, timeout=120)
 
 
 def list_user_tables(conn: pyodbc.Connection) -> set[str]:
@@ -100,7 +93,7 @@ def load_json_tables(path: Path) -> set[str]:
 
 
 def main() -> None:
-    load_dotenv(ROOT / ".env")
+    load_exploration_env()
     cutoff = cutoff_date()
     report: dict = {
         "run_at": datetime.now().isoformat(),
@@ -119,11 +112,11 @@ def main() -> None:
     conn2 = None
     conn_errors: list[str] = []
     try:
-        conn1 = connect("ANALYTICS_DB_DSN")
+        conn1 = connect("db1")
     except Exception as exc:  # noqa: BLE001
         conn_errors.append(f"db1: {exc}")
     try:
-        conn2 = connect("ANALYTICS_DB_DSN_2")
+        conn2 = connect("db2")
     except Exception as exc:  # noqa: BLE001
         conn_errors.append(f"db2: {exc}")
     if conn_errors:
@@ -131,7 +124,10 @@ def main() -> None:
     if not conn1 and not conn2:
         OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
         OUT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-        raise SystemExit("No database connections available — check .env credentials")
+        raise SystemExit(
+            "No dictionary exploration DB connections — copy .env.dictionary_exploration.example "
+            "to .env.dictionary_exploration (DESKTOP-AUQEDC5 for local; not ANALYTICS_DB_DSN)"
+        )
 
     try:
         live_db1 = list_user_tables(conn1) if conn1 else set()

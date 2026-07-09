@@ -7,6 +7,8 @@ from uuid import uuid4
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.feedback import FeedbackRecord, SatisfactionSignal
 from project_core.domain.feedback.store import BehavioralSignal
+from project_core.domain.retrieval.link_extractor import extract_case_study_links
+from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
 from project_core.domain.sql.sql_template_parameterizer import parameterize_brief_values, parameterize_sql
 from project_core.domain.workflow.outcomes import is_case_study_eligible, is_negative_example
 from project_core.domain.workflow.steps import has_step_type
@@ -30,6 +32,7 @@ class CaseStudyIndexer:
         artifact_paths: list[str],
         actor_id: str,
         scope: str = "global",
+        links: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         brief_data = brief.model_dump()
         text = f"{brief.intent} metrics={headline_metrics} artifacts={artifact_paths}"
@@ -38,6 +41,7 @@ class CaseStudyIndexer:
             "brief_template": parameterize_brief_values(brief_data),
             "sql_template": [parameterize_sql(s) for s in approved_sql],
             "text": text,
+            "links": links or [],
             "correction_path": correction_path,
             "scope": scope,
             "status": "staged",
@@ -80,12 +84,14 @@ class FeedbackLoop:
         audit: Any | None = None,
         embed_fn: Any | None = None,
         tool_registry: Any | None = None,
+        column_catalog: ColumnSemanticCatalog | None = None,
     ) -> None:
         self.indexer = indexer
         self.retriever = retriever
         self.audit = audit
         self.embed_fn = embed_fn
         self.tool_registry = tool_registry
+        self.column_catalog = column_catalog or ColumnSemanticCatalog.from_columns_dir()
 
     def on_pipeline_step(self, trace_id: str, step: Any) -> None:
         if self.audit:
@@ -107,6 +113,14 @@ class FeedbackLoop:
             return
         correction_path = bool(trace_artifacts.get("correction_path"))
         sql_attempt = int(trace_artifacts.get("sql_attempt") or 1)
+        links = trace_artifacts.get("links")
+        if not links:
+            links = extract_case_study_links(
+                approved_sql=approved_sql,
+                schema_tables_used=trace_artifacts.get("schema_tables_used"),
+                semantic_keys_used=trace_artifacts.get("semantic_keys_used"),
+                column_catalog=self.column_catalog,
+            )
         record = self.indexer.build_record(
             brief=brief,
             approved_sql=approved_sql,
@@ -117,6 +131,7 @@ class FeedbackLoop:
             headline_metrics=trace_artifacts.get("headline_metrics") or {},
             artifact_paths=trace_artifacts.get("artifact_paths") or [],
             actor_id=trace_artifacts.get("actor_id", "system"),
+            links=links,
         )
         embedding = None
         if self.embed_fn:
@@ -172,12 +187,23 @@ class FeedbackLoop:
             if tool:
                 self.tool_registry.bump_promote_score(tool["tool_id"], signal.weight)
 
-    def retrieve_context(self, agent: str, query: str, actor_id: str) -> list[Any]:
+    def retrieve_context(
+        self,
+        agent: str,
+        query: str,
+        actor_id: str,
+        *,
+        brief: AnalysisBrief | None = None,
+    ) -> dict[str, Any] | list[Any]:
         if not self.retriever:
-            return []
+            return {}
         include_negative = agent == "II"
-        return self.retriever.retrieve(
-            query,
-            top_k=5,
-            filters={"actor_id": actor_id, "include_negative": include_negative},
-        )
+        filters = {"actor_id": actor_id, "include_negative": include_negative}
+        top_k = 8
+        if hasattr(self.retriever, "retrieve_hierarchical"):
+            from project_core.domain.retrieval.query_builder import build_retrieval_query
+
+            enriched = build_retrieval_query(query, brief)
+            result = self.retriever.retrieve_hierarchical(enriched, top_k=top_k, filters=filters)
+            return result.to_payload()
+        return self.retriever.retrieve(query, top_k=5, filters=filters)

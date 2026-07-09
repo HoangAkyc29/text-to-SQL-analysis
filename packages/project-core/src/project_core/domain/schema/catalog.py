@@ -14,6 +14,7 @@ class ColumnMeta:
     name: str
     data_type: str = "varchar"
     nullable: bool = True
+    description: str = ""
 
 
 @dataclass
@@ -113,7 +114,8 @@ class SchemaCatalog:
             if line.startswith("|") and "|" in line[1:] and not line.startswith("|--"):
                 parts = [p.strip() for p in line.strip("|").split("|")]
                 if len(parts) >= 2 and parts[0].lower() not in {"column", "cột"}:
-                    columns.append(ColumnMeta(name=parts[0], data_type=parts[1]))
+                    desc = parts[2] if len(parts) >= 3 else ""
+                    columns.append(ColumnMeta(name=parts[0], data_type=parts[1], description=desc))
         return columns
 
     def tables(self) -> list[str]:
@@ -163,12 +165,23 @@ class SchemaCatalog:
         *,
         max_columns_per_table: int = 48,
         domain_max_chars: int = 6000,
+        table_filter: list[str] | None = None,
+        column_priority: list[str] | None = None,
     ) -> dict[str, object]:
         allowed = {t.lower() for t in role_tables}
+        if table_filter:
+            filter_set = {t.lower() for t in table_filter}
+            allowed = allowed & filter_set
         tables_out: list[dict[str, object]] = []
+        priority = [c.upper() for c in (column_priority or [])]
         for meta in sorted(self._tables.values(), key=lambda m: (m.data_source, m.name)):
             if meta.name.lower() not in allowed:
                 continue
+            cols = meta.columns
+            if priority:
+                pri = [c for c in cols if c.name.upper() in priority]
+                rest = [c for c in cols if c.name.upper() not in priority]
+                cols = pri + rest
             tables_out.append(
                 {
                     "name": meta.name,
@@ -176,8 +189,8 @@ class SchemaCatalog:
                     "description": meta.description,
                     "schema_file": meta.schema_file,
                     "columns": [
-                        {"name": c.name, "type": c.data_type}
-                        for c in meta.columns[:max_columns_per_table]
+                        {"name": c.name, "type": c.data_type, "description": c.description or ""}
+                        for c in cols[:max_columns_per_table]
                     ],
                 }
             )

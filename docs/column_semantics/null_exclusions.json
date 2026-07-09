@@ -1,0 +1,2635 @@
+{
+  "db2:strans": [
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_DEPT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EXPIRY_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARR_TM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IC_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ITEM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_POS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db1:strans": [
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_DEPT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "KIT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "KIT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EXPIRY_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARR_TM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IC_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ITEM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_POS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:pmtrans": [
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db1:pmtrans": [
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:transhdr": [
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SUPP_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CUST_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IC_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CTC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CAR_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_BR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REG_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db1:transhdr_arc": [
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SUPP_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CUST_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IC_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CTC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CAR_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_BR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REG_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:crdtrans": [
+    {
+      "column": "ACML_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PRG_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db1:crdtrans_arc": [
+    {
+      "column": "ACML_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PRG_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:crdtrans_tmp": [
+    {
+      "column": "ACML_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PRG_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:strans_tmp": [
+    {
+      "column": "DUE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_DEPT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ASSO_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EXPIRY_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARR_TM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IC_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SUPP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ITEM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_POS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:suspend": [
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OSTK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PACK_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ASSO_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EXPIRY_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DTDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DMDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:ctrans": [
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NODE_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_POS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INV_TRANS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:customer": [
+    {
+      "column": "ACCOUNT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_CYS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ADDRESS2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COUNTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FAX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CON_PERSON",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MOBI2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SKYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "YM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FACEBOOK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ACC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DEPT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FAMILY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "JOB",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HOBBY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_BR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REG_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_RELA",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REP_PERSON",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_HOLDER",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HAMLET",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARD",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STREET",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HOUSE_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:cscard": [
+    {
+      "column": "CARD_ID2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PASSCODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "LAST_CALL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IMAGE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HAMLET",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARD",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STREET",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HOUSE_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OWN_COMPID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CHR_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HEX_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NODE_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COUNTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HASHEDPWD",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:crd_info": [
+    {
+      "column": "ACML_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FR_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TO_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PERIOD",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "LAST_CALL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CLOSE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:sku_def": [
+    {
+      "column": "UPC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MATRIX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "VAR_DESC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BLOCK_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CACL_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ATTR_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IMAGE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MA",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SEX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "XYZ",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GTYPE_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CLS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SPCMETHOD",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:plu": [
+    {
+      "column": "LBL_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CYS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OPEN_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MODI_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FR_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TO_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:barcode": [
+    {
+      "column": "DESCRIPT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:assolst": [
+    {
+      "column": "Sale_Period",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MODI_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:asso_inf": [
+    {
+      "column": "ZONE_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:supplier": [
+    {
+      "column": "TAX_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ADDRESS2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COUNTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PLC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MOBI",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MOBI2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EMAIL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SKYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "YM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FACEBOOK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ACC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INDUSTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ORD_SEQ",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DLV_SEQ",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STO_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "LEAD_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_MODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REG_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DUE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_RELA",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_BR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REP_PERSON",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_HOLDER",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BLOCK_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PERSON_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUYER_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:partner": [
+    {
+      "column": "NODE_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACCOUNT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_CYS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BIRTHDAY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SEX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "JOB",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ADDRESS2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COUNTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MOBI2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EMAIL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SKYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "YM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FACEBOOK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ACC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "INDUSTRY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DEPT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MODI_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GUA_RELA",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CONTR_BR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_HOLDER",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BLOCK_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "LAST_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DUE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OWN_COMPID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NOTES",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PERSON_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUYER_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:hisrtpr": [
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RTPR_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:hissppr": [
+    {
+      "column": "PCPR_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "COMP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:rdiscinf": [
+    {
+      "column": "CRD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PREFIX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FR_CARDID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TO_CARDID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DOMMAP",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "IMAGE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "VC_PREFIX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF1",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF2",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF3",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF4",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF5",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF6",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF7",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF8",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "USERDEF9",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WOMMAP",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RTPR_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GRP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:st_order": [
+    {
+      "column": "DUE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FINISH_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CS_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CTC_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_MODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CR_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ORD_WAY",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "POST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HDR_REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "KIT_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "KIT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "GCOMM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MERC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ITEM_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FOREX_CYS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EXPIRY_DT",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "WARR_TM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SUPP_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDISC_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "MDADD_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:inv_hdr": [
+    {
+      "column": "INV_REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ATR_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ATR_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CUST_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CUST_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_PHONE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_FAX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_EMAIL",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ACC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_HOLDER",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "TAX_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_POS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ISS_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PMT_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SND_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "UPD_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "EINV_STATUS",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:inv_iss": [
+    {
+      "column": "INV_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_NO",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CUST_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_NAME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BUY_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "FAX",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REP_PERSON",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CON_PERSON",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ACC",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACC_HOLDER",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "BANK_ADDR",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "ACTION",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:pmcrdinf": [
+    {
+      "column": "PASSCODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NODE_LIST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "SALEABLE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CHR_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "HEX_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:pmcrdstk": [
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "NODE_LIST",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:pmcrdiss": [
+    {
+      "column": "RS_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "DISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OBJ_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "OBJ_VALUE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CHG_TYPE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:pmcrdrcv": [
+    {
+      "column": "TRAN_TIME",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "REMARK",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CDISC_CODE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_NUM",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "RCV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:account": [
+    {
+      "column": "STAFF_ID",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "PREV_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    },
+    {
+      "column": "CLOSE_DATE",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ],
+  "db2:debt": [
+    {
+      "column": "REF",
+      "reason": "all_null_sample",
+      "sample_size": 1000
+    }
+  ]
+}

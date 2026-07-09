@@ -1,41 +1,69 @@
 #!/usr/bin/env python3
-"""Quick check: db1/db2 ODBC access from env."""
+"""Quick check: dictionary exploration ODBC (NOT agent ANALYTICS_DB_DSN)."""
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
-import pyodbc
-
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
-from project_core.config.env import load_project_env  # noqa: E402
+sys.path.insert(0, str(ROOT / "scripts"))
 
-load_project_env(ROOT)
+from dictionary_exploration_db import (  # noqa: E402
+    connection_info,
+    load_exploration_env,
+    resolve_dsn,
+)
 
-for key in ("ANALYTICS_DB_DSN", "ANALYTICS_DB_DSN_2"):
-    dsn = os.getenv(key, "")
-    db_name = "?"
-    if "Database=" in dsn:
-        db_name = dsn.split("Database=")[1].split(";", 1)[0]
+load_exploration_env()
+
+
+def main() -> None:
+    import pyodbc
+
+    cfg_server = connection_info("db1").get("server", "?")
+    uid_dsn = resolve_dsn("db1")
+    # probe via master (login without initial catalog)
+    import re
+
+    m = re.search(r"Uid=([^;]+)", uid_dsn)
+    p = re.search(r"Pwd=([^;]+)", uid_dsn)
+    srv = re.search(r"Server=([^;]+)", uid_dsn)
+    if not (m and p and srv):
+        print("Cannot parse DSN for diagnostic")
+        return
+    master_dsn = (
+        f"Driver={{ODBC Driver 18 for SQL Server}};Server={srv.group(1)};"
+        f"Database=master;Uid={m.group(1)};Pwd={p.group(1)};TrustServerCertificate=yes;"
+    )
     try:
-        conn = pyodbc.connect(dsn, timeout=15)
+        conn = pyodbc.connect(master_dsn, timeout=15)
         cur = conn.cursor()
-        cur.execute("SELECT DB_NAME(), USER_NAME()")
+        cur.execute("SELECT @@SERVERNAME, SUSER_SNAME()")
         row = cur.fetchone()
-        print(f"{key}: OK  connected_db={row[0]}  user={row[1]}  dsn_db={db_name}")
+        print(f"master: OK  server={row[0]}  login={row[1]}  target_host={srv.group(1)}")
+        for db in ("RESTORED_DB", "RESTORED_DB2"):
+            cur.execute("SELECT HAS_DBACCESS(?)", db)
+            access = cur.fetchone()[0]
+            status = "OK" if access else "NO ACCESS"
+            print(f"  HAS_DBACCESS({db}) = {access}  ({status})")
         conn.close()
     except Exception as exc:
-        print(f"{key}: FAIL  dsn_db={db_name}  error={exc}")
+        print(f"master: FAIL  {exc}")
+        return
 
-# From db1 connection, check HAS_DBACCESS
-dsn1 = os.getenv("ANALYTICS_DB_DSN", "")
-if dsn1:
-    conn = pyodbc.connect(dsn1, timeout=15)
-    cur = conn.cursor()
-    for db in ("RESTORED_DB", "RESTORED_DB2"):
-        cur.execute(f"SELECT HAS_DBACCESS('{db}')")
-        ok = cur.fetchone()[0]
-        print(f"HAS_DBACCESS({db}) = {ok}")
-    conn.close()
+    for ds in ("db1", "db2"):
+        info = connection_info(ds)
+        try:
+            conn = pyodbc.connect(resolve_dsn(ds), timeout=15)
+            cur = conn.cursor()
+            cur.execute("SELECT DB_NAME(), USER_NAME()")
+            row = cur.fetchone()
+            print(f"{ds}: OK  {info}  db={row[0]}  user={row[1]}")
+            conn.close()
+        except Exception as exc:
+            print(f"{ds}: FAIL  {info}")
+            print(f"       {exc}")
+
+
+if __name__ == "__main__":
+    main()

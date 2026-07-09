@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from datetime import date, datetime
 from decimal import Decimal
@@ -12,7 +11,9 @@ from pathlib import Path
 import pyodbc
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from dictionary_exploration_db import connect, connection_info, load_exploration_env  # noqa: E402
 
 MAX_ROWS = 20
 OUT_DIR = ROOT / "docs" / "db_exploration_samples"
@@ -33,16 +34,8 @@ def load_table_names(json_path: Path) -> list[str]:
     return [t["table_name"] for t in data]
 
 
-def connect(dsn_env: str) -> pyodbc.Connection:
-    dsn = os.getenv(dsn_env)
-    if not dsn:
-        raise RuntimeError(f"{dsn_env} not set")
-    return pyodbc.connect(dsn, timeout=60)
-
-
 def sample_table(conn: pyodbc.Connection, table: str) -> dict:
     cur = conn.cursor()
-    # Bracket-quote for mixed-case names (e.g. CustSumm, WebRpt_*)
     sql = f"SELECT TOP {MAX_ROWS} * FROM [{table}]"
     try:
         cur.execute(sql)
@@ -82,9 +75,11 @@ def summarize_key_columns(result: dict) -> dict:
     return summary
 
 
-def explore_db(label: str, dsn_env: str, tables: list[str]) -> dict:
+def explore_db(label: str, data_source: str, tables: list[str]) -> dict:
     print(f"\n=== {label} ({len(tables)} tables) ===")
-    conn = connect(dsn_env)
+    info = connection_info(data_source)
+    print(f"  connection: {info}")
+    conn = connect(data_source, timeout=60)
     results: list[dict] = []
     errors = 0
     try:
@@ -98,13 +93,18 @@ def explore_db(label: str, dsn_env: str, tables: list[str]) -> dict:
                 errors += 1
     finally:
         conn.close()
-    return {"db": label, "dsn_env": dsn_env, "table_count": len(tables), "errors": errors, "tables": results}
+    return {
+        "db": label,
+        "data_source": data_source,
+        "connection": info,
+        "table_count": len(tables),
+        "errors": errors,
+        "tables": results,
+    }
 
 
 def main() -> None:
-    from dotenv import load_dotenv
-
-    load_dotenv(ROOT / ".env")
+    load_exploration_env()
 
     db1_tables = load_table_names(ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B3.json")
     db2_tables = load_table_names(ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B5.json")
@@ -114,15 +114,14 @@ def main() -> None:
     report = {
         "max_rows_per_table": MAX_ROWS,
         "databases": [
-            explore_db("db1_RESTORED_DB", "ANALYTICS_DB_DSN", db1_tables),
-            explore_db("db2_RESTORED_DB2", "ANALYTICS_DB_DSN_2", db2_tables),
+            explore_db("db1_RESTORED_DB", "db1", db1_tables),
+            explore_db("db2_RESTORED_DB2", "db2", db2_tables),
         ],
     }
 
     out_path = OUT_DIR / "samples_top20.json"
     out_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=_json_default), encoding="utf-8")
 
-    # Compact insight file — summaries only (no full row payloads)
     compact = {
         "max_rows_per_table": MAX_ROWS,
         "databases": [],

@@ -47,6 +47,7 @@ from project_core.domain.sql.policy_engine import PolicyEngine
 from project_core.domain.sql.shard_resolver import suggest_query_plan
 from project_core.domain.sql.planner_context import policy_feedback_hints, product_resolution_hints
 from project_core.domain.schema.catalog import SchemaCatalog
+from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
 from project_core.domain.workflow.steps import has_step_type
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
 
@@ -68,6 +69,7 @@ class SupermarketAnalysisPipeline:
         self.agent_invoker = agent_invoker
         self.sql_gateway = sql_gateway
         self.catalog = catalog or SchemaCatalog.from_dictionary_dir()
+        self.column_catalog = ColumnSemanticCatalog.from_columns_dir()
         self.feedback_loop = feedback_loop
         self.analysis_tool_registry = analysis_tool_registry
         self.domain_rule_store = domain_rule_store
@@ -155,7 +157,38 @@ class SupermarketAnalysisPipeline:
                 brief = apply_data_feedback(brief, inbox["data_feedback"])
 
             budget.record("II")
-            schema_context = self.catalog.agent_schema_bundle(permissions.allowed_tables)
+            retrieval_payload: dict[str, Any] | list[Any] = {}
+            candidate_tables: list[str] = []
+            column_priority: list[str] = []
+            if self.feedback_loop is not None:
+                retrieval_payload = self.feedback_loop.retrieve_context(
+                    "II", brief.intent, permissions.actor_id, brief=brief
+                )
+                if isinstance(retrieval_payload, dict):
+                    candidate_tables = list(retrieval_payload.get("candidate_tables") or [])
+                    for col in retrieval_payload.get("columns") or []:
+                        sk = col.get("semantic_key")
+                        if sk:
+                            meta = self.column_catalog.get(str(sk))
+                            if meta:
+                                column_priority.extend(meta.display_names)
+
+            table_filter: list[str] | None = None
+            if candidate_tables:
+                table_filter = [
+                    ref.split(":")[-1] if ":" in ref else ref for ref in candidate_tables
+                ]
+            schema_context = self.catalog.agent_schema_bundle(
+                permissions.allowed_tables,
+                table_filter=table_filter,
+                column_priority=column_priority,
+            )
+            if isinstance(retrieval_payload, dict) and retrieval_payload.get("phase") == "hierarchical":
+                schema_context = {
+                    **schema_context,
+                    "logical_tables": [t.get("name") for t in schema_context.get("tables", []) if isinstance(t, dict)],
+                    "retrieved_semantic_keys": retrieval_payload.get("candidate_semantic_keys") or [],
+                }
             shard_plan = suggest_query_plan(brief.model_dump(), self.catalog)
             schema_context = {**schema_context, "shard_plan": shard_plan.model_dump(mode="json")}
             filtered_snapshot = self.context_policy.filter_schema_excerpt(
@@ -168,9 +201,9 @@ class SupermarketAnalysisPipeline:
             product_hints = product_resolution_hints(brief)
             if product_hints:
                 schema_context = {**schema_context, "product_resolution_hints": product_hints}
-            retrieval_context: list[Any] = []
-            if self.feedback_loop is not None:
-                retrieval_context = self.feedback_loop.retrieve_context("II", brief.intent, permissions.actor_id)
+            retrieval_context: Any = retrieval_payload
+            if isinstance(retrieval_payload, list):
+                retrieval_context = [getattr(c, "text", str(c)) for c in retrieval_payload]
 
             workflow.progress_step = WorkflowStepType.PLAN_SQL.value
             self._emit_progress(workflow, on_progress)
@@ -182,11 +215,13 @@ class SupermarketAnalysisPipeline:
                     "inbox": inbox,
                     "attempt": sql_attempt,
                     "schema_context": schema_context,
-                    "retrieval_context": [getattr(c, "text", str(c)) for c in retrieval_context],
+                    "retrieval_context": retrieval_context,
                     "permissions": permissions.model_dump(mode="json"),
                 },
                 {"mode": "plan_sql"},
             )
+            ii_schema_tables_used: list[str] = []
+            ii_semantic_keys_used: list[str] = []
             budget.add_tokens(int(ii_result.get("usage_tokens", 0) or 0))
             try:
                 ii_parsed = parse_agent_response("II", ii_result)
@@ -205,6 +240,8 @@ class SupermarketAnalysisPipeline:
                     TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=["invalid_agent_ii"]),
                 )
             action = ii_parsed.action
+            ii_schema_tables_used = list(getattr(ii_parsed, "schema_tables_used", None) or [])
+            ii_semantic_keys_used = list(getattr(ii_parsed, "semantic_keys_used", None) or [])
 
             if action == "clarify" and not brief.exploration_mode:
                 workflow.clarify_round += 1
@@ -759,6 +796,8 @@ class SupermarketAnalysisPipeline:
                             "actor_id": permissions.actor_id,
                             "workflow_steps": workflow.steps,
                             "analysis_script": iv_parsed.analysis_script,
+                            "schema_tables_used": ii_schema_tables_used,
+                            "semantic_keys_used": ii_semantic_keys_used,
                         },
                     )
                 if self.analysis_tool_registry and outcome == AnalysisOutcome.SUCCESS:

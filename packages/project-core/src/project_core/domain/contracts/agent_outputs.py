@@ -13,6 +13,9 @@ class SqlPlannerResponse(BaseModel):
     query_meta: list[dict[str, Any]] = Field(default_factory=list)
     clarification_request: dict[str, Any] | None = None
     reason: str | None = None
+    schema_tables_used: list[str] = Field(default_factory=list)
+    semantic_keys_used: list[str] = Field(default_factory=list)
+    reasoning: str | None = None
 
 
 class RiskReviewResponse(BaseModel):

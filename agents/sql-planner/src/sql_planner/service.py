@@ -40,8 +40,16 @@ class SqlPlannerService(SupermarketAgentService):
             )
 
         if not retrieval_context and getattr(self, "retriever", None):
-            chunks = self.retrieve(brief.intent, top_k=5)
-            retrieval_context = [c.text for c in chunks]
+            if hasattr(self.retriever, "retrieve_hierarchical"):
+                from project_core.domain.retrieval.query_builder import build_retrieval_query
+
+                result = self.retriever.retrieve_hierarchical(
+                    build_retrieval_query(brief.intent, brief), top_k=8
+                )
+                retrieval_context = result.to_payload()
+            else:
+                chunks = self.retrieve(brief.intent, top_k=5)
+                retrieval_context = [c.text for c in chunks]
 
         if inbox.get("data_feedback"):
             brief = apply_data_feedback(brief, inbox["data_feedback"])

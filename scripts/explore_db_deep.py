@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -15,8 +14,10 @@ from typing import Any
 import pyodbc
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
 
+from dictionary_exploration_db import connect, connection_info, load_exploration_env  # noqa: E402
 from project_core.text.tcvn3 import tcvn3_to_unicode  # noqa: E402
 
 MAX_ROWS = 20
@@ -56,13 +57,6 @@ def load_schema(json_path: Path) -> dict[str, dict]:
         }
         for t in data
     }
-
-
-def connect(dsn_env: str) -> pyodbc.Connection:
-    dsn = os.getenv(dsn_env)
-    if not dsn:
-        raise RuntimeError(f"{dsn_env} not set")
-    return pyodbc.connect(dsn, timeout=120)
 
 
 def cell_str(val: Any) -> str:
@@ -438,10 +432,12 @@ def render_report(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def explore_db(label: str, dsn_env: str, schema_map: dict[str, dict]) -> dict[str, Any]:
+def explore_db(label: str, data_source: str, schema_map: dict[str, dict]) -> dict[str, Any]:
     tables = list(schema_map.keys())
     print(f"\n=== {label} ({len(tables)} tables) ===")
-    conn = connect(dsn_env)
+    info = connection_info(data_source)
+    print(f"  connection: {info}")
+    conn = connect(data_source)
     analyzed: list[dict[str, Any]] = []
     errors = 0
     try:
@@ -465,15 +461,13 @@ def explore_db(label: str, dsn_env: str, schema_map: dict[str, dict]) -> dict[st
 
 
 def main() -> None:
-    from dotenv import load_dotenv
-
-    load_dotenv(ROOT / ".env")
+    load_exploration_env()
 
     db1_schema = load_schema(ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B3.json")
     db2_schema = load_schema(ROOT / "docs" / "JSON_F52E2B61-18A1-11d1-B105-00805F49916B5.json")
 
-    db1 = explore_db("db1_RESTORED_DB", "ANALYTICS_DB_DSN", db1_schema)
-    db2 = explore_db("db2_RESTORED_DB2", "ANALYTICS_DB_DSN_2", db2_schema)
+    db1 = explore_db("db1_RESTORED_DB", "db1", db1_schema)
+    db2 = explore_db("db2_RESTORED_DB2", "db2", db2_schema)
 
     payload = {
         "max_rows_per_table": MAX_ROWS,

@@ -43,7 +43,7 @@ def main() -> int:
             cleared.append(f"audit:cleared:{p}")
 
     print("Cleared:", ", ".join(cleared))
-    print("Kept: schema_chunks (dictionary RAG reference)")
+    print("Kept: schema_chunks (table+column dictionary RAG — reindex via scripts/index_rag_dictionary.py)")
     return 0
 
 
