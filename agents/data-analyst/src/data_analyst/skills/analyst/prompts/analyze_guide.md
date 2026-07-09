@@ -27,26 +27,34 @@
   "action": "data_feedback",
   "data_feedback": {
     "needs_sql_retry": true,
-    "issue": "empty_result | identifier_mismatch | grain",
+    "issue": "empty_result | identifier_mismatch | probe_success_needs_fact | grain",
     "summary": "Vietnamese explanation",
-    "diagnosis": "short code",
+    "diagnosis": "solvable | needs_probe | impossible | needs_user_clarify",
     "suggested_intent_fix": "wider filters or probe SKU",
     "probe_requests": [
-      {"purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 ..."}
+      {"table": "SKU_DEF", "purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 SKU_ID, SKU_CODE FROM SKU_DEF WHERE ..."}
     ],
-    "expected_vs_observed": {
-      "expected": "rows for SKU 123456",
-      "observed": "0 main, 3 probe"
-    }
+    "expected_vs_observed": [
+      {"aspect": "row_count", "expected": "rows for SKU 123456", "observed": "0 main, 3 probe"}
+    ]
   }
 }
 ```
+
+Required fields: `issue`, `summary`, `diagnosis` (one of four literals).
+`probe_requests[].table` is required. `expected_vs_observed` is always an array.
 
 ## Identifier mismatch
 
 When `main_rows == 0` but product probe returns rows:
 - Issue = `identifier_mismatch`
 - Do not claim zero sales — ask II to fix SKU resolution.
+
+## Probe success needs fact
+
+When all queries are probes and at least one probe returned rows:
+- Issue = `probe_success_needs_fact`
+- Ask II for a `role: main` fact query (STRANS + TRANSHDR join).
 
 ## Exploration clarify
 

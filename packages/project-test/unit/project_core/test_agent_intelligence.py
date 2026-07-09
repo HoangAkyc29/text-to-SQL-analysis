@@ -51,3 +51,52 @@ def test_iv_analyzer_empty_result(tmp_path):
     )
     assert payload["action"] == "data_feedback"
     assert payload["data_feedback"]["issue"] == "empty_result"
+
+
+def test_probe_only_plan_triggers_needs_fact(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    payload = analyze_datasets(
+        brief=AnalysisBrief(
+            intent="gift items",
+            filters={"product_code": ["0030344", "0030348"], "min_bill_value": 600000},
+        ),
+        manifest={
+            "queries": [
+                {"path": "/tmp/q0.parquet", "row_count": 3},
+                {"path": "/tmp/q1.parquet", "row_count": 0},
+            ]
+        },
+        profile={"row_count": 3},
+        out_dir=str(out),
+        max_steps=2,
+        query_meta=[
+            {"role": "probe", "purpose": "sku_lookup"},
+            {"role": "probe", "purpose": "sku_lookup"},
+        ],
+    )
+    assert payload["action"] == "data_feedback"
+    assert payload["data_feedback"]["issue"] == "probe_success_needs_fact"
+
+
+def test_coerce_data_feedback_adds_table():
+    from project_core.domain.analysis.feedback_coerce import coerce_data_feedback
+
+    fb = coerce_data_feedback(
+        {
+            "issue": "empty_result",
+            "summary": "no data",
+            "probe_requests": [{"purpose": "sku_lookup", "suggested_sql": "SELECT 1"}],
+            "expected_vs_observed": {"expected": "rows", "observed": "0"},
+        }
+    )
+    assert fb.probe_requests[0].table == "SKU_DEF"
+    assert len(fb.expected_vs_observed) == 1
+
+
+def test_normalize_brief_filters_maps_min_transaction():
+    from project_core.domain.brief.merge import normalize_brief_filters
+
+    brief = AnalysisBrief(intent="gifts", filters={"min_transaction_value": 600000})
+    updated = normalize_brief_filters(brief)
+    assert updated.filters["min_bill_value"] == 600000

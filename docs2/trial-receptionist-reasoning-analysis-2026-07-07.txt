@@ -1,0 +1,215 @@
+================================================================================
+PHÂN TÍCH SUY LUẬN AGENT — TRIAL SẠCH (KHÔNG HARDCODE SQL)
+Ngày: 2026-07-07 | Build: sau khi gỡ _gift_items_plan
+================================================================================
+
+Session:  receptionist-trial-70aa856d
+Analysis: a2dd301e-32cc-4955-a010-105edbc876e8
+Trace:    a657c56f-f54f-4baa-8a75-bc97b810cc61
+Thời gian: ~157s | Outcome: error (pipeline exhausted)
+Clarify:  0 vòng
+
+================================================================================
+1. TÓM TẮT HÀNH TRÌNH
+================================================================================
+
+| Giai đoạn | Kết quả |
+|-----------|---------|
+| Agent I (ingress) | Brief đầy đủ intent, 3 SKU, 1–6/7/2026, min_transaction_value=600k |
+| Agent II attempt 1 | Query 0: policy `select_only`; Query 1: execute 0 rows → `empty_result` |
+| Agent II attempt 2 | Query 0: lại `select_only` |
+| Agent II attempt 3 | Probe SKU: 3 rows OK; probe thứ 2: 0 rows; không có main query thành công |
+| Agent III | 3 lần review (budget III:3) — không ghi reject chi tiết trong steps |
+| Agent IV | `invalid_feedback` — schema DataFeedback không parse được |
+| Kết thúc | Hết 3 SQL retry → `pipeline exhausted` |
+
+Artifact parquet (trong container):
+  query_0: 3 dòng SKU_DEF — 00030344/48/55 → SKU_ID 290003034400/800/500  ✓ probe đúng
+  query_1: 0 dòng — fact query thất bại hoặc không chạy
+
+→ Agent **đã resolve được mã hàng** ở attempt 3 nhưng **không ghép** vào STRANS+TRANSHDR+bill 600k+top 5.
+
+================================================================================
+2. AGENT I — INGRESS
+================================================================================
+
+Brief (trích):
+  intent: phân tích 3 quà tặng, số lượng, bill >=600k, top 5 bill/SKU
+  filters: product_code [0030344, 0030348, 0030355], min_transaction_value 600000
+  time_range: 2026-07-01 .. 2026-07-06
+  user_knowledge_level: expert
+  clarify_round: 0
+
+Điểm tốt:
+  (+) Hiểu đủ 4 yêu cầu nghiệp vụ trong một brief.
+  (+) Đặt ngưỡng 600k vào filters (dù tên field `min_transaction_value` không chuẩn).
+
+Thiếu sót:
+  (-) Không clarify: mã 7 số vs SKU_CODE 8 số; bill = TRANS_NUM?; tổng bill lấy từ TRANSHDR.AMOUNT?
+  (-) `user_knowledge_level=expert` → pipeline giảm xu hướng clarify (hard_enforce + expert).
+  (-) Không decompose plan (plan=null) → Agent II phải một mình lên 3+ query phức tạp.
+
+Giải pháp đề xuất:
+  [I-1] Agent I: với multi-SKU + min_bill trong filters → ưu tiên clarify attempt 1
+        (mã hàng, định nghĩa bill hợp lệ) trước khi gán expert.
+  [I-2] Chuẩn hóa filter keys: map min_transaction_value → min_bill_value trong brief merge.
+  [I-3] Prompt ingress: không gán expert khi user persona không rõ (trial lễ tân).
+
+================================================================================
+3. AGENT II — SQL PLANNER (LLM thuần)
+================================================================================
+
+Workflow steps:
+  sql_attempt 1: policy_reject `select_only` (q0) + execute rows=0 (q1)
+  sql_attempt 2: policy_reject `select_only` (q0)
+  sql_attempt 3: execute rows=3 probe (q0) + rows=0 probe (q1)
+
+Phân tích suy luận:
+
+A) `select_only` (attempt 1–2)
+   LLM sinh cấu trúc không phải SELECT đơn (có thể: JSON lẫn text, nhiều statement,
+   hoặc DML/EXEC). Policy chặn đúng nhưng steps chỉ ghi `select_only` — không lưu
+   `rejected_sql` vào workflow (chỉ trong inbox cho attempt tiếp).
+
+   Giải pháp:
+   [II-1] Persist `rejected_sql` + `hints` vào WorkflowStep.summary (truncate) để audit.
+   [II-2] Prompt: nhấn mạnh output JSON chỉ chứa sql_queries là SELECT thuần.
+   [II-3] Retry guide: khi `select_only` → đơn giản hóa, bỏ comment block gây parse lỗi.
+
+B) Probe SKU thành công (attempt 3)
+   query_0.parquet chứng minh agent/probe SQL đúng hướng:
+     0030344 → SKU_CODE 00030344 → SKU_ID 290003034400
+
+   Nhưng query_1 = 0 rows — agent chưa dùng SKU_ID đã probe để filter STRANS,
+   hoặc filter sai cột/ngày/bill.
+
+   Giải pháp:
+   [II-4] `schema_context.product_resolution_hints` đã inject — cần prompt bắt buộc
+         đọc field này trước khi viết fact SQL (đã thêm guide, cần verify LLM tuân thủ).
+   [II-5] Sau probe có rows: attempt tiếp phải JOIN STRANS.SKU_ID IN (kết quả probe),
+         không lặp probe vô ích (workflow rule: probe_once_then_fact).
+
+C) Chưa có query TRANSHDR / bill >= 600k / top 5
+   Agent không suy luận được chuỗi:
+     probe SKU → valid_bills từ TRANSHDR → STRANS join TRANS_NUM → aggregate + ROW_NUMBER
+
+   Giải pháp:
+   [II-6] RAG: index case study "multi-SKU + min bill + top N per SKU" (SQL mẫu parametric,
+         không hardcode trong code).
+   [II-7] Prompt plan_sql_guide: pattern suy luận (đã có) + yêu cầu `reasoning` field
+         giải thích từng query role trước khi emit SQL.
+   [II-8] Agent II clarify khi có min_bill mà chưa rõ cột tổng (TRANSHDR.AMOUNT vs sum STRANS).
+
+D) Dữ liệu thực tế
+   Kiểm tra DB: 3 SKU tồn tại trong SKU_DEF; STRANS tháng 7/2026 có 37k dòng nhưng
+   **không có dòng** cho 3 SKU này trong 1–6/7/2026 (có thể không bán trong khoảng ngày).
+   Agent lẽ ra sau empty_result + probe OK → IV/pipeline nên diagnosis `empty_in_range`
+   chứ không exhausted.
+
+================================================================================
+4. AGENT III — RISK REVIEWER
+================================================================================
+
+Budget III: 3 — có review nhưng workflow không ghi risk_reject/approve steps.
+Không đánh giá được SQL cụ thể từ log hiện tại.
+
+Giải pháp:
+  [III-1] Ghi WorkflowStep khi approve/reject (summary: table list, risk flags).
+  [III-2] III reject sớm SQL dùng bảng ảo / db2.dbo prefix trước execute (tiết kiệm retry).
+
+================================================================================
+5. AGENT IV — DATA ANALYST
+================================================================================
+
+Step cuối: `data_feedback` / `invalid_feedback`
+→ IV trả `data_feedback` không validate được DataFeedback schema → pipeline coi là
+  invalid và retry SQL, nhưng đã hết 3 attempt → exhausted.
+
+Giải pháp:
+  [IV-1] Cứng hóa contract IV + parse fallback có cấu trúc (issue=empty_result,
+        diagnosis=needs_probe) thay vì invalid_feedback mù.
+  [IV-2] Khi probe SKU có 3 rows + fact empty: IV phải emit `identifier_mismatch` hoặc
+        `empty_in_range` rõ ràng, suggest widen date hoặc báo không bán trong kỳ.
+  [IV-3] IV suggest_clarify khi không phân biệt được “không bán” vs “sai mã”.
+
+================================================================================
+6. WORKFLOW / PIPELINE
+================================================================================
+
+Điểm tốt (sau refactor):
+  (+) `product_resolution_hints` inject vào schema_context (agent thấy LPAD8 strategies).
+  (+) `policy_feedback` có rejected_sql + hints (attempt retry có ngữ cảnh).
+  (+) `shard_plan` đọc time_range.
+  (+) CTE alias không bị policy chặn nhầm.
+
+Thiếu sót:
+  (-) SQL không persist trong workflow steps → khó audit suy luận.
+  (-) `empty_result` → data_feedback nhưng attempt 2 vẫn `select_only` (không học từ empty).
+  (-) Probe thành công không trigger pipeline heuristic “dùng SKU_ID từ probe”.
+  (-) Hết retry → outcome `error/exhausted` thay vì `partial` + giải thích “không có giao dịch”.
+  (-) Case study không index (Mongo case_studies: 0).
+
+Giải pháp workflow:
+  [WF-1] audit.jsonl hoặc workflow step: log sanitized SQL + target_db mỗi execute/reject.
+  [WF-2] Heuristic: probe SKU >0 && fact empty → inject data_feedback issue=identifier_mismatch
+        hoặc empty_in_range (không thay SQL, chỉ gợi ý II).
+  [WF-3] Outcome `partial` khi có probe OK nhưng không fact: trả message nghiệp vụ cho user.
+  [WF-4] Feedback loop: index case study khi probe path đúng dù outcome fail.
+
+================================================================================
+7. RAG
+================================================================================
+
+schema_chunks: 42 (global dictionary) — không có case study SQL gift/bill.
+retrieval_context: không quan sát được per-trace trong log.
+
+Giải pháp:
+  [RAG-1] Seed case studies: SKU probe → TRANSHDR filter → STRANS join (parametric).
+  [RAG-2] Retrieve theo intent embedding + filter tags (gift, min_bill, multi_sku).
+  [RAG-3] Promote case study khi trace có probe SKU thành công (học từ attempt 3).
+
+================================================================================
+8. CLARIFY / PERSONA LỄ TÂN
+================================================================================
+
+clarify_round = 0 — trial persona không được kiểm tra.
+
+Giải pháp:
+  [CL-1] Giảm mặc định expert khi message không có thuật ngữ kỹ thuật.
+  [CL-2] II clarify attempt 1 nếu product_code list + min_bill mà chưa probe.
+  [CL-3] IV suggest_clarify khi empty sau probe thành công.
+
+================================================================================
+9. BẢNG ƯU TIÊN CẢI THIỆN
+================================================================================
+
+| Ưu tiên | ID | Hạng mục | Effort |
+|---------|-----|----------|--------|
+| P0 | II-1, WF-1 | Persist rejected SQL trong workflow/audit | Thấp |
+| P0 | IV-1 | Fix invalid_feedback — schema IV ổn định | Trung bình |
+| P1 | II-6, RAG-1 | Case study RAG gift+bill pattern | Trung bình |
+| P1 | I-1, CL-2 | Clarify multi-SKU + bill threshold | Trung bình |
+| P1 | WF-2, WF-3 | Heuristic empty/probe + outcome partial | Trung bình |
+| P2 | III-1 | Risk steps vào workflow | Thấp |
+| P2 | I-2 | Chuẩn hóa filter key names | Thấp |
+
+================================================================================
+10. KẾT LUẬN
+================================================================================
+
+Trial sạch cho thấy agent **không hoàn toàn mù**:
+  - Ingress brief tốt.
+  - Attempt 3 probe resolve đúng 3 SKU master.
+
+Nhưng **chuỗi suy luận nghiệp vụ đứt đoạn**:
+  1) SQL attempt đầu lỗi cấu trúc (select_only).
+  2) Không chuyển từ probe → fact query có TRANSHDR.
+  3) IV feedback hỏng → pipeline exhausted thay vì trả lời “không có bán trong kỳ”.
+
+Không nên hardcode SQL theo bài test. Hướng đúng: prompt + context + RAG + workflow
+feedback + clarify — như mục 9.
+
+Log session: docs2/trial-receptionist-session.jsonl
+Artifact trace: data/artifacts/a657c56f-f54f-4baa-8a75-bc97b810cc61/ (trong container)
+
+================================================================================

@@ -41,6 +41,8 @@ class PolicyEngine:
     def validate(self, sql: str) -> PolicyVerdict:
         violations: list[str] = []
         sql = sql.strip().rstrip(";").strip()
+        if self._has_logical_db_prefix(sql):
+            return PolicyVerdict(False, violations=["logical_db_prefix_forbidden"])
         try:
             statements = sqlglot.parse(sql, read="tsql")
         except Exception as exc:  # noqa: BLE001
@@ -51,7 +53,8 @@ class PolicyEngine:
             return PolicyVerdict(False, violations=violations)
 
         statement = statements[0]
-        if not isinstance(statement, exp.Select):
+        root = statement.this if isinstance(statement, exp.With) else statement
+        if not isinstance(root, (exp.Select, exp.Union, exp.Intersect, exp.Except)):
             violations.append("select_only")
             return PolicyVerdict(False, violations=violations)
 
@@ -59,8 +62,11 @@ class PolicyEngine:
             violations.append("forbidden_pattern")
             return PolicyVerdict(False, violations=violations)
 
+        cte_names = self._cte_names(statement)
         tables = {t.name.lower() for t in statement.find_all(exp.Table) if t.name}
         for table in tables:
+            if table in cte_names:
+                continue
             if table not in self._dictionary_tables:
                 violations.append(f"table_not_in_dictionary:{table}")
             elif table not in self.allowed_tables:
@@ -80,11 +86,48 @@ class PolicyEngine:
         if violations:
             return PolicyVerdict(False, violations=violations)
 
-        sanitized = self._inject_top(statement)
-        if self.store_filter_required and self.store_ids:
-            sanitized = self._inject_store_filter(sanitized)
+        sanitized = self._sanitize_readonly(statement)
+        if self.store_filter_required and self.store_ids and isinstance(statement, exp.Select):
+            statement = sqlglot.parse_one(sanitized, read="tsql")
+            if isinstance(statement, exp.Select):
+                sanitized = self._inject_store_filter(statement).sql(dialect="tsql")
 
-        return PolicyVerdict(True, sanitized_sql=sanitized.sql(dialect="tsql"))
+        return PolicyVerdict(True, sanitized_sql=sanitized)
+
+    def _sanitize_readonly(self, statement: exp.Expression) -> str:
+        if isinstance(statement, exp.Select):
+            return self._inject_top(statement).sql(dialect="tsql")
+        if isinstance(statement, (exp.Union, exp.Intersect, exp.Except)):
+            out = statement.sql(dialect="tsql")
+            if not re.search(r"\bTOP\b", out, flags=re.IGNORECASE):
+                out = re.sub(
+                    r"(?i)^SELECT",
+                    f"SELECT TOP {self.max_rows}",
+                    out.strip(),
+                    count=1,
+                )
+            return out
+        if isinstance(statement, exp.With):
+            inner = self._sanitize_readonly(statement.this)
+            with_sql = statement.sql(dialect="tsql")
+            # Replace only when inner was rewritten (Select path); Union path already handled.
+            if inner != statement.this.sql(dialect="tsql"):
+                return with_sql
+            return inner if statement.this else with_sql
+        return statement.sql(dialect="tsql")
+
+    def _cte_names(self, statement: exp.Select) -> set[str]:
+        names: set[str] = set()
+        for cte in statement.find_all(exp.CTE):
+            alias = cte.args.get("alias")
+            if alias and getattr(alias, "name", None):
+                names.add(str(alias.name).lower())
+            elif alias and getattr(alias, "this", None) and getattr(alias.this, "name", None):
+                names.add(str(alias.this.name).lower())
+        return names
+
+    def _has_logical_db_prefix(self, sql: str) -> bool:
+        return bool(re.search(r"\b(?:db1|db2)\s*\.\s*(?:\[?dbo\]?\s*\.)?", sql, flags=re.IGNORECASE))
 
     def _has_forbidden_patterns(self, sql: str) -> bool:
         sql = sql.strip().rstrip(";").strip()

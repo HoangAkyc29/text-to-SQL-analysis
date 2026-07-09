@@ -6,6 +6,16 @@ from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.feedback import DataFeedback
 
 
+def normalize_brief_filters(brief: AnalysisBrief) -> AnalysisBrief:
+    """Map legacy filter keys to canonical names."""
+    data = brief.model_dump()
+    filters = dict(data.get("filters") or {})
+    if "min_transaction_value" in filters and "min_bill_value" not in filters:
+        filters["min_bill_value"] = filters["min_transaction_value"]
+    data["filters"] = filters
+    return AnalysisBrief.model_validate(data)
+
+
 def apply_data_feedback(brief: AnalysisBrief, feedback: DataFeedback | dict[str, Any]) -> AnalysisBrief:
     """Merge IV data_feedback into brief for the next II attempt."""
     if isinstance(feedback, dict):
@@ -16,7 +26,7 @@ def apply_data_feedback(brief: AnalysisBrief, feedback: DataFeedback | dict[str,
     elif feedback.suggested_intent_fix:
         data["intent"] = f"{data['intent']} | {feedback.suggested_intent_fix}"
 
-    if feedback.issue in {"identifier_mismatch", "empty_result", "grain"}:
+    if feedback.issue in {"identifier_mismatch", "empty_result", "grain", "probe_success_needs_fact"}:
         data.setdefault("probe_hints", [])
         for hint in feedback.evidence_refs:
             if hint not in data["probe_hints"]:

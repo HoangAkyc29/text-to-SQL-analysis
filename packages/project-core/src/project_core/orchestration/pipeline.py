@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -15,7 +16,10 @@ from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
 from project_core.domain.analysis.recipe_matcher import rank_candidates
 from project_core.domain.audit.logger import AuditLogger
-from project_core.domain.brief.merge import apply_data_feedback
+from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
+from project_core.domain.analysis.iv_analyzer import _probe_success_needs_fact_feedback
+from project_core.domain.analysis.query_role_classifier import classify_query_roles
+from project_core.domain.brief.merge import apply_data_feedback, normalize_brief_filters
 from project_core.domain.contracts.agent_outputs import AnalystResponse, RiskReviewResponse, SqlPlannerResponse
 from project_core.domain.contracts.brief import AnalysisBrief, TechnicalSummary
 from project_core.domain.contracts.clarification import ClarificationRequest
@@ -41,9 +45,12 @@ from project_core.domain.errors.codes import ClarifyRoundsExceededError, Contrac
 from project_core.domain.budget import AgentInvoker, SqlGatewayClient, SupermarketBudgetGuard, TraceBudget
 from project_core.domain.sql.policy_engine import PolicyEngine
 from project_core.domain.sql.shard_resolver import suggest_query_plan
+from project_core.domain.sql.planner_context import policy_feedback_hints, product_resolution_hints
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.steps import has_step_type
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
+
+logger = logging.getLogger(__name__)
 
 
 class SupermarketAnalysisPipeline:
@@ -118,6 +125,7 @@ class SupermarketAnalysisPipeline:
         # brain still needs brief.plan, so decompose only in fallback mode.
         if brief.plan is None and not iv_llm_enabled:
             brief.plan = decompose_brief(brief)
+        brief = normalize_brief_filters(brief)
 
         promoted_tools: list[dict[str, Any]] = []
         if self.analysis_tool_registry is not None:
@@ -157,6 +165,9 @@ class SupermarketAnalysisPipeline:
                 schema_context = {**schema_context, "filtered_table_snapshot": filtered_snapshot}
             if domain_excerpt:
                 schema_context = {**schema_context, "domain_rules_excerpt": domain_excerpt}
+            product_hints = product_resolution_hints(brief)
+            if product_hints:
+                schema_context = {**schema_context, "product_resolution_hints": product_hints}
             retrieval_context: list[Any] = []
             if self.feedback_loop is not None:
                 retrieval_context = self.feedback_loop.retrieve_context("II", brief.intent, permissions.actor_id)
@@ -256,6 +267,7 @@ class SupermarketAnalysisPipeline:
                 if not verdict.allowed:
                     workflow.progress_step = WorkflowStepType.POLICY_REJECT.value
                     self._emit_progress(workflow, on_progress)
+                    sql_preview = sql[:200].replace("\n", " ")
                     workflow.steps.append(
                         WorkflowStep(
                             step_id=str(uuid4()),
@@ -264,10 +276,23 @@ class SupermarketAnalysisPipeline:
                             step_type=WorkflowStepType.POLICY_REJECT,
                             sql_attempt=sql_attempt,
                             query_index=idx,
-                            summary=";".join(verdict.violations),
+                            summary=f"{';'.join(verdict.violations)};sql={sql_preview}",
                         )
                     )
-                    inbox["policy_feedback"] = {"violations": verdict.violations, "query_index": idx}
+                    self.audit.log_sql_policy_reject(
+                        trace_id=trace_id,
+                        actor_id=acl.actor_id,
+                        sql=sql,
+                        target_db=tdb,
+                        violations=verdict.violations,
+                        query_index=idx,
+                    )
+                    inbox["policy_feedback"] = {
+                        "violations": verdict.violations,
+                        "query_index": idx,
+                        "rejected_sql": sql[:800],
+                        "hints": policy_feedback_hints(verdict.violations),
+                    }
                     continue
 
                 sanitized = verdict.sanitized_sql or sql
@@ -341,6 +366,13 @@ class SupermarketAnalysisPipeline:
                             )
 
                 if not approved:
+                    risk_summary = "risk_reject"
+                    if iii_parsed.concerns:
+                        risk_summary = f"risk_reject;flags={','.join(iii_parsed.concerns[:3])}"
+                    elif iii_parsed.risk_feedback:
+                        issue = str(iii_parsed.risk_feedback.get("issue", ""))[:80]
+                        if issue:
+                            risk_summary = f"risk_reject;issue={issue}"
                     workflow.steps.append(
                         WorkflowStep(
                             step_id=str(uuid4()),
@@ -349,7 +381,7 @@ class SupermarketAnalysisPipeline:
                             step_type=WorkflowStepType.RISK_REJECT,
                             sql_attempt=sql_attempt,
                             query_index=idx,
-                            summary="risk_reject",
+                            summary=risk_summary,
                         )
                     )
                     continue
@@ -463,14 +495,42 @@ class SupermarketAnalysisPipeline:
                 )
 
             if not query_files:
-                if sql_attempt >= self.cfg.pipeline.max_sql_retries:
-                    return self._finish(
-                        trace_id,
-                        workflow,
-                        AnalysisOutcome.POLICY_BLOCKED,
-                        TechnicalSummary(outcome=AnalysisOutcome.POLICY_BLOCKED.value),
-                    )
+                terminal = _terminal_on_no_queries(
+                    workflow=workflow,
+                    sql_attempt=sql_attempt,
+                    max_sql_retries=self.cfg.pipeline.max_sql_retries,
+                )
+                if terminal is not None:
+                    return self._finish(trace_id, workflow, terminal[0], terminal[1])
                 continue
+
+            row_counts = {qf.query_index: qf.row_count for qf in query_files}
+            pre_iv = _synthesize_pre_iv_feedback(
+                action=action,
+                query_meta=query_meta,
+                row_counts=row_counts,
+                brief=brief,
+                sql_attempt=sql_attempt,
+                max_sql_retries=self.cfg.pipeline.max_sql_retries,
+            )
+            if pre_iv.get("skip_iv") and pre_iv.get("data_feedback"):
+                fb = DataFeedback.model_validate(pre_iv["data_feedback"])
+                inbox["data_feedback"] = fb.model_dump()
+                workflow.steps.append(
+                    WorkflowStep(
+                        step_id=str(uuid4()),
+                        trace_id=trace_id,
+                        analysis_id=workflow.active_analysis_id or trace_id,
+                        step_type=WorkflowStepType.DATA_FEEDBACK,
+                        sql_attempt=sql_attempt,
+                        summary=fb.issue,
+                    )
+                )
+                continue
+            if pre_iv.get("terminal_outcome") and pre_iv.get("technical_summary"):
+                outcome = AnalysisOutcome(pre_iv["terminal_outcome"])
+                summary = TechnicalSummary.model_validate(pre_iv["technical_summary"])
+                return self._finish(trace_id, workflow, outcome, summary)
 
             dataset = ExtractedDataset(trace_id=trace_id, queries=query_files)
             merged_profile = self._merge_profiles(profiles)
@@ -558,9 +618,14 @@ class SupermarketAnalysisPipeline:
             if iv_action == "data_feedback":
                 feedback_raw = iv_parsed.data_feedback or {}
                 inbox["data_feedback"] = feedback_raw
-                try:
-                    fb = DataFeedback.model_validate(feedback_raw)
-                except Exception:  # noqa: BLE001
+                fb, val_err = try_validate_data_feedback(feedback_raw)
+                if fb is None:
+                    logger.warning(
+                        "IV data_feedback validation failed trace=%s err=%s raw=%r",
+                        trace_id,
+                        val_err,
+                        str(feedback_raw)[:400],
+                    )
                     fb = DataFeedback(
                         needs_sql_retry=True,
                         issue="invalid_feedback",
@@ -568,6 +633,10 @@ class SupermarketAnalysisPipeline:
                         suggested_intent_fix=brief.intent,
                     )
                     inbox["data_feedback"] = fb.model_dump()
+                    step_summary = f"invalid_feedback:{val_err or 'unknown'}"
+                else:
+                    inbox["data_feedback"] = fb.model_dump()
+                    step_summary = fb.issue
                 workflow.steps.append(
                     WorkflowStep(
                         step_id=str(uuid4()),
@@ -575,7 +644,7 @@ class SupermarketAnalysisPipeline:
                         analysis_id=workflow.active_analysis_id or trace_id,
                         step_type=WorkflowStepType.DATA_FEEDBACK,
                         sql_attempt=sql_attempt,
-                        summary=fb.issue,
+                        summary=step_summary,
                     )
                 )
                 if fb.diagnosis == "impossible":
@@ -702,6 +771,9 @@ class SupermarketAnalysisPipeline:
                             self.analysis_tool_registry.promote(tool["tool_id"])
                 return self._finish(trace_id, workflow, outcome, summary)
 
+        exhausted = _terminal_on_exhausted(workflow)
+        if exhausted is not None:
+            return self._finish(trace_id, workflow, exhausted[0], exhausted[1])
         return self._finish(
             trace_id,
             workflow,
@@ -753,3 +825,115 @@ def _needs_explain_from_feedback(risk_feedback: Any) -> bool:
         return False
     issue = str(risk_feedback.get("issue", "")).lower()
     return any(k in issue for k in ("performance", "scan", "slow", "full table"))
+
+
+def _synthesize_pre_iv_feedback(
+    *,
+    action: str,
+    query_meta: list[dict[str, Any]],
+    row_counts: dict[int, int],
+    brief: AnalysisBrief,
+    sql_attempt: int,
+    max_sql_retries: int,
+) -> dict[str, Any]:
+    """Pipeline backup heuristics before invoking Agent IV."""
+    nq = (max(row_counts) + 1) if row_counts else (len(query_meta) or 1)
+    mode, main_rows, probe_rows, _main_idxs, probe_idxs = classify_query_roles(
+        query_meta, row_counts, num_queries=nq
+    )
+
+    if action == "probe_sql" and mode == "probe_only_success":
+        payload = _probe_success_needs_fact_feedback(brief, probe_idxs, row_counts, [])
+        return {"skip_iv": True, "data_feedback": payload["data_feedback"]}
+
+    if sql_attempt >= max_sql_retries:
+        if mode == "probe_only_success":
+            return {
+                "terminal_outcome": AnalysisOutcome.PARTIAL.value,
+                "technical_summary": {
+                    "outcome": AnalysisOutcome.PARTIAL.value,
+                    "empty_reason": "probe_ok_no_fact_query",
+                    "caveats": [
+                        "Đã resolve SKU master nhưng chưa có fact query STRANS+TRANSHDR trong giới hạn retry."
+                    ],
+                },
+            }
+        if main_rows == 0 and probe_rows > 0:
+            return {
+                "terminal_outcome": AnalysisOutcome.EMPTY.value,
+                "technical_summary": {
+                    "outcome": AnalysisOutcome.EMPTY.value,
+                    "empty_reason": "empty_in_range",
+                    "caveats": [
+                        "Probe SKU thành công nhưng không có giao dịch fact trong khoảng thời gian yêu cầu."
+                    ],
+                },
+            }
+        if main_rows == 0 and mode == "all_empty":
+            return {
+                "terminal_outcome": AnalysisOutcome.EMPTY.value,
+                "technical_summary": {
+                    "outcome": AnalysisOutcome.EMPTY.value,
+                    "empty_reason": "empty_in_range",
+                    "caveats": ["Không có dữ liệu giao dịch trong khoảng thời gian và bộ lọc hiện tại."],
+                },
+            }
+    return {}
+
+
+def _terminal_on_no_queries(
+    *,
+    workflow: WorkflowState,
+    sql_attempt: int,
+    max_sql_retries: int,
+) -> tuple[AnalysisOutcome, TechnicalSummary] | None:
+    if sql_attempt < max_sql_retries:
+        return None
+    only_select_only = bool(
+        workflow.steps
+        and all(
+            "select_only" in s.summary
+            for s in workflow.steps
+            if s.step_type == WorkflowStepType.POLICY_REJECT and s.sql_attempt == sql_attempt
+        )
+        and any(
+            s.step_type == WorkflowStepType.POLICY_REJECT and s.sql_attempt == sql_attempt
+            for s in workflow.steps
+        )
+    )
+    if only_select_only:
+        return (
+            AnalysisOutcome.POLICY_BLOCKED,
+            TechnicalSummary(
+                outcome=AnalysisOutcome.POLICY_BLOCKED.value,
+                caveats=["SQL không đúng cấu trúc SELECT thuần — kiểm tra lại plan_sql output."],
+            ),
+        )
+    return (
+        AnalysisOutcome.POLICY_BLOCKED,
+        TechnicalSummary(outcome=AnalysisOutcome.POLICY_BLOCKED.value),
+    )
+
+
+def _terminal_on_exhausted(workflow: WorkflowState) -> tuple[AnalysisOutcome, TechnicalSummary] | None:
+    """Prefer meaningful empty/partial over generic error when probes succeeded."""
+    probe_ok = any(
+        s.step_type == WorkflowStepType.EXECUTE and "rows=" in s.summary and not s.summary.startswith("rows=0")
+        for s in workflow.steps
+    )
+    had_probe_feedback = any(
+        s.step_type == WorkflowStepType.DATA_FEEDBACK and "probe_success_needs_fact" in s.summary
+        for s in workflow.steps
+    )
+    if probe_ok or had_probe_feedback:
+        return (
+            AnalysisOutcome.EMPTY,
+            TechnicalSummary(
+                outcome=AnalysisOutcome.EMPTY.value,
+                empty_reason="empty_in_range",
+                caveats=[
+                    "Đã tra cứu master SKU thành công; không có giao dịch phù hợp trong kỳ hoặc chưa hoàn tất fact query."
+                ],
+            ),
+        )
+    return None

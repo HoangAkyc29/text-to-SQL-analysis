@@ -44,6 +44,18 @@ def test_policy_blocks_delete(catalog):
     assert "select_only" in verdict.violations
 
 
+def test_policy_allows_union_all_probe(catalog):
+    perms = build_permissions_snapshot("u", "hq_analyst")
+    engine = PolicyEngine(catalog, allowed_tables=perms.allowed_tables)
+    sql = (
+        "SELECT SKU_ID FROM SKU_DEF WHERE SKU_CODE IN ('00030344') "
+        "UNION ALL SELECT s.SKU_ID FROM SKU_DEF s JOIN BARCODE b ON s.SKU_ID = b.SKU_ID "
+        "WHERE b.BARCODE IN ('0030344')"
+    )
+    verdict = engine.validate(sql)
+    assert verdict.allowed, verdict.violations
+
+
 def test_store_manager_cannot_query_hissppr(catalog):
     perms = build_permissions_snapshot("u", "store_manager")
     engine = PolicyEngine(catalog, allowed_tables=perms.allowed_tables)

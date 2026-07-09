@@ -22,6 +22,7 @@ Probe SQL should be **small** (`TOP 100`–`1000`), read-only, aimed at resolvin
 |-------|------------------|
 | `empty_result` | Widen time range; check wrong `TRANS_CODE`; add SKU/barcode probe |
 | `identifier_mismatch` | Probe `SKU_DEF`/`BARCODE`; fix predicate on `SKU_ID` not user barcode |
+| `probe_success_needs_fact` | Stop probing — emit `plan_sql` with `role: main` STRANS+TRANSHDR fact query using SKU_ID from probe |
 | `grain` | Drop aggregation — line-level `STRANS` sample |
 | `needs_sql_retry` | Adjust filters per `suggested_intent_fix` |
 

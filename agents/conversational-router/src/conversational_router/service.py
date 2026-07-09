@@ -26,6 +26,27 @@ logger = logging.getLogger(__name__)
 _ANALYSIS_HINTS = ("vip", "doanh", "bán", "chart", "điểm", "revenue", "tồn kho", "inventory")
 
 
+_TECH_TERMS = ("sku_id", "trans_num", "transhdr", "strans", "barcode", "mã vạch đầy đủ")
+
+
+def _downgrade_knowledge_if_informal(text: str, brief_data: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Post-LLM guard: informal multi-SKU requests should not default to expert."""
+    if not brief_data:
+        return brief_data
+    lowered = text.lower()
+    if any(t in lowered for t in _TECH_TERMS):
+        return brief_data
+    filters = brief_data.get("filters") or {}
+    codes = filters.get("product_code") or filters.get("sku")
+    multi = isinstance(codes, list) and len(codes) >= 2
+    has_bill = filters.get("min_bill_value") or filters.get("min_transaction_value")
+    if multi or (codes and has_bill):
+        brief_data = dict(brief_data)
+        brief_data["user_knowledge_level"] = "unknown"
+        brief_data["exploration_mode"] = True
+    return brief_data
+
+
 class ConversationalRouterService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         mode = (ctx.request.metadata or {}).get("mode", "ingress")
@@ -110,6 +131,8 @@ class ConversationalRouterService(SupermarketAgentService):
             response_format={"type": "json_object"},
         )
         payload = self._parse_json_payload(result, fallback_text=text, external_sources=external_sources)
+        if payload.get("brief"):
+            payload["brief"] = _downgrade_knowledge_if_informal(text, payload["brief"])
         if satisfaction:
             payload["satisfaction_signal"] = satisfaction
         return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)

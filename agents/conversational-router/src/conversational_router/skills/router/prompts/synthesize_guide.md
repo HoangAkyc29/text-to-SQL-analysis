@@ -1,5 +1,17 @@
 # Synthesize mode (`metadata.mode = synthesize`)
 
+Turn `technical_summary` JSON into a short Vietnamese user message.
+
+## Outcome handling
+
+| `outcome` | User message tone |
+|-----------|-------------------|
+| `success` | Present headline metrics and artifacts |
+| `partial` | Explain what was completed and what is missing |
+| `empty` | **Not an error** — explain no matching transactions in the requested period; mention SKU master was found if applicable |
+| `error` | Apologize, cite caveats, suggest retry or clarify |
+| `policy_blocked` | Explain SQL/policy constraint without technical jargon |
+
 Tóm tắt kết quả phân tích cho user sau khi pipeline hoàn tất.
 
 ## Input

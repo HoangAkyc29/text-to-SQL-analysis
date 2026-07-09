@@ -1,0 +1,69 @@
+================================================================================
+BÁO CÁO TRIỂN KHAI — CẢI THIỆN SUY LUẬN AGENT (post-trial 70aa856d)
+Ngày: 2026-07-07
+================================================================================
+
+## Tóm tắt thay đổi đã triển khai
+
+### Phase 0 — Observability
+- `AuditLogger.log_sql_policy_reject()` — lưu `sql_preview` (300 chars) + hash
+- `WorkflowStep` POLICY_REJECT summary: `{violations};sql={preview}`
+- IV validation failure: `logger.warning` + summary `invalid_feedback:{error}`
+
+### Phase 1 — Agent IV contract
+- `query_role_classifier.py` — `classify_query_roles()` sửa bug all-probe → main_rows=3
+- `probe_success_needs_fact` feedback khi plan chỉ có probe và có rows
+- `feedback_coerce.py` — coerce `probe_requests.table`, `expected_vs_observed` array
+- `iv_brain.py` — validate/coerce data_feedback; fallback deterministic
+- Prompts: `reason_loop_guide.md`, `analyze_guide.md` đồng bộ schema
+
+### Phase 2 — Pipeline + Agent II
+- `_synthesize_pre_iv_feedback()` — skip IV khi probe_sql + probe OK
+- Outcomes: `EMPTY`, `PARTIAL` thay vì `error/exhausted` khi probe OK
+- `normalize_brief_filters()` — map `min_transaction_value` → `min_bill_value`
+- `plan_sql_guide.md`, `probe_feedback_guide.md` — clarify + probe-once-then-fact
+
+### Phase 3 — Agent I
+- `ingress_guide.md` — rules unknown knowledge + min_bill
+- `service.py` — `_downgrade_knowledge_if_informal()` post-LLM guard
+- `synthesize_guide.md` — phân biệt outcome `empty` vs `error`
+
+### Phase 4 — RAG
+- `scripts/seed_gift_bill_case_study.py` — case study promoted (parametric SQL)
+
+### Phase 5 — Agent III logs
+- RISK_REJECT summary: `risk_reject;flags=...` hoặc `issue=...`
+
+### Tests
+- `test_agent_intelligence.py` — probe_only, coerce, normalize filters
+- `test_reasoning_improvements.py` — classifier, pre-IV synthesis, exhausted terminal
+
+================================================================================
+VERIFICATION
+================================================================================
+
+Docker rebuild: OK (chat-gateway, sql-planner, data-analyst, conversational-router)
+Smoke tests in container: OK
+RAG seed: case_id=0626ad41-ce06-404d-9f60-dc788698f9fe status=promoted
+
+Trial 1 (receptionist-trial-3354251c): AGENT_TIMEOUT (~120s LLM cold start)
+Trial 2 (receptionist-trial-da4ae753): policy_blocked (~139s)
+
+Trace trial 2: 86c5dc0e-025b-47d2-8034-dcbdc907398d
+Analysis: 96d5e39f-6d5b-4960-9eba-b174aa285585
+
+Audit log (mới):
+  - sql_policy_reject với sql_preview (UNION ALL probe — select_only)
+  - sql_execute rows=0 (SKU_CODE IN '0030344' sai format vs LPAD8)
+
+Cải thiện so với trial 70aa856d:
+  (+) Không còn invalid_feedback / pipeline exhausted
+  (+) Audit có SQL preview khi policy reject
+  (+) Pre-IV heuristic có thể inject probe_success_needs_fact (khi probe rows > 0)
+  (-) Agent II vẫn sinh UNION ALL → select_only; probe SKU 0 rows (mã 7 số chưa LPAD)
+
+Hướng tiếp (ngoài scope plan này):
+  - Policy cho phép UNION/WITH top-level hoặc prompt II cấm UNION trong probe
+  - Trial cần warm-up / tăng OpenRouter timeout nếu AGENT_TIMEOUT lặp lại
+
+================================================================================

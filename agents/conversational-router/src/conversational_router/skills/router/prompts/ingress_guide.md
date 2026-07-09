@@ -35,6 +35,15 @@
   - theo cửa hàng / store → `dimensions: ["STK_ID"]` or `["store"]`
   - biểu đồ / chart → `output_format: ["chart"]`
   - Excel → `output_format: ["excel", "table"]`
+  - quà tặng / gift / mã hàng / SKU → `filters.product_code` (string or list)
+  - bill / hóa đơn ≥ X / tổng bill → `filters.min_bill_value` (number); keep `min_transaction_value` as alias if user says it
+
+## Knowledge level and exploration
+
+- Default `user_knowledge_level: "expert"` only when the user uses technical terms (`SKU_ID`, `TRANS_NUM`, `TRANSHDR`, barcode đầy đủ).
+- If user gives informal 7–8 digit product codes without technical vocabulary → `user_knowledge_level: "unknown"`, `exploration_mode: true`.
+- Multiple `product_code` values + bill threshold (`min_bill_value`) without clear bill definition → `exploration_mode: true` (Agent II will clarify).
+- Map spoken bill thresholds: "600k", "600.000", "600000" → `filters.min_bill_value: 600000`.
 
 ## Examples
 

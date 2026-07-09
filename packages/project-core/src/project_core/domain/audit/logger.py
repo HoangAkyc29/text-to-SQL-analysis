@@ -76,6 +76,29 @@ class AuditLogger:
             },
         )
 
+    def log_sql_policy_reject(
+        self,
+        *,
+        trace_id: str,
+        actor_id: str,
+        sql: str,
+        target_db: str,
+        violations: list[str],
+        query_index: int,
+    ) -> None:
+        self.log(
+            "sql_policy_reject",
+            trace_id=trace_id,
+            payload={
+                "actor_id": actor_id,
+                "sql_hash": hashlib.sha256(sql.encode()).hexdigest()[:16],
+                "sql_preview": sql[:300],
+                "target_db": target_db,
+                "violations": violations,
+                "query_index": query_index,
+            },
+        )
+
     def _append_sql_file(self, event: dict[str, Any]) -> None:
         try:
             path = Path(self._sql_path)

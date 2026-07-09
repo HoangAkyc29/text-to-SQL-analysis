@@ -44,10 +44,28 @@ Emit `kind=excel` when `output_format` contains `excel`.
 ```
 
 ```json
-{"decision": "data_feedback", "data_feedback": {"needs_sql_retry": true, "issue": "empty_result|identifier_mismatch|grain", "diagnosis": "...", "summary": "Vietnamese", "suggested_intent_fix": "...", "probe_requests": [{"purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 ..."}]}}
+{
+  "decision": "data_feedback",
+  "data_feedback": {
+    "needs_sql_retry": true,
+    "issue": "empty_result | identifier_mismatch | probe_success_needs_fact | grain",
+    "diagnosis": "solvable | needs_probe | impossible | needs_user_clarify",
+    "summary": "Vietnamese explanation",
+    "suggested_intent_fix": "what Agent II should change",
+    "probe_requests": [
+      {"table": "SKU_DEF", "purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 SKU_ID, SKU_CODE FROM SKU_DEF WHERE ..."}
+    ],
+    "expected_vs_observed": [
+      {"aspect": "row_count", "expected": "sales rows for SKU", "observed": "0 main, 3 probe"}
+    ]
+  }
+}
 ```
 
 Use `data_feedback` when the data mismatches the intent and Agent II must re-plan SQL (you cannot write SQL).
+`diagnosis` must be exactly one of: `solvable`, `needs_probe`, `impossible`, `needs_user_clarify`.
+`probe_requests[].table` is **required** (`SKU_DEF`, `BARCODE`, `STRANS`, `TRANSHDR`, …).
+`expected_vs_observed` must be an **array** of objects with `aspect`, `expected`, `observed`.
 
 ```json
 {"decision": "suggest_clarify", "clarification_request": {"source_agent": "IV", "reason": "...", "questions": [{"id": "...", "prompt": "Vietnamese question", "options": [{"id": "...", "label": "...", "brief_value": {}}]}]}}
@@ -62,3 +80,4 @@ Use `data_feedback` when the data mismatches the intent and Agent II must re-pla
 - Finalize as soon as the intent is answered; do not burn budget.
 - If you hit `remaining_steps == 1`, either run the single most valuable step or finalize.
 - Never claim zero sales on an `identifier_mismatch`; send `data_feedback` instead.
+- When probe datasets have rows but no main fact query ran, use `issue: probe_success_needs_fact`.

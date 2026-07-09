@@ -1,0 +1,196 @@
+================================================================================
+BÁO CÁO TRIAL SẠCH — QUÀ TẶNG + BILL 600K (SAU CẢI TIẾN)
+Ngày: 2026-07-07
+================================================================================
+
+## 0. Chuẩn bị — xóa memory cũ
+
+Đã xóa trước khi chạy:
+  - Mongo `case_studies`: 1 → 0 (giữ `schema_chunks`: 42 — dictionary RAG tham chiếu)
+  - Mongo `memories`, `analysis_tools`, `domain_rules`: 0
+  - Redis: FLUSHDB (toàn bộ STM session/workflow)
+  - Audit log: truncate `/app/data/state/audit.jsonl`
+
+Script hỗ trợ: `scripts/reset_agent_memory.py`
+
+================================================================================
+## 1. Các lần chạy trial
+================================================================================
+
+| # | Session | Trace | Outcome | Thời gian | Ghi chú |
+|---|---------|-------|---------|-----------|---------|
+| 1 | receptionist-trial-268450c3 | 281ecafe-... | policy_blocked | ~105s | TRƯỚC fix UNION policy |
+| 2 | receptionist-trial-bc729e9b | — | AGENT_TIMEOUT | ~227s | LLM chậm sau rebuild |
+| 3 | receptionist-trial-b4ef8e4b | 665c7133-... | **empty** | ~56s | SAU fix UNION — kết quả đúng nghiệp vụ |
+
+**Trial chính thức để phân tích:** `receptionist-trial-b4ef8e4b`
+  analysis_id: f047d088-122b-48e9-a6e7-a85ba8ff99a8
+  trace_id:    665c7133-e757-48e7-b56b-d03489a1455c
+
+Clarify rounds: 0 (agent không hỏi user — đúng persona lễ tân không được giải thích 600k trước)
+
+================================================================================
+## 2. Agent I — Ingress
+================================================================================
+
+Brief sau ingress (từ Redis workflow):
+  intent: Xuất dữ liệu quà tặng 0030344/48/55, 1–6/7/2026, số lượng, bill >=600k, top 5 bill/SKU
+  filters.product_code: ["0030344","0030348","0030355"]
+  filters.min_bill_value: 600000
+  time_range: 2026-07-01 .. 2026-07-06
+  exploration_mode: true
+  user_knowledge_level: unknown
+  output_format: ["table","excel"]
+
+Đánh giá:
+  (+) Parse đủ 4 yêu cầu nghiệp vụ; map 600k → min_bill_value
+  (+) Heuristic post-LLM gán unknown + exploration (đúng persona lễ tân)
+  (-) Không clarify dù multi-SKU + min_bill — chọn exploration thay vì hỏi user
+  (-) Không hỏi định nghĩa bill 600k (user sẽ trả lời nếu được hỏi)
+
+Budget: I=2 (ingress + synthesize)
+
+================================================================================
+## 3. Agent II — SQL Planner (3 attempts)
+================================================================================
+
+### Attempt 1 — probe_sql
+  EXECUTE q0: rows=3, role=probe (db2)
+  → Pipeline pre-IV heuristic: DATA_FEEDBACK `probe_success_needs_fact` (skip IV)
+  → Probe resolve SKU master thành công (UNION ALL sau fix policy)
+
+Audit sql_execute: row_count=3, target_db=db2
+
+### Attempt 2 — plan_sql (fact)
+  POLICY_REJECT: `logical_db_prefix_forbidden`
+  SQL preview: `WITH ResolvedSKUs AS ... FROM db2.dbo.SKU_DEF ...` target_db=db1
+  → LLM vẫn prefix db2.dbo + chọn db1 cho fact query (sai shard)
+
+### Attempt 3 — plan_sql (fact)
+  EXECUTE q0: rows=0, role=main (db2)
+  → Fact query chạy được nhưng 0 giao dịch trong kỳ (đúng dữ liệu thực tế)
+
+Budget: II=3, III=2, tokens ~90751
+
+Đánh giá suy luận II:
+  (+) Attempt 1 probe đúng hướng; học từ probe_success_needs_fact
+  (+) Attempt 3 có fact query role=main join STRANS+TRANSHDR pattern
+  (-) Attempt 2 lặp lỗi db2.dbo prefix dù policy_feedback đã có hints
+  (-) Không clarify bill semantics / TRANS_NUM dù user_knowledge_level=unknown
+  (-) Không tách query top-5 per SKU riêng (1 fact query tổng hợp → 0 rows)
+
+================================================================================
+## 4. Agent III — Risk Reviewer
+================================================================================
+
+Budget III=2 — có approve cho query attempt 1 và 3.
+Workflow không ghi chi tiết flags (đã có summary risk_reject;flags= khi reject).
+
+================================================================================
+## 5. Agent IV — Data Analyst
+================================================================================
+
+Budget IV=1 — IV chạy sau attempt 3 (fact 0 rows).
+Outcome terminal: `empty` với empty_reason `empty_in_range` (pipeline heuristic).
+
+Không có invalid_feedback (cải tiến Phase 1 hoạt động).
+
+================================================================================
+## 6. RAG & học hỏi (case study)
+================================================================================
+
+Trước trial: case_studies=0, schema_chunks=42
+Sau trial:   case_studies=0 (không index — outcome `empty` không eligible success/partial)
+
+RAG Agent II dùng:
+  - schema_chunks (42) từ data_dictionary — bảng STRANS, TRANSHDR, SKU_DEF, ...
+  - Không có case study gift+bill (đã xóa sạch; không seed lại trong trial này)
+
+Feedback loop: không stage case study, không promote tool.
+
+================================================================================
+## 7. Workflow steps (trial b4ef8e4b)
+================================================================================
+
+| # | step_type      | attempt | summary |
+|---|----------------|---------|---------|
+| 1 | execute        | 1       | rows=3;role=probe |
+| 2 | data_feedback  | 1       | probe_success_needs_fact |
+| 3 | policy_reject  | 2       | logical_db_prefix_forbidden;sql=WITH ResolvedSKUs...db2.dbo... |
+| 4 | execute        | 3       | rows=0;role=main |
+
+================================================================================
+## 8. Audit SQL (trace 665c7133-...)
+================================================================================
+
+1. sql_execute: db2, row_count=3 (probe OK)
+2. sql_policy_reject: logical_db_prefix_forbidden, db1, WITH db2.dbo.SKU_DEF
+3. sql_execute: db2, row_count=0 (fact query)
+
+Artifact: query_0.parquet ghi đè bởi attempt 3 → 0 rows (probe 3 rows không còn trong file cuối)
+
+================================================================================
+## 9. Kết quả user-facing
+================================================================================
+
+Outcome: empty (không phải error)
+Message (Agent I synthesize):
+  "Hiện tại hệ thống không tìm thấy giao dịch nào trong khoảng thời gian và dữ liệu
+   mà bạn yêu cầu. Đây không phải lỗi mà là do không có dữ liệu phù hợp..."
+
+Đánh giá: ĐÚNG hướng — 3 SKU tồn tại master, không bán trong 1–6/7/2026 với bill >=600k.
+Thiếu: không nói rõ "đã tìm thấy 3 mã hàng trong danh mục" (probe 3 rows).
+
+================================================================================
+## 10. Fix code trong phiên này
+================================================================================
+
+File: packages/project-core/src/project_core/domain/sql/policy_engine.py
+
+Vấn đề: UNION ALL probe bị `select_only` (sqlglot parse Union không phải Select)
+Fix: Cho phép exp.Union / Intersect / Except là read-only; sanitize TOP cho UNION
+
+Test: test_policy_allows_union_all_probe trong test_catalog_policy.py
+
+Trial 268450c3 (trước fix): 3x select_only → policy_blocked
+Trial b4ef8e4b (sau fix): probe 3 rows → fact → empty
+
+================================================================================
+## 11. Phân tích chất lượng tổng thể
+================================================================================
+
+### Logic nghiệp vụ
+| Tiêu chí | Đạt? | Nhận xét |
+|----------|------|----------|
+| Resolve mã 7→8 số | Một phần | Probe UNION; attempt 2–3 dùng 00030344 |
+| Bill >=600k từ TRANSHDR | Không verify | Không clarify; SQL fact có filter nhưng 0 rows |
+| Top 5 bill/SKU | Không | Không có query ROW_NUMBER per SKU |
+| Loại bill <600k | Không test được | Không có giao dịch trong kỳ |
+| Persona lễ tân | OK | clarify_round=0; không spoil 600k logic |
+
+### Logic workflow
+| Tiêu chí | Đạt? |
+|----------|------|
+| probe → needs_fact feedback | OK |
+| Không invalid_feedback / exhausted | OK |
+| Outcome empty có nghĩa | OK |
+| Persist SQL reject trong steps | OK |
+| Case study khi fail | OK (không index — đúng thiết kế) |
+
+### Điểm cần cải thiện tiếp (ưu tiên)
+  P1. Agent II: sau policy `logical_db_prefix_forbidden` attempt 3 phải bỏ prefix (retry guide)
+  P1. Agent I/II: clarify bill 600k khi exploration_mode + min_bill (1 vòng MCQ)
+  P2. IV/pipeline: outcome empty nên cite probe rows ("3 SKU tồn tại, 0 giao dịch")
+  P2. Artifact: lưu probe parquet riêng, không ghi đè query_0
+  P3. Orchestrator timeout 120s → tăng hoặc async poll (trial bc729e9b timeout)
+
+================================================================================
+## 12. File tham chiếu
+================================================================================
+
+Session HTTP log: docs2/trial-receptionist-session.jsonl
+Workflow raw (Redis): trace 665c7133 trong session receptionist-trial-b4ef8e4b
+Scripts: scripts/reset_agent_memory.py, scripts/receptionist_trial.py,
+         scripts/collect_trial_workflow.py
+
+================================================================================

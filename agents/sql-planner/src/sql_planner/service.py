@@ -142,6 +142,8 @@ class SqlPlannerService(SupermarketAgentService):
         target_dbs: list[str] = []
 
         if product_code:
+            if isinstance(product_code, list):
+                product_code = product_code[0] if product_code else ""
             resolved = resolve_product_code(str(product_code))
             for probe in resolved.probe_sql:
                 sql.append(probe)

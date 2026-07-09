@@ -23,7 +23,7 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 
 - `brief` — `AnalysisBrief` (+ `plan.subtasks` nếu decomposed)
 - `inbox` — `policy_feedback`, `data_feedback`, `probe_mode`
-- `schema_context` — allowed tables, column hints, domain excerpt
+- `schema_context` — allowed tables, column hints, domain excerpt, `shard_plan`, `product_resolution_hints`
 - `retrieval_context` — promoted case studies (SQL templates tương tự)
 - `attempt` — số lần retry (1-based)
 

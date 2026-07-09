@@ -50,6 +50,23 @@ def test_policy_store_filter_when_required(mini_schema_catalog):
     assert "stk_id" in (verdict.sanitized_sql or "").lower()
 
 
+def test_policy_rejects_logical_db_prefix(mini_schema_catalog):
+    engine = PolicyEngine(mini_schema_catalog, allowed_tables=mini_schema_catalog.tables())
+    verdict = engine.validate("SELECT TOP 5 sale_id FROM db2.dbo.sales")
+    assert verdict.allowed is False
+    assert "logical_db_prefix_forbidden" in verdict.violations
+
+
+def test_policy_allows_cte_alias(mini_schema_catalog):
+    engine = PolicyEngine(mini_schema_catalog, allowed_tables=mini_schema_catalog.tables())
+    sql = (
+        "WITH ranked AS (SELECT sale_id FROM sales) "
+        "SELECT sale_id FROM ranked"
+    )
+    verdict = engine.validate(sql)
+    assert verdict.allowed is True
+
+
 def test_policy_blocks_semicolon_injection(engine):
     verdict = engine.validate("SELECT 1; DROP TABLE sales")
     assert verdict.allowed is False

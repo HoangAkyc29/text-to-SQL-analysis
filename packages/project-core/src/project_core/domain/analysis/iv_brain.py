@@ -20,11 +20,14 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
 from project_core.domain.analysis.iv_analyzer import (
     _empty_feedback,
     _identifier_mismatch_feedback,
     _merge_external_paths,
+    _probe_success_needs_fact_feedback,
 )
+from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.feedback.analysis_tool_registry import apply_params_to_script
 
@@ -247,14 +250,15 @@ def run_analysis_brain(
     paths, meta = _merge_external_paths(brief, paths, query_meta or [])
     row_counts = {i: int(q.get("row_count", 0)) for i, q in enumerate(manifest.get("queries", []))}
 
-    probe_idxs = [i for i, m in enumerate(meta) if m.get("role") == "probe"]
-    main_idxs = [i for i, m in enumerate(meta) if m.get("role") != "probe"] or list(range(len(paths)))
-    main_rows = sum(row_counts.get(i, 0) for i in main_idxs)
-    probe_rows = sum(row_counts.get(i, 0) for i in probe_idxs)
+    mode, main_rows, probe_rows, _main_idxs, probe_idxs = classify_query_roles(
+        meta, row_counts, num_queries=len(paths)
+    )
     product_code = (brief.filters or {}).get("product_code") or (brief.filters or {}).get("sku")
 
-    # Deterministic early exits (identical to the pipeline brain) before spending LLM budget.
-    if main_rows == 0 and probe_rows > 0 and product_code:
+    # Deterministic early exits before spending LLM budget.
+    if mode == "probe_only_success":
+        return _probe_success_needs_fact_feedback(brief, probe_idxs, row_counts, paths)
+    if mode == "main_empty_probe_hit" and product_code:
         return _identifier_mismatch_feedback(str(product_code), probe_idxs, row_counts, paths)
     if profile.get("row_count", 0) == 0:
         return _empty_feedback(brief, product_code)
@@ -311,8 +315,14 @@ def run_analysis_brain(
         action = str(decision.get("decision") or decision.get("action") or "finalize")
 
         if action == "data_feedback":
-            fb = decision.get("data_feedback") or {}
-            payload: dict[str, Any] = {"action": "data_feedback", "data_feedback": fb}
+            fb_raw = decision.get("data_feedback") or {}
+            fb, err = try_validate_data_feedback(fb_raw)
+            if fb is None:
+                logger.warning("IV brain data_feedback invalid: %s raw=%r", err, str(fb_raw)[:300])
+                if mode == "all_empty" or profile.get("row_count", 0) == 0:
+                    return _empty_feedback(brief, product_code)
+                return _probe_success_needs_fact_feedback(brief, probe_idxs, row_counts, paths)
+            payload: dict[str, Any] = {"action": "data_feedback", "data_feedback": fb.model_dump()}
             if decision.get("suggest_clarify"):
                 payload["suggest_clarify"] = decision["suggest_clarify"]
             payload["steps_trace"] = steps_trace
