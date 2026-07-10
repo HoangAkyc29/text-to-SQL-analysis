@@ -1,6 +1,6 @@
 ---
 semantic_key: comp_id
-title: comp id
+title: Mã công ty / pháp nhân (COMP_ID)
 display_names:
 - COMP_ID
 kind: identifier
@@ -17,34 +17,21 @@ facts:
 - Mã công ty
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:rdiscinf.COMP_ID: top=00(2)'
-- 'db2:supplier.COMP_ID: top=00(381)'
+- business_prose
 ---
 
-# comp id
+# Mã công ty / pháp nhân (COMP_ID)
 
 **Semantic key:** `comp_id` · **Cột vật lý:** `COMP_ID`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột COMP_ID trên RDISCINF, SUPPLIER. db2:supplier: top 00.
+Mã công ty. Dùng trong Master / danh mục (SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `COMP_ID` | char | có dữ liệu |
-| `db2:supplier` | `COMP_ID` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:supplier.COMP_ID`
-- Null rate trong sample: 85%
-- Distinct ≈1; top: `00`×3
-
-## Ghi chú thêm
-
-- Mã công ty
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `COMP_ID` | char | Mã công ty |
+| `db2:supplier` | `COMP_ID` | char | Mã công ty |

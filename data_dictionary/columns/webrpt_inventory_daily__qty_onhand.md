@@ -1,6 +1,6 @@
 ---
 semantic_key: webrpt_inventory_daily__qty_onhand
-title: webrpt inventory daily · qty onhand
+title: Qty Onhand (WEBRPT_INVENTORY_DAILY)
 display_names:
 - qty_onhand
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - Tồn kho hiện tại
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for qty_onhand
-- 'db2:webrpt_inventory_daily.qty_onhand: top=0.0000(468), 1.0000(105), 2.0000(43),
-  3.0000(27), 4.0000(24)'
+- business_prose
 ---
 
-# webrpt inventory daily · qty onhand
+# Qty Onhand (WEBRPT_INVENTORY_DAILY)
 
 **Semantic key:** `webrpt_inventory_daily__qty_onhand` · **Cột vật lý:** `qty_onhand`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột QTY_ONHAND trên WEBRPT_INVENTORY_DAILY. db2:webrpt_inventory_daily: top 93.0000, 99.0000, 199.0000.
+Chỉ số aggregate trên báo cáo WEBRPT_INVENTORY_DAILY — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_inventory_daily` | `qty_onhand` | decimal | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_inventory_daily.qty_onhand`
-- Null rate trong sample: 0%
-- Distinct ≈20; top: `93.0000`×1, `99.0000`×1, `199.0000`×1, `144.0000`×1, `226.0000`×1, `0.2760`×1, `167.0000`×1, `74.0000`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_inventory_daily` | `qty_onhand` | decimal | Tồn kho hiện tại |
 
 ## Ghi chú thêm
 

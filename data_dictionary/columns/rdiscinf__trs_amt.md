@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__trs_amt
-title: rdiscinf · trs amt
+title: Số tiền / giá trị (RDISCINF)
 display_names:
 - TRS_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số tiềnTRS_AMT
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TRS_AMT
-- 'db2:rdiscinf.TRS_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# rdiscinf · trs amt
+# Số tiền / giá trị (RDISCINF)
 
 **Semantic key:** `rdiscinf__trs_amt` · **Cột vật lý:** `TRS_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TRS_AMT trên RDISCINF. db2:rdiscinf: top 0.00.
+Ngưỡng tiền giao dịch trong rule — thường so với tổng bill.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `TRS_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.TRS_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `TRS_AMT` | numeric | Số tiềnTRS_AMT |
 
 ## Ghi chú thêm
 

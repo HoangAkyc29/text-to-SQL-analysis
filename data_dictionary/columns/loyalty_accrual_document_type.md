@@ -19,11 +19,8 @@ facts:
   008=quỹ, …)
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:crdtrans.TRANS_CODE: top=221(984), 812(9), 811(6), 222(1)'
-- 'db2:crdtrans_tmp.TRANS_CODE: top=221(1000)'
+- business_prose
 ---
 
 # Loại GD tích điểm live — 811 (CRDTRANS db2)
@@ -32,24 +29,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-TRANS_CODE=811 trên CRDTRANS (db2 live) — giao dịch tích điểm từ mua hàng/thanh toán.
+Loại giao dịch tích điểm live (TRANS_CODE=811 trên CRDTRANS db2).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crdtrans` | `TRANS_CODE` | char | 811 = tích điểm live |
-| `db2:crdtrans_tmp` | `TRANS_CODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crdtrans.TRANS_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `811`×20
-
-### `db2:crdtrans_tmp.TRANS_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `221`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crdtrans` | `TRANS_CODE` | char | 811 = tích điểm từ mua hàng |
+| `db2:crdtrans_tmp` | `TRANS_CODE` | char | Loại chứng từ — xem domain_definitions.md (113=bán lẻ, 221=thanh toán, 811/812=thẻ, 008=quỹ, …) |
 
 ## Join
 

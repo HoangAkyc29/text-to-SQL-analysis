@@ -1,6 +1,6 @@
 ---
 semantic_key: pmcrdinf__iss_num
-title: pmcrdinf · iss num
+title: Mã định danh (iss num) (PMCRDINF)
 display_names:
 - ISS_NUM
 kind: identifier
@@ -10,32 +10,23 @@ tables:
   type: char
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột ISS_NUM
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for ISS_NUM
-- 'db2:pmcrdinf.ISS_NUM: top=000008241704000025(6), 000008241704000024(6), 000008241709000023(5),
-  000008241511000020(5), 000008241611000021(4)'
+- business_prose
 ---
 
-# pmcrdinf · iss num
+# Mã định danh (iss num) (PMCRDINF)
 
 **Semantic key:** `pmcrdinf__iss_num` · **Cột vật lý:** `ISS_NUM`
 
+## Ý nghĩa nghiệp vụ
+
+Số phiếu phát hành thẻ PM / voucher — trace lifecycle phát hành.
+
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdinf` | `ISS_NUM` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
-- Cột ISS_NUM
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdinf` | `ISS_NUM` | char | Mã định danh (iss num) trên master thẻ PM / voucher |

@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__todeal_amt
-title: stk dtl · todeal amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - TODEAL_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TODEAL_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TODEAL_AMT
-- 'db2:stk_dtl.TODEAL_AMT: top=0.00(999), 18418400.00(1)'
+- business_prose
 ---
 
-# stk dtl · todeal amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__todeal_amt` · **Cột vật lý:** `TODEAL_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TODEAL_AMT trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh cuối kỳ — xuất bán / giao dịch bán lẻ (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TODEAL_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TODEAL_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TODEAL_AMT` | numeric | Cuối kỳ — movement: TODEAL_AMT |
 
 ## Ghi chú thêm
 

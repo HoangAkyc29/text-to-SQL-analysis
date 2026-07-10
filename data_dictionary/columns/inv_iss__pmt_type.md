@@ -1,6 +1,6 @@
 ---
 semantic_key: inv_iss__pmt_type
-title: inv iss · pmt type
+title: Pmt Type (INV_ISS)
 display_names:
 - PMT_TYPE
 kind: text
@@ -14,30 +14,24 @@ facts:
 - Loại thanh toán
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for PMT_TYPE
-- 'db2:inv_iss.PMT_TYPE: top=CK(235), TM(125)'
+- business_prose
 ---
 
-# inv iss · pmt type
+# Pmt Type (INV_ISS)
 
 **Semantic key:** `inv_iss__pmt_type` · **Cột vật lý:** `PMT_TYPE`
 
 ## Ý nghĩa nghiệp vụ
 
-Loại thanh toán
+Thuộc tính pmt type — phiếu xuất kho.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:inv_iss` | `PMT_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:inv_iss` | `PMT_TYPE` | char | Loại thanh toán |
 
 ## Ghi chú thêm
 
+- Loại thanh toán

@@ -16,10 +16,8 @@ facts:
   008=quỹ, …)
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:crdtrans_arc.TRANS_CODE: top=221(989), 812(7), 811(3), 222(1)'
+- business_prose
 ---
 
 # Loại GD điều chỉnh/đổi quà — 812 (CRDTRANS_ARC db1)
@@ -28,19 +26,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-TRANS_CODE=812 trên CRDTRANS_ARC (db1 archive) — điều chỉnh thủ công, đổi quà, trừ điểm.
+Loại giao dịch điều chỉnh / đổi quà (TRANS_CODE=812 trên CRDTRANS_ARC db1).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:crdtrans_arc` | `TRANS_CODE` | char | 812 = điều chỉnh/đổi quà |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:crdtrans_arc.TRANS_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `812`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:crdtrans_arc` | `TRANS_CODE` | char | 812 = điều chỉnh / đổi quà / trừ điểm |
 
 ## Join
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: debt__fine_amt
-title: debt · fine amt
+title: Số tiền phạt chậm trả (DEBT)
 display_names:
 - FINE_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số tiềnFINE_AMT
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FINE_AMT
-- 'db2:debt.FINE_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# debt · fine amt
+# Số tiền phạt chậm trả (DEBT)
 
 **Semantic key:** `debt__fine_amt` · **Cột vật lý:** `FINE_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FINE_AMT trên DEBT. db2:debt: top 0.00.
+Tiền phạt chậm trả / phí phạt trên công nợ DEBT.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:debt` | `FINE_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:debt.FINE_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:debt` | `FINE_AMT` | numeric | Số tiềnFINE_AMT |
 
 ## Ghi chú thêm
 

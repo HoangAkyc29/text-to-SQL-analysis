@@ -14,10 +14,8 @@ facts:
 - 'Phát sinh mua/tích: BUY_MARK'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:crd_info.BUY_MARK: top=0(185), 3(32), 1(30), 2(28), 7(25)'
+- business_prose
 ---
 
 # Tổng điểm tích lifetime (CRD_INFO.BUY_MARK)
@@ -26,19 +24,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-CRD_INFO.BUY_MARK — tổng điểm đã tích lifetime. Sample: 1–5 điểm phổ biến.
+Tổng điểm đã tích lifetime (CRD_INFO.BUY_MARK).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BUY_MARK` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BUY_MARK`
-- Null rate trong sample: 0%
-- Distinct ≈16; top: `0`×2, `1`×2, `3`×2, `5`×2, `21`×1, `112`×1, `82`×1, `32`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BUY_MARK` | numeric | Phát sinh mua/tích: BUY_MARK |
 
 ## Ghi chú thêm
 

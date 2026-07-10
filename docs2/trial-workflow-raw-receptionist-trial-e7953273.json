@@ -1,0 +1,371 @@
+{
+  "session_id": "receptionist-trial-e7953273",
+  "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+  "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+  "transcript": [
+    {
+      "id": "1c2765d9-1d05-44ba-953e-21664a36b25d",
+      "role": "user",
+      "content": "Trong ngày 1/7/2026 tới ngày 6/7/2026, hãy xuất dữ liệu sau để tôi có thông tin về mặt hàng mã 0030344, 0030348 và 0030355. Đây là các mặt hàng quà tặng cho khách. Tôi cần biết số lượng mỗi quà tặng là bao nhiêu và kiểm tra tính hợp lệ của bill 600k trở lên. Sau đó xuất ra danh sách 5 bill gần nhất tương ứng với mỗi mặt hàng trên.",
+      "at": "2026-07-09T12:56:31.696553+00:00",
+      "analysis_id": null,
+      "trace_id": null,
+      "kind": "chat",
+      "artifact_urls": []
+    },
+    {
+      "id": "977cd3fd-2236-424c-a1df-c987faad0939",
+      "role": "assistant",
+      "content": "",
+      "at": "2026-07-09T12:57:59.920744+00:00",
+      "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "kind": "chat",
+      "artifact_urls": []
+    }
+  ],
+  "workflow": {
+    "session_id": "receptionist-trial-e7953273",
+    "actor_id": "22222222-2222-2222-2222-222222222222",
+    "status": "idle",
+    "active_analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+    "suspended_trace_id": null,
+    "last_completed_trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+    "last_outcome": "policy_blocked",
+    "permissions_snapshot": {
+      "actor_id": "22222222-2222-2222-2222-222222222222",
+      "role": "hq_analyst",
+      "allowed_tables": [
+        "ACCOUNT",
+        "ASSOLST",
+        "ASSO_INF",
+        "BARCODE",
+        "CASH_ST",
+        "CRDTRANS",
+        "CRDTRANS_ARC",
+        "CRDTRANS_TMP",
+        "CRD_INFO",
+        "CSCARD",
+        "CTRANS",
+        "CUSTHIST",
+        "CUSTOMER",
+        "CustSumm",
+        "DEBT",
+        "HISRTPR",
+        "HISSPPR",
+        "INV_HDR",
+        "INV_ISS",
+        "PARTNER",
+        "PLU",
+        "PMCRDINF",
+        "PMCRDISS",
+        "PMCRDRCV",
+        "PMCRDSTK",
+        "PMTRANS",
+        "RDISCINF",
+        "SKU_DEF",
+        "STK_DTL",
+        "STRANS",
+        "STRANS_TMP",
+        "ST_ORDER",
+        "SUPPLIER",
+        "SUSPEND",
+        "TRANSHDR",
+        "TRANSHDR_ARC",
+        "WebRpt_inventory_daily",
+        "WebRpt_rfm_snapshot",
+        "WebRpt_sales_sku_daily",
+        "sku_activity"
+      ],
+      "denied_columns": [],
+      "store_ids": null,
+      "store_filter_required": false,
+      "tool_grants": [
+        "tool:*"
+      ],
+      "allowed_functions": [
+        "function:*"
+      ],
+      "captured_at": "2026-07-09T12:57:18.435567"
+    },
+    "brief": {
+      "intent": "Phân tích dữ liệu mặt hàng quà tặng (mã 0030344, 0030348, 0030355) trong khoảng 01/07/2026–06/07/2026: số lượng mỗi quà tặng, tính hợp lệ bill ≥600k, và xuất danh sách 5 bill gần nhất tương ứng mỗi mặt hàng",
+      "metrics": [
+        "quantity",
+        "revenue"
+      ],
+      "dimensions": [
+        "product",
+        "time"
+      ],
+      "filters": {
+        "product_code": [
+          "0030344",
+          "0030348",
+          "0030355"
+        ],
+        "min_bill_value": 600000
+      },
+      "time_range": {
+        "start": "2026-07-01",
+        "end": "2026-07-06",
+        "grain": "day"
+      },
+      "output_format": [
+        "table",
+        "excel"
+      ],
+      "chart_spec": null,
+      "exploration_mode": true,
+      "user_knowledge_level": "unknown",
+      "probe_hints": [],
+      "external_sources": [],
+      "plan": null
+    },
+    "sql_attempt": 3,
+    "clarify_round": 0,
+    "pending_clarification": null,
+    "steps": [
+      {
+        "step_id": "e679d39f-0bf3-4766-a276-ab95411417e6",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "execute",
+        "sql_attempt": 1,
+        "query_index": 0,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:38.439279",
+        "summary": "rows=0;role=probe",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "06965eef-2509-484b-866b-4a6cdbad419e",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "error",
+        "sql_attempt": 1,
+        "query_index": 1,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:41.988737",
+        "summary": "db_error:target_db=db2:('42S22', \"[42S22] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Invalid column name 'TRAN_TIME'. (207) (SQLExecDirectW)\")",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "49ab50cd-7ea8-465e-a59e-2ee6b3bd6f7e",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "data_feedback",
+        "sql_attempt": 1,
+        "query_index": null,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:42.750677",
+        "summary": "empty_result",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "64862f5c-91ff-4455-8abe-f1e46ce45a36",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "policy_reject",
+        "sql_attempt": 2,
+        "query_index": 0,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:52.796728",
+        "summary": "parse_error: Invalid expression / Unexpected token. Line 1, Col: 83.\n  SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%';sql=SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "03172dc9-adda-4d1a-b28d-632fb56aa836",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "policy_reject",
+        "sql_attempt": 2,
+        "query_index": 1,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:52.798762",
+        "summary": "parse_error: Invalid expression / Unexpected token. Line 1, Col: 72.\n  SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%';sql=SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "9aa4e2bb-3def-4218-a252-bdfd94bb90b3",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "policy_reject",
+        "sql_attempt": 3,
+        "query_index": 0,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:58.256756",
+        "summary": "parse_error: Invalid expression / Unexpected token. Line 1, Col: 83.\n  SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%';sql=SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      },
+      {
+        "step_id": "38f9be75-5b61-4d93-8702-cc06fad6ec61",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "step_type": "policy_reject",
+        "sql_attempt": 3,
+        "query_index": 1,
+        "risk_attempt": null,
+        "at": "2026-07-09T12:57:58.258573",
+        "summary": "parse_error: Invalid expression / Unexpected token. Line 1, Col: 72.\n  SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%';sql=SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "feedback_ref": null,
+        "outcome_fragment": null
+      }
+    ],
+    "budget_spent": {
+      "I": 2,
+      "II": 3,
+      "III": 2,
+      "IV": 1,
+      "tokens": 51562
+    },
+    "progress_step": null,
+    "last_artifact_urls": [],
+    "analysis_history": [
+      "135a3103-b9b5-4cb4-ace2-376ceccc483d"
+    ],
+    "created_at": "2026-07-09T12:56:31.696470",
+    "updated_at": "2026-07-09T12:57:18.435478Z"
+  },
+  "audit_events": [
+    {
+      "event_id": "84a90701-944b-4d70-94f3-19fc725e359b",
+      "event_type": "sql_execute",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "role": "hq_analyst",
+        "sql_hash": "8a84a5f95ec42f16",
+        "target_db": "db2",
+        "row_count": 0,
+        "outcome": "ok",
+        "violations": []
+      },
+      "at": "2026-07-09T12:57:38.437022+00:00"
+    },
+    {
+      "event_id": "756f912b-b89b-42a8-b97a-fe65592f4b3c",
+      "event_type": "sql_execute",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "role": "hq_analyst",
+        "sql_hash": "f13acd339699e270",
+        "target_db": "db2",
+        "row_count": 0,
+        "outcome": "db_error",
+        "violations": []
+      },
+      "at": "2026-07-09T12:57:41.988570+00:00"
+    },
+    {
+      "event_id": "5f326d47-ffd5-4e57-bb8d-2221137d4293",
+      "event_type": "sql_policy_reject",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "sql_hash": "93033ea8c624ddd9",
+        "sql_preview": "SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "target_db": "db2",
+        "violations": [
+          "parse_error: Invalid expression / Unexpected token. Line 1, Col: 83.\n  SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%'"
+        ],
+        "query_index": 0
+      },
+      "at": "2026-07-09T12:57:52.796769+00:00"
+    },
+    {
+      "event_id": "873a785a-00da-4471-afa7-a57a7984a715",
+      "event_type": "sql_policy_reject",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "sql_hash": "82b693d97695eb57",
+        "sql_preview": "SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "target_db": "db2",
+        "violations": [
+          "parse_error: Invalid expression / Unexpected token. Line 1, Col: 72.\n  SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%'"
+        ],
+        "query_index": 1
+      },
+      "at": "2026-07-09T12:57:52.798817+00:00"
+    },
+    {
+      "event_id": "7ca9755c-4e93-4660-92e4-f30112599cf8",
+      "event_type": "sql_policy_reject",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "sql_hash": "93033ea8c624ddd9",
+        "sql_preview": "SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "target_db": "db2",
+        "violations": [
+          "parse_error: Invalid expression / Unexpected token. Line 1, Col: 83.\n  SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF WHERE SKU_CODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%'"
+        ],
+        "query_index": 0
+      },
+      "at": "2026-07-09T12:57:58.256803+00:00"
+    },
+    {
+      "event_id": "c3e3910d-b102-4698-b90c-1684b4088e94",
+      "event_type": "sql_policy_reject",
+      "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+      "payload": {
+        "actor_id": "22222222-2222-2222-2222-222222222222",
+        "sql_hash": "82b693d97695eb57",
+        "sql_preview": "SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['0030344', '0030348', '0030355']%'",
+        "target_db": "db2",
+        "violations": [
+          "parse_error: Invalid expression / Unexpected token. Line 1, Col: 72.\n  SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%['\u001b[4m0030344\u001b[0m', '0030348', '0030355']%'"
+        ],
+        "query_index": 1
+      },
+      "at": "2026-07-09T12:57:58.258597+00:00"
+    }
+  ],
+  "mongo": {
+    "counts": {
+      "case_studies": 1,
+      "schema_chunks": 526
+    }
+  },
+  "artifacts": {
+    "host_path": "E:\\CODING STUFF\\PROJECT\\Analysis Agent\\Monorepo-Trading-Agent\\data\\artifacts\\e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+    "files": [],
+    "docker_files": [
+      "/app/data/artifacts/e7425d59-d8e5-4610-8035-d6a0bd7ce1fd/raw/query_0.parquet"
+    ]
+  },
+  "session_log": [
+    {
+      "ts": 1783601790.6519306,
+      "role": "user",
+      "session_id": "receptionist-trial-e7953273",
+      "message": "Trong ngày 1/7/2026 tới ngày 6/7/2026, hãy xuất dữ liệu sau để tôi có thông tin về mặt hàng mã 0030344, 0030348 và 0030355. Đây là các mặt hàng quà tặng cho khách. Tôi cần biết số lượng mỗi quà tặng là bao nhiêu và kiểm tra tính hợp lệ của bill 600k trở lên. Sau đó xuất ra danh sách 5 bill gần nhất tương ứng với mỗi mặt hàng trên."
+    },
+    {
+      "ts": 1783601879.9248078,
+      "role": "system",
+      "endpoint": "/chat",
+      "status": 200,
+      "body": {
+        "session_id": "receptionist-trial-e7953273",
+        "analysis_id": "135a3103-b9b5-4cb4-ace2-376ceccc483d",
+        "trace_id": "e7425d59-d8e5-4610-8035-d6a0bd7ce1fd",
+        "workflow_status": "idle",
+        "outcome": "policy_blocked",
+        "message": "",
+        "bridge_action": null,
+        "clarification": null,
+        "artifacts": [],
+        "error": null
+      }
+    }
+  ]
+}

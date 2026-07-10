@@ -26,14 +26,8 @@ facts:
 - Chế độ thanh toán
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.PMT_MODE: top=01(772), 02(1)'
-- 'db1:transhdr_arc.PMT_MODE: top=01(939)'
-- 'db2:strans.PMT_MODE: top=01(871)'
-- 'db2:strans_tmp.PMT_MODE: top=01(1000)'
-- 'db2:transhdr.PMT_MODE: top=01(952)'
+- business_prose
 ---
 
 # pmt mode
@@ -42,24 +36,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột PMT_MODE trên STRANS, STRANS_TMP, TRANSHDR. db1:transhdr_arc: top 01.
+Chế độ thanh toán (trả ngay / trả góp / công nợ, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `PMT_MODE` | char | có dữ liệu |
-| `db1:transhdr_arc` | `PMT_MODE` | char | có dữ liệu |
-| `db2:strans` | `PMT_MODE` | char | có dữ liệu |
-| `db2:strans_tmp` | `PMT_MODE` | char | có dữ liệu |
-| `db2:transhdr` | `PMT_MODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:transhdr_arc.PMT_MODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `01`×20
-
-## Ghi chú thêm
-
-- Chế độ thanh toán
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `PMT_MODE` | char | Chế độ thanh toán |
+| `db1:transhdr_arc` | `PMT_MODE` | char | Chế độ thanh toán |
+| `db2:strans` | `PMT_MODE` | char | Chế độ thanh toán |
+| `db2:strans_tmp` | `PMT_MODE` | char | Chế độ thanh toán |
+| `db2:transhdr` | `PMT_MODE` | char | Chế độ thanh toán |

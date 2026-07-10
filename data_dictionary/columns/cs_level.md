@@ -1,6 +1,6 @@
 ---
 semantic_key: cs_level
-title: cs level
+title: Cấp độ chăm sóc khách hàng (customer service level) (CS_LEVEL)
 display_names:
 - CS_LEVEL
 kind: measure
@@ -13,41 +13,24 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CS_LEVEL
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:customer.CS_LEVEL: top=0(1000)'
-- 'db2:supplier.CS_LEVEL: top=0(1000)'
+- business_prose
 ---
 
-# cs level
+# Cấp độ chăm sóc khách hàng (customer service level) (CS_LEVEL)
 
 **Semantic key:** `cs_level` · **Cột vật lý:** `CS_LEVEL`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CS_LEVEL trên CUSTOMER, SUPPLIER. db2:customer: top 0; db2:supplier: top 0.
+Cấp độ chăm sóc khách hàng (customer service level) — dùng trong Master / danh mục (CUSTOMER, SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:customer` | `CS_LEVEL` | numeric | có dữ liệu |
-| `db2:supplier` | `CS_LEVEL` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:customer.CS_LEVEL`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:supplier.CS_LEVEL`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:customer` | `CS_LEVEL` | numeric | Cấp độ chăm sóc khách hàng (customer service level) trên danh mục master khách hàng |
+| `db2:supplier` | `CS_LEVEL` | numeric | Cấp độ chăm sóc khách hàng (customer service level) trên master nhà cung cấp |

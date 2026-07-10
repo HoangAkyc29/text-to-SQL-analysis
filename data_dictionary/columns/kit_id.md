@@ -1,6 +1,6 @@
 ---
 semantic_key: kit_id
-title: kit id
+title: Mã bộ kit / combo kit (KIT_ID)
 display_names:
 - KIT_ID
 kind: identifier
@@ -20,33 +20,22 @@ facts:
 - Mã kit
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:strans.KIT_ID: top=280001000268(1)'
-- 'db2:strans_tmp.KIT_ID: top=280001000147(1)'
-- 'db2:suspend.KIT_ID: top=280001000186(1), 280001000135(1), 280001000147(1)'
+- business_prose
 ---
 
-# kit id
+# Mã bộ kit / combo kit (KIT_ID)
 
 **Semantic key:** `kit_id` · **Cột vật lý:** `KIT_ID`
 
 ## Ý nghĩa nghiệp vụ
 
-Mã kit
+Mã kit. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:strans` | `KIT_ID` | char | có dữ liệu |
-| `db2:strans_tmp` | `KIT_ID` | char | có dữ liệu |
-| `db2:suspend` | `KIT_ID` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:strans` | `KIT_ID` | char | Mã kit |
+| `db2:strans_tmp` | `KIT_ID` | char | Mã kit |
+| `db2:suspend` | `KIT_ID` | char | Mã kit |

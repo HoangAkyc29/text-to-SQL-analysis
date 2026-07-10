@@ -15,6 +15,7 @@ from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
 from project_core.domain.analysis.recipe_matcher import rank_candidates
+from project_core.domain.audit.agent_ii_plan import build_agent_ii_plan_payload, plan_sql_workflow_summary
 from project_core.domain.audit.logger import AuditLogger
 from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
 from project_core.domain.analysis.iv_analyzer import _probe_success_needs_fact_feedback
@@ -242,6 +243,28 @@ class SupermarketAnalysisPipeline:
             action = ii_parsed.action
             ii_schema_tables_used = list(getattr(ii_parsed, "schema_tables_used", None) or [])
             ii_semantic_keys_used = list(getattr(ii_parsed, "semantic_keys_used", None) or [])
+
+            ii_plan_payload = build_agent_ii_plan_payload(
+                ii_parsed,
+                sql_attempt=sql_attempt,
+                usage_tokens=int(ii_result.get("usage_tokens", 0) or 0),
+            )
+            plan_event_id = self.audit.log_agent_ii_plan(
+                trace_id=trace_id,
+                actor_id=acl.actor_id,
+                payload=ii_plan_payload,
+            )
+            workflow.steps.append(
+                WorkflowStep(
+                    step_id=str(uuid4()),
+                    trace_id=trace_id,
+                    analysis_id=workflow.active_analysis_id or trace_id,
+                    step_type=WorkflowStepType.PLAN_SQL,
+                    sql_attempt=sql_attempt,
+                    summary=plan_sql_workflow_summary(ii_plan_payload),
+                    feedback_ref=plan_event_id,
+                )
+            )
 
             if action == "clarify" and not brief.exploration_mode:
                 workflow.clarify_round += 1

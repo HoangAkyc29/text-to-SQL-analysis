@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__cntsumtrs
-title: rdiscinf · cntsumtrs
+title: Cntsumtrs (RDISCINF)
 display_names:
 - CNTSUMTRS
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CNTSUMTRS
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for CNTSUMTRS
-- 'db2:rdiscinf.CNTSUMTRS: top=0(1000)'
+- business_prose
 ---
 
-# rdiscinf · cntsumtrs
+# Cntsumtrs (RDISCINF)
 
 **Semantic key:** `rdiscinf__cntsumtrs` · **Cột vật lý:** `CNTSUMTRS`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CNTSUMTRS trên RDISCINF. db2:rdiscinf: top 0.
+Tổng số lần KM đã cộng dồn (counter).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `CNTSUMTRS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.CNTSUMTRS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `CNTSUMTRS` | numeric | Chỉ số đo lường (cntsumtrs) trên rule khuyến mãi / chiết khấu |

@@ -18,11 +18,8 @@ facts:
 - 'Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space)'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:pmtrans.PMT_CODE: top=CASH(682), BANK(197), CARD(84), OWNCP(36), DEBT(1)'
-- 'db2:pmtrans.PMT_CODE: top=CASH(667), BANK(238), CARD(77), OWNCP(18)'
+- business_prose
 ---
 
 # Hình thức TT: CASH, CARD, BANK
@@ -31,24 +28,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-PMT_CODE trên PMTRANS: CASH, CARD, BANK. Phân biệt hình thức thanh toán trong bill.
+Hình thức thanh toán trên PMTRANS: tiền mặt (CASH), thẻ (CARD), chuyển khoản (BANK), …
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:pmtrans` | `PMT_CODE` | char | có dữ liệu |
-| `db2:pmtrans` | `PMT_CODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:pmtrans.PMT_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈3; top: `CASH`×15, `BANK`×3, `CARD`×2
-
-### `db2:pmtrans.PMT_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `CASH`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:pmtrans` | `PMT_CODE` | char | Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space) |
+| `db2:pmtrans` | `PMT_CODE` | char | Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space) |
 
 ## Join
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: suspend__dmdisc_amt
-title: suspend · dmdisc amt
+title: Số tiền / giá trị (SUSPEND)
 display_names:
 - DMDISC_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số tiềnDMDISC_AMT
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DMDISC_AMT
-- 'db2:suspend.DMDISC_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# suspend · dmdisc amt
+# Số tiền / giá trị (SUSPEND)
 
 **Semantic key:** `suspend__dmdisc_amt` · **Cột vật lý:** `DMDISC_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DMDISC_AMT trên SUSPEND. db2:suspend: top 0.00.
+Số tiền / giá trị — bill đang treo / chưa hoàn tất.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:suspend` | `DMDISC_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:suspend.DMDISC_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:suspend` | `DMDISC_AMT` | numeric | Số tiềnDMDISC_AMT |
 
 ## Ghi chú thêm
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: assolst__isprocess
-title: assolst · isprocess
+title: Cờ thuộc tính (process) (ASSOLST)
 display_names:
 - IsProcess
 kind: flag
@@ -10,37 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột IsProcess
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for IsProcess
-- 'db2:assolst.IsProcess: top=False(1000)'
+- business_prose
 ---
 
-# assolst · isprocess
+# Cờ thuộc tính (process) (ASSOLST)
 
 **Semantic key:** `assolst__isprocess` · **Cột vật lý:** `IsProcess`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ISPROCESS trên ASSOLST. db2:assolst: top False.
+Cờ combo đang trong quy trình xử lý / duyệt — chưa active bán POS.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:assolst` | `IsProcess` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:assolst.IsProcess`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
-- Cột IsProcess
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:assolst` | `IsProcess` | bit | Cờ thuộc tính (process) trên master combo / bundle |

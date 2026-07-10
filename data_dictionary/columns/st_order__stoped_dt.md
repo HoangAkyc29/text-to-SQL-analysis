@@ -1,6 +1,6 @@
 ---
 semantic_key: st_order__stoped_dt
-title: st order · stoped dt
+title: Ngày stoped (ST_ORDER)
 display_names:
 - STOPED_DT
 kind: date
@@ -10,37 +10,23 @@ tables:
   type: datetime
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột STOPED_DT
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for STOPED_DT
-- 'db2:st_order.STOPED_DT: top=2026-07-05 00:00:00(129), 2026-07-07 00:00:00(76),
-  2026-07-09 00:00:00(68), 2026-06-18 00:00:00(67), 2026-06-23 00:00:00(64)'
+- business_prose
 ---
 
-# st order · stoped dt
+# Ngày stoped (ST_ORDER)
 
 **Semantic key:** `st_order__stoped_dt` · **Cột vật lý:** `STOPED_DT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột STOPED_DT trên ST_ORDER. db2:st_order: top 2026-06-16T00:00:00.
+Ngày dừng / hủy đơn ST_ORDER.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:st_order` | `STOPED_DT` | datetime | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:st_order.STOPED_DT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2026-06-16T00:00:00`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:st_order` | `STOPED_DT` | datetime | Ngày stoped trên đơn đặt hàng nội bộ |

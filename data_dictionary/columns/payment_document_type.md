@@ -19,11 +19,8 @@ facts:
   008=quỹ, …)
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:pmtrans.TRANS_CODE: top=221(989), 008(6), 222(5)'
-- 'db2:pmtrans.TRANS_CODE: top=221(984), 008(8), 010(6), 222(2)'
+- business_prose
 ---
 
 # Loại chứng từ thanh toán — 221/222/008
@@ -32,24 +29,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Loại chứng từ TRANS_CODE — thanh toán 221 / quỹ 008. db1:pmtrans: mã 221=thanh toán bill; db2:pmtrans: mã 222=thanh toán/điều chỉnh khác, 008=thu/chi quỹ.
+Phân loại loại chứng từ trong hệ POS/ERP. 113 = bán lẻ; 221 = thanh toán bill; 811/812 = tích điểm / điều chỉnh loyalty — grain phụ thuộc bảng. Chỉ xuất hiện trên dòng thanh toán / quỹ bill.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:pmtrans` | `TRANS_CODE` | char | 221/222/008 thanh toán hoặc quỹ |
-| `db2:pmtrans` | `TRANS_CODE` | char | 221/222/008 thanh toán hoặc quỹ |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:pmtrans.TRANS_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `221`×20
-
-### `db2:pmtrans.TRANS_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `222`×17, `008`×3
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:pmtrans` | `TRANS_CODE` | char | 221 thanh toán bill, 222/008 chi quỹ hoặc điều chỉnh |
+| `db2:pmtrans` | `TRANS_CODE` | char | 221 thanh toán bill, 222/008 chi quỹ hoặc điều chỉnh |
 
 ## Join
 

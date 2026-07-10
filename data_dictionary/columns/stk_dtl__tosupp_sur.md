@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tosupp_sur
-title: stk dtl · tosupp sur
+title: Tosupp Sur (STK_DTL)
 display_names:
 - TOSUPP_SUR
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOSUPP_SUR'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOSUPP_SUR
-- 'db2:stk_dtl.TOSUPP_SUR: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · tosupp sur
+# Tosupp Sur (STK_DTL)
 
 **Semantic key:** `stk_dtl__tosupp_sur` · **Cột vật lý:** `TOSUPP_SUR`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOSUPP_SUR trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh cuối kỳ — nhập từ nhà cung cấp (thặng dư / chênh lệch tồn) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOSUPP_SUR` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOSUPP_SUR`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOSUPP_SUR` | numeric | Cuối kỳ — movement: TOSUPP_SUR |
 
 ## Ghi chú thêm
 

@@ -13,15 +13,11 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DEBT_MODE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:customer.DEBT_MODE: top=True(607), False(393)'
-- 'db2:partner.DEBT_MODE: top=True(997), False(3)'
+- business_prose
 ---
 
 # debt mode
@@ -30,24 +26,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DEBT_MODE trên CUSTOMER, PARTNER. db2:customer: top False; db2:partner: top True.
+Cờ / trạng thái (debt mode) — dùng trong Master / danh mục (CUSTOMER, PARTNER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:customer` | `DEBT_MODE` | bit | có dữ liệu |
-| `db2:partner` | `DEBT_MODE` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:customer.DEBT_MODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:partner.DEBT_MODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:customer` | `DEBT_MODE` | bit | Cờ / trạng thái (debt mode) trên danh mục master khách hàng |
+| `db2:partner` | `DEBT_MODE` | bit | Cờ / trạng thái (debt mode) trên đối tác / khách B2B |

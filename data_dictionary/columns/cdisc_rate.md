@@ -1,6 +1,6 @@
 ---
 semantic_key: cdisc_rate
-title: cdisc rate
+title: Tỷ lệ chiết khấu coupon (%) (CDISC_RATE)
 display_names:
 - CDISC_RATE
 kind: measure
@@ -26,55 +26,27 @@ facts:
 - 'Chiết khấu coupon: CDISC_RATE'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.CDISC_RATE: top=0.00(1000)'
-- 'db2:st_order.CDISC_RATE: top=0.00(1000)'
-- 'db2:strans.CDISC_RATE: top=0.00(1000)'
-- 'db2:strans_tmp.CDISC_RATE: top=0.00(1000)'
-- 'db2:suspend.CDISC_RATE: top=0.00(1000)'
+- business_prose
 ---
 
-# cdisc rate
+# Tỷ lệ chiết khấu coupon (%) (CDISC_RATE)
 
 **Semantic key:** `cdisc_rate` · **Cột vật lý:** `CDISC_RATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CDISC_RATE trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.00; db2:st_order: top 0.00; db2:strans: top 0.00; db2:strans_tmp: top 0.00; db2:suspend: top 0.00.
+Tỷ lệ chiết khấu coupon (%) trên dòng bán STRANS / đơn KM.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `CDISC_RATE` | numeric | có dữ liệu |
-| `db2:st_order` | `CDISC_RATE` | decimal | có dữ liệu |
-| `db2:strans` | `CDISC_RATE` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `CDISC_RATE` | numeric | có dữ liệu |
-| `db2:suspend` | `CDISC_RATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.CDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:st_order.CDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans.CDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans_tmp.CDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:suspend.CDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `CDISC_RATE` | numeric | Chiết khấu coupon: CDISC_RATE |
+| `db2:st_order` | `CDISC_RATE` | decimal | Chiết khấu coupon: CDISC_RATE |
+| `db2:strans` | `CDISC_RATE` | numeric | Chiết khấu coupon: CDISC_RATE |
+| `db2:strans_tmp` | `CDISC_RATE` | numeric | Chiết khấu coupon: CDISC_RATE |
+| `db2:suspend` | `CDISC_RATE` | numeric | Chiết khấu coupon: CDISC_RATE |
 
 ## Ghi chú thêm
 

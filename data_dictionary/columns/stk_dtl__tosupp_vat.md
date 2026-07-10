@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tosupp_vat
-title: stk dtl · tosupp vat
+title: Tosupp Vat (STK_DTL)
 display_names:
 - TOSUPP_VAT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOSUPP_VAT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOSUPP_VAT
-- 'db2:stk_dtl.TOSUPP_VAT: top=0.00(999), 180880.00(1)'
+- business_prose
 ---
 
-# stk dtl · tosupp vat
+# Tosupp Vat (STK_DTL)
 
 **Semantic key:** `stk_dtl__tosupp_vat` · **Cột vật lý:** `TOSUPP_VAT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOSUPP_VAT trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh cuối kỳ — nhập từ nhà cung cấp (thuế GTGT) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOSUPP_VAT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOSUPP_VAT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOSUPP_VAT` | numeric | Cuối kỳ — movement: TOSUPP_VAT |
 
 ## Ghi chú thêm
 

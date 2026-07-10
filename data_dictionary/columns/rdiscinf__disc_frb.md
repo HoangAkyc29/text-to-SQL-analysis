@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__disc_frb
-title: rdiscinf · disc frb
+title: Disc Frb (RDISCINF)
 display_names:
 - DISC_FRB
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DISC_FRB
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DISC_FRB
-- 'db2:rdiscinf.DISC_FRB: top=False(1000)'
+- business_prose
 ---
 
-# rdiscinf · disc frb
+# Disc Frb (RDISCINF)
 
 **Semantic key:** `rdiscinf__disc_frb` · **Cột vật lý:** `DISC_FRB`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DISC_FRB trên RDISCINF. db2:rdiscinf: top False.
+Cờ chiết khấu forbidden / loại trừ một số hình thức KM.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `DISC_FRB` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.DISC_FRB`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `DISC_FRB` | bit | Cờ / trạng thái (disc frb) trên rule khuyến mãi / chiết khấu |

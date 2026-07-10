@@ -1,6 +1,6 @@
 ---
 semantic_key: hissppr__spprice
-title: hissppr · spprice
+title: Giá khuyến mãi / giá đặc biệt (HISSPPR)
 display_names:
 - SPPRICE
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Giá mua NCC
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for SPPRICE
-- 'db2:hissppr.SPPRICE: top=1.00(75), 0.00(23), 12000.00(16), 50000.00(14), 35000.00(11)'
+- business_prose
 ---
 
-# hissppr · spprice
+# Giá khuyến mãi / giá đặc biệt (HISSPPR)
 
 **Semantic key:** `hissppr__spprice` · **Cột vật lý:** `SPPRICE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột SPPRICE trên HISSPPR. db2:hissppr: top 30423.00, 26895.00, 49820.00.
+Giá khuyến mãi / giá đặc biệt — bảng HISSPPR.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:hissppr` | `SPPRICE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:hissppr.SPPRICE`
-- Null rate trong sample: 0%
-- Distinct ≈11; top: `30423.00`×4, `26895.00`×3, `49820.00`×2, `18636.00`×2, `20545.00`×2, `21455.00`×2, `155000.00`×1, `31698.34`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:hissppr` | `SPPRICE` | numeric | Giá mua NCC |
 
 ## Ghi chú thêm
 

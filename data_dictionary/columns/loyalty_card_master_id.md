@@ -19,13 +19,8 @@ facts:
 - Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:crd_info.CARD_ID: top=A10000065244(2), A10000067846(2), A10000062955(2), A10000064687(2),
-  A10000055196(2)'
-- 'db2:cscard.CARD_ID: top=A10000065264(1), A10000047314(1), A10000055442(1), A10000070558(1),
-  A10000061361(1)'
+- business_prose
 ---
 
 # Mã thẻ loyalty (master CSCARD/CRD_INFO)
@@ -34,24 +29,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Định danh thẻ khách hàng thân thiết trên master CSCARD. Sample db2: prefix `A` (vd. A10000000003). Dùng join CRDTRANS/CRD_INFO, lọc VIP theo prefix E/F/H. Khác với CARD_ID trên STRANS (chỉ là thẻ quét trên bill, thường rỗng).
+Định danh thẻ khách hàng thân thiết trên master CSCARD/CRD_INFO. Thẻ thường có prefix A (phổ thông) hoặc E/F/H (VIP). Dùng join CRDTRANS và tra cứu điểm; khác CARD_ID trên STRANS (chỉ khi quét thẻ lúc bán, thường để trống).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `CARD_ID` | char | có dữ liệu |
-| `db2:cscard` | `CARD_ID` | char | Master thẻ — primary loyalty identifier |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.CARD_ID`
-- Null rate trong sample: 0%
-- Distinct ≈20; top: `A10000000003`×1, `A10000000991`×1, `A10000002239`×1, `A10000002839`×1, `a10000003064`×1, `A10000003872`×1, `A10000004091`×1, `A10000004318`×1
-
-### `db2:cscard.CARD_ID`
-- Null rate trong sample: 0%
-- Distinct ≈20; top: `A10000000003`×1, `A10000000004`×1, `A10000000012`×1, `A10000000021`×1, `A10000000038`×1, `A10000000044`×1, `A10000000106`×1, `A10000000156`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `CARD_ID` | char | Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng |
+| `db2:cscard` | `CARD_ID` | char | mã thẻ chính trên master loyalty |
 
 ## Join
 

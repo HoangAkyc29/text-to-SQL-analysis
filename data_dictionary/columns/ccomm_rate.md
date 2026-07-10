@@ -26,14 +26,8 @@ facts:
 - 'Hoa hồng coupon: CCOMM_RATE'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.CCOMM_RATE: top=0.00(1000)'
-- 'db2:st_order.CCOMM_RATE: top=0.00(1000)'
-- 'db2:strans.CCOMM_RATE: top=0.00(1000)'
-- 'db2:strans_tmp.CCOMM_RATE: top=0.00(1000)'
-- 'db2:suspend.CCOMM_RATE: top=0.00(1000)'
+- business_prose
 ---
 
 # ccomm rate
@@ -42,39 +36,17 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CCOMM_RATE trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.00; db2:st_order: top 0.00; db2:strans: top 0.00; db2:strans_tmp: top 0.00; db2:suspend: top 0.00.
+Tỷ lệ hoa hồng coupon (%) trên dòng / đơn.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `CCOMM_RATE` | numeric | có dữ liệu |
-| `db2:st_order` | `CCOMM_RATE` | numeric | có dữ liệu |
-| `db2:strans` | `CCOMM_RATE` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `CCOMM_RATE` | numeric | có dữ liệu |
-| `db2:suspend` | `CCOMM_RATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.CCOMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:st_order.CCOMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans.CCOMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans_tmp.CCOMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:suspend.CCOMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `CCOMM_RATE` | numeric | Hoa hồng coupon: CCOMM_RATE |
+| `db2:st_order` | `CCOMM_RATE` | numeric | Hoa hồng coupon: CCOMM_RATE |
+| `db2:strans` | `CCOMM_RATE` | numeric | Hoa hồng coupon: CCOMM_RATE |
+| `db2:strans_tmp` | `CCOMM_RATE` | numeric | Hoa hồng coupon: CCOMM_RATE |
+| `db2:suspend` | `CCOMM_RATE` | numeric | Hoa hồng coupon: CCOMM_RATE |
 
 ## Ghi chú thêm
 

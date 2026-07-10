@@ -1,6 +1,6 @@
 ---
 semantic_key: hissppr__lastsppr
-title: hissppr · lastsppr
+title: Lastsppr (HISSPPR)
 display_names:
 - LASTSPPR
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Giá mua NCC gần nhất
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for LASTSPPR
-- 'db2:hissppr.LASTSPPR: top=0.00(994), 51237.96(1), 14880.00(1), 7200.00(1), 27000.00(1)'
+- business_prose
 ---
 
-# hissppr · lastsppr
+# Lastsppr (HISSPPR)
 
 **Semantic key:** `hissppr__lastsppr` · **Cột vật lý:** `LASTSPPR`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột LASTSPPR trên HISSPPR. db2:hissppr: top 0.00.
+Chỉ số đo lường (lastsppr) — bảng HISSPPR.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:hissppr` | `LASTSPPR` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:hissppr.LASTSPPR`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:hissppr` | `LASTSPPR` | numeric | Giá mua NCC gần nhất |
 
 ## Ghi chú thêm
 

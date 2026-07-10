@@ -17,12 +17,8 @@ facts:
 - Ngày báo cáo
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:webrpt_inventory_daily.report_date: top=2026-07-06(28), 2026-05-30(23), 2026-05-22(21),
-  2026-06-27(20), 2026-05-23(19)'
-- 'db2:webrpt_sales_sku_daily.report_date: top=2026-04-01(512), 2026-04-02(488)'
+- business_prose
 ---
 
 # report date
@@ -31,24 +27,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột REPORT_DATE trên WEBRPT_INVENTORY_DAILY, WEBRPT_SALES_SKU_DAILY. db2:webrpt_inventory_daily: top 2026-04-02; db2:webrpt_sales_sku_daily: top 2026-04-01.
+Ngày snapshot báo cáo WebRpt — dùng filter khoảng thời gian phân tích. (bảng WEBRPT_INVENTORY_DAILY).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_inventory_daily` | `report_date` | date | có dữ liệu |
-| `db2:webrpt_sales_sku_daily` | `report_date` | date | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_inventory_daily.report_date`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2026-04-02`×20
-
-### `db2:webrpt_sales_sku_daily.report_date`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2026-04-01`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_inventory_daily` | `report_date` | date | Ngày báo cáo |
+| `db2:webrpt_sales_sku_daily` | `report_date` | date | Ngày báo cáo |
 
 ## Ghi chú thêm
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__lottery
-title: rdiscinf · lottery
+title: Lottery (RDISCINF)
 display_names:
 - LOTTERY
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột LOTTERY
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for LOTTERY
-- 'db2:rdiscinf.LOTTERY: top=False(1000)'
+- business_prose
 ---
 
-# rdiscinf · lottery
+# Lottery (RDISCINF)
 
 **Semantic key:** `rdiscinf__lottery` · **Cột vật lý:** `LOTTERY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột LOTTERY trên RDISCINF. db2:rdiscinf: top False.
+Cờ rule xổ số / quay thưởng gắn KM.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `LOTTERY` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.LOTTERY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `LOTTERY` | bit | Cờ / trạng thái (lottery) trên rule khuyến mãi / chiết khấu |

@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__mrk_id
-title: sku def · mrk id
+title: Mã định danh (mrk id) (SKU_DEF)
 display_names:
 - MRK_ID
 kind: identifier
@@ -10,31 +10,23 @@ tables:
   type: char
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MRK_ID
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MRK_ID
-- 'db2:sku_def.MRK_ID: top=0000(724)'
+- business_prose
 ---
 
-# sku def · mrk id
+# Mã định danh (mrk id) (SKU_DEF)
 
 **Semantic key:** `sku_def__mrk_id` · **Cột vật lý:** `MRK_ID`
 
+## Ý nghĩa nghiệp vụ
+
+Mã thương hiệu / brand trên master SKU.
+
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `MRK_ID` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
-- Cột MRK_ID
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `MRK_ID` | char | Mã định danh (mrk id) trên master sản phẩm (SKU) |

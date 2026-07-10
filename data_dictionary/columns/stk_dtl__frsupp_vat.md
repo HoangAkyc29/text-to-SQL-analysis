@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frsupp_vat
-title: stk dtl · frsupp vat
+title: Frsupp Vat (STK_DTL)
 display_names:
 - FRSUPP_VAT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRSUPP_VAT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRSUPP_VAT
-- 'db2:stk_dtl.FRSUPP_VAT: top=0.00(958), 3284808.00(1), 5144800.00(1), 4044226.56(1),
-  1938752.08(1)'
+- business_prose
 ---
 
-# stk dtl · frsupp vat
+# Frsupp Vat (STK_DTL)
 
 **Semantic key:** `stk_dtl__frsupp_vat` · **Cột vật lý:** `FRSUPP_VAT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRSUPP_VAT trên STK_DTL. db2:stk_dtl: top 0.00, 742000.00.
+Phát sinh đầu kỳ — nhập từ nhà cung cấp (thuế GTGT) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRSUPP_VAT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRSUPP_VAT`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `0.00`×19, `742000.00`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRSUPP_VAT` | numeric | Đầu kỳ — movement: FRSUPP_VAT |
 
 ## Ghi chú thêm
 

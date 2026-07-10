@@ -1,6 +1,6 @@
 ---
 semantic_key: pmcrdstk__prefix
-title: pmcrdstk · prefix
+title: Prefix (PMCRDSTK)
 display_names:
 - PREFIX
 kind: text
@@ -14,32 +14,23 @@ facts:
 - Prefix seri thẻ PM (@P)
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for PREFIX
-- 'db2:pmcrdstk.PREFIX: top=@P(1000)'
+- business_prose
 ---
 
-# pmcrdstk · prefix
+# Prefix (PMCRDSTK)
 
 **Semantic key:** `pmcrdstk__prefix` · **Cột vật lý:** `PREFIX`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột PREFIX trên PMCRDSTK. db2:pmcrdstk: top @P.
+Thuộc tính prefix — bảng PMCRDSTK.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdstk` | `PREFIX` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:pmcrdstk.PREFIX`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `@P`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdstk` | `PREFIX` | char | Prefix seri thẻ PM (@P) |
 
 ## Ghi chú thêm
 

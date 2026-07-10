@@ -1,6 +1,6 @@
 ---
 semantic_key: inv_type
-title: inv type
+title: Loại hóa đơn / chứng từ kho (INV_TYPE)
 display_names:
 - INV_TYPE
 kind: text
@@ -20,33 +20,22 @@ facts:
 - Loại hóa đơn
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.INV_TYPE: top=1(31)'
-- 'db2:debt.INV_TYPE: top=1(254), 0(1), 806(1)'
-- 'db2:inv_hdr.INV_TYPE: top=1(754), 1747(1)'
+- business_prose
 ---
 
-# inv type
+# Loại hóa đơn / chứng từ kho (INV_TYPE)
 
 **Semantic key:** `inv_type` · **Cột vật lý:** `INV_TYPE`
 
 ## Ý nghĩa nghiệp vụ
 
-Loại hóa đơn
+Loại hóa đơn. Dùng trong POS bán lẻ (STRANS); Kho / mua hàng (INV_HDR).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `INV_TYPE` | varchar | có dữ liệu |
-| `db2:debt` | `INV_TYPE` | varchar | có dữ liệu |
-| `db2:inv_hdr` | `INV_TYPE` | varchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `INV_TYPE` | varchar | Loại hóa đơn |
+| `db2:debt` | `INV_TYPE` | varchar | Loại hóa đơn |
+| `db2:inv_hdr` | `INV_TYPE` | varchar | Loại hóa đơn |

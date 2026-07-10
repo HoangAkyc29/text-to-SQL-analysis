@@ -2,8 +2,8 @@
 semantic_key: fine_rate
 title: fine rate
 display_names:
-- FINE_RATE
 - fine_rate
+- FINE_RATE
 kind: measure
 tables:
 - ref: db2:partner
@@ -18,38 +18,21 @@ facts:
 - Tỷ lệFINE_RATE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:partner.fine_rate: top=0.00(1000)'
-- 'db2:supplier.FINE_RATE: top=0.00(1000)'
+- business_prose
 ---
 
 # fine rate
 
-**Semantic key:** `fine_rate` · **Cột vật lý:** `FINE_RATE`, `fine_rate`
+**Semantic key:** `fine_rate` · **Cột vật lý:** `fine_rate`, `FINE_RATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FINE_RATE trên PARTNER, SUPPLIER. db2:partner: top 0.00; db2:supplier: top 0.00.
+Tỷ lệFINE_RATE. Dùng trong Master / danh mục (PARTNER, SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:partner` | `fine_rate` | numeric | có dữ liệu |
-| `db2:supplier` | `FINE_RATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:partner.fine_rate`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:supplier.FINE_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
-- Tỷ lệFINE_RATE
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:partner` | `fine_rate` | numeric | Tỷ lệ phạt (%) trên đối tác / khách B2B |
+| `db2:supplier` | `FINE_RATE` | numeric | Tỷ lệFINE_RATE |

@@ -17,13 +17,8 @@ facts:
 - NgàyTO_DATE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:inv_iss.TO_DATE: top=2022-06-22 00:00:00(163), 2022-06-29 00:00:00(71), 2022-06-19
-  00:00:00(29), 2022-06-18 00:00:00(26), 2022-06-24 00:00:00(14)'
-- 'db2:rdiscinf.TO_DATE: top=2022-05-03 00:00:00(26), 2014-05-04 00:00:00(25), 2015-05-03
-  00:00:00(25), 2025-05-01 00:00:00(23), 2016-09-05 00:00:00(21)'
+- business_prose
 ---
 
 # to date
@@ -32,24 +27,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TO_DATE trên INV_ISS, RDISCINF. db2:inv_iss: top 2022-06-16T00:00:00; db2:rdiscinf: top 2017-10-19T00:00:00.
+Ngày kết thúc hiệu lực (to date).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:inv_iss` | `TO_DATE` | datetime | có dữ liệu |
-| `db2:rdiscinf` | `TO_DATE` | datetime | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:inv_iss.TO_DATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2022-06-16T00:00:00`×20
-
-### `db2:rdiscinf.TO_DATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2017-10-19T00:00:00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:inv_iss` | `TO_DATE` | datetime | NgàyTO_DATE |
+| `db2:rdiscinf` | `TO_DATE` | datetime | NgàyTO_DATE |
 
 ## Ghi chú thêm
 

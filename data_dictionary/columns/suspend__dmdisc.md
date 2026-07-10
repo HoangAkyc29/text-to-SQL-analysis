@@ -1,6 +1,6 @@
 ---
 semantic_key: suspend__dmdisc
-title: suspend · dmdisc
+title: Dmdisc (SUSPEND)
 display_names:
 - DMDISC
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DMDISC
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DMDISC
-- 'db2:suspend.DMDISC: top=False(1000)'
+- business_prose
 ---
 
-# suspend · dmdisc
+# Dmdisc (SUSPEND)
 
 **Semantic key:** `suspend__dmdisc` · **Cột vật lý:** `DMDISC`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DMDISC trên SUSPEND. db2:suspend: top False.
+Cờ / trạng thái (dmdisc) — bill đang treo / chưa hoàn tất.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:suspend` | `DMDISC` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:suspend.DMDISC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:suspend` | `DMDISC` | bit | Cờ / trạng thái (dmdisc) trên bill đang treo / chưa hoàn tất |

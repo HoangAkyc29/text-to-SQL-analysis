@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tocust_amt
-title: stk dtl · tocust amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - TOCUST_AMT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOCUST_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOCUST_AMT
-- 'db2:stk_dtl.TOCUST_AMT: top=0.00(880), 95912080.00(1), 3028516.00(1), 58369500.00(1),
-  7028100.00(1)'
+- business_prose
 ---
 
-# stk dtl · tocust amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__tocust_amt` · **Cột vật lý:** `TOCUST_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOCUST_AMT trên STK_DTL. db2:stk_dtl: top 0.00, 14251440.00, 497172294.00.
+Phát sinh cuối kỳ — phát sinh liên quan khách (trả hàng / xuất KH) (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOCUST_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOCUST_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈4; top: `0.00`×17, `14251440.00`×1, `497172294.00`×1, `6596000.00`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOCUST_AMT` | numeric | Cuối kỳ — movement: TOCUST_AMT |
 
 ## Ghi chú thêm
 

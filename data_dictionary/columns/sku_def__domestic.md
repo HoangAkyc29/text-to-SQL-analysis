@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__domestic
-title: sku def · domestic
+title: Domestic (SKU_DEF)
 display_names:
 - DOMESTIC
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DOMESTIC
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DOMESTIC
-- 'db2:sku_def.DOMESTIC: top=False(504), True(496)'
+- business_prose
 ---
 
-# sku def · domestic
+# Domestic (SKU_DEF)
 
 **Semantic key:** `sku_def__domestic` · **Cột vật lý:** `DOMESTIC`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DOMESTIC trên SKU_DEF. db2:sku_def: top True.
+Cờ hàng nội địa vs nhập khẩu.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `DOMESTIC` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.DOMESTIC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `DOMESTIC` | bit | Cờ / trạng thái (domestic) trên master sản phẩm (SKU) |

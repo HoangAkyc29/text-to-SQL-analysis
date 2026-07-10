@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__res_shw
-title: sku def · res shw
+title: Res Shw (SKU_DEF)
 display_names:
 - RES_SHW
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột RES_SHW
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for RES_SHW
-- 'db2:sku_def.RES_SHW: top=False(1000)'
+- business_prose
 ---
 
-# sku def · res shw
+# Res Shw (SKU_DEF)
 
 **Semantic key:** `sku_def__res_shw` · **Cột vật lý:** `RES_SHW`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột RES_SHW trên SKU_DEF. db2:sku_def: top False.
+Cờ hiển thị trên màn reservation / đặt hàng.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `RES_SHW` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.RES_SHW`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `RES_SHW` | bit | Cờ / trạng thái (res shw) trên master sản phẩm (SKU) |

@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__goods_id
-title: sku def · goods id
+title: Mã định danh (goods id) (SKU_DEF)
 display_names:
 - GOODS_ID
 kind: identifier
@@ -10,36 +10,23 @@ tables:
   type: varchar
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột GOODS_ID
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for GOODS_ID
-- 'db2:sku_def.GOODS_ID: top=02128044(1), 04004222(1), 00010614(1), 06002066(1), 02129180(1)'
+- business_prose
 ---
 
-# sku def · goods id
+# Mã định danh (goods id) (SKU_DEF)
 
 **Semantic key:** `sku_def__goods_id` · **Cột vật lý:** `GOODS_ID`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột GOODS_ID trên SKU_DEF. db2:sku_def: top 00000001, 00000002, 00000003.
+Mã hàng hóa / mã phân loại goods nội bộ (ngoài SKU_ID).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `GOODS_ID` | varchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.GOODS_ID`
-- Null rate trong sample: 0%
-- Distinct ≈20; top: `00000001`×1, `00000002`×1, `00000003`×1, `00000004`×1, `00000005`×1, `00000006`×1, `00000007`×1, `00000008`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `GOODS_ID` | varchar | Mã định danh (goods id) trên master sản phẩm (SKU) |

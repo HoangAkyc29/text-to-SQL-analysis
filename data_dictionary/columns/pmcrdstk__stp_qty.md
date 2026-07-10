@@ -1,6 +1,6 @@
 ---
 semantic_key: pmcrdstk__stp_qty
-title: pmcrdstk · stp qty
+title: Số lượng (PMCRDSTK)
 display_names:
 - STP_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - SL dừng/hủy
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for STP_QTY
-- 'db2:pmcrdstk.STP_QTY: top=0(1000)'
+- business_prose
 ---
 
-# pmcrdstk · stp qty
+# Số lượng (PMCRDSTK)
 
 **Semantic key:** `pmcrdstk__stp_qty` · **Cột vật lý:** `STP_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột STP_QTY trên PMCRDSTK. db2:pmcrdstk: top 0.
+Số lượng — bảng PMCRDSTK.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdstk` | `STP_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:pmcrdstk.STP_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdstk` | `STP_QTY` | numeric | SL dừng/hủy |
 
 ## Ghi chú thêm
 

@@ -10,7 +10,9 @@ from platform_core.service.base import DecisionContext
 
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.sql.policy_engine import PolicyEngine
+from project_core.llm.json_parse import parse_llm_json
 from project_core.llm.openrouter_client import OpenRouterClient
+from project_core.domain.errors.codes import LLMProviderError
 from project_core.models.loader import agent_profile
 from project_core.service.supermarket_agent import SupermarketAgentService
 
@@ -117,7 +119,15 @@ class RiskReviewerService(SupermarketAgentService):
             ],
             response_format={"type": "json_object"},
         )
-        payload = json.loads(result.content)
+        try:
+            payload = parse_llm_json(result)
+        except LLMProviderError:
+            # Policy already passed — don't block pipeline on malformed LLM JSON
+            payload = {
+                "verdict": "approve",
+                "concerns": ["llm_json_parse_failed"],
+                "risk_feedback": None,
+            }
         payload.setdefault("schema_context_summary", {
             "table_count": len(schema_context.get("tables") or []),
             "has_domain_definitions": bool(schema_context.get("domain_definitions_excerpt")),

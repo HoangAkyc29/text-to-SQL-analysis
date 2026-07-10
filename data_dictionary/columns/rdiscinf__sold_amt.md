@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__sold_amt
-title: rdiscinf · sold amt
+title: Số tiền / giá trị (RDISCINF)
 display_names:
 - SOLD_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số tiềnSOLD_AMT
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for SOLD_AMT
-- 'db2:rdiscinf.SOLD_AMT: top=0(1000)'
+- business_prose
 ---
 
-# rdiscinf · sold amt
+# Số tiền / giá trị (RDISCINF)
 
 **Semantic key:** `rdiscinf__sold_amt` · **Cột vật lý:** `SOLD_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột SOLD_AMT trên RDISCINF. db2:rdiscinf: top 0.
+Ngưỡng doanh số / tiền hàng đã bán để rule KM kích hoạt — hay dùng cho min bill.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `SOLD_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.SOLD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `SOLD_AMT` | numeric | Số tiềnSOLD_AMT |
 
 ## Ghi chú thêm
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__cardincl
-title: rdiscinf · cardincl
+title: Cardincl (RDISCINF)
 display_names:
 - CARDINCL
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CARDINCL
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for CARDINCL
-- 'db2:rdiscinf.CARDINCL: top=False(1000)'
+- business_prose
 ---
 
-# rdiscinf · cardincl
+# Cardincl (RDISCINF)
 
 **Semantic key:** `rdiscinf__cardincl` · **Cột vật lý:** `CARDINCL`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CARDINCL trên RDISCINF. db2:rdiscinf: top False.
+Cờ chỉ áp dụng cho loại thẻ trong danh sách include.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `CARDINCL` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.CARDINCL`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `CARDINCL` | bit | Cờ / trạng thái (cardincl) trên rule khuyến mãi / chiết khấu |

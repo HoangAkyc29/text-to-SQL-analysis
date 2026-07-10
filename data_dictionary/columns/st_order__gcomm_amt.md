@@ -1,6 +1,6 @@
 ---
 semantic_key: st_order__gcomm_amt
-title: st order · gcomm amt
+title: Số tiền / giá trị (ST_ORDER)
 display_names:
 - GCOMM_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Hoa hồng gift: GCOMM_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for GCOMM_AMT
-- 'db2:st_order.GCOMM_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# st order · gcomm amt
+# Số tiền / giá trị (ST_ORDER)
 
 **Semantic key:** `st_order__gcomm_amt` · **Cột vật lý:** `GCOMM_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột GCOMM_AMT trên ST_ORDER. db2:st_order: top 0.00.
+Tiền hoa hồng / chi phí giao hàng trên đơn ST_ORDER.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:st_order` | `GCOMM_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:st_order.GCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:st_order` | `GCOMM_AMT` | numeric | Hoa hồng gift: GCOMM_AMT |
 
 ## Ghi chú thêm
 

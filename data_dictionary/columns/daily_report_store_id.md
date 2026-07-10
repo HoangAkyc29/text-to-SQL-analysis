@@ -1,6 +1,6 @@
 ---
 semantic_key: daily_report_store_id
-title: daily report store id
+title: Mã cửa hàng / siêu thị phát sinh giao dịch (STK_ID)
 display_names:
 - stk_id
 kind: identifier
@@ -14,32 +14,20 @@ facts:
 - Mã cửa hàng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:webrpt_sales_sku_daily.stk_id: top=10001(524), 10004(245), 10005(231)'
+- business_prose
 ---
 
-# daily report store id
+# Mã cửa hàng / siêu thị phát sinh giao dịch (STK_ID)
 
 **Semantic key:** `daily_report_store_id` · **Cột vật lý:** `stk_id`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột STK_ID trên WEBRPT_SALES_SKU_DAILY. db2:webrpt_sales_sku_daily: top 10001.
+Mã cửa hàng trên báo cáo — grain store × SKU × ngày. (bảng WEBRPT_SALES_SKU_DAILY).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_sales_sku_daily` | `stk_id` | varchar | Cửa hàng — sample 10001 |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_sales_sku_daily.stk_id`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `10001`×20
-
-## Ghi chú thêm
-
-- Mã cửa hàng
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_sales_sku_daily` | `stk_id` | varchar | Mã cửa hàng |

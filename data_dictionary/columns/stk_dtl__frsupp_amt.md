@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frsupp_amt
-title: stk dtl · frsupp amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - FRSUPP_AMT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRSUPP_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRSUPP_AMT
-- 'db2:stk_dtl.FRSUPP_AMT: top=0.00(935), 72714000.00(1), 32848080.00(1), 64310000.00(1),
-  50552832.00(1)'
+- business_prose
 ---
 
-# stk dtl · frsupp amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__frsupp_amt` · **Cột vật lý:** `FRSUPP_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRSUPP_AMT trên STK_DTL. db2:stk_dtl: top 0.00, 19161600.00, 456316000.00.
+Phát sinh đầu kỳ — nhập từ nhà cung cấp (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRSUPP_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRSUPP_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈3; top: `0.00`×18, `19161600.00`×1, `456316000.00`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRSUPP_AMT` | numeric | Đầu kỳ — movement: FRSUPP_AMT |
 
 ## Ghi chú thêm
 

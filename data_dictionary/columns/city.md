@@ -1,6 +1,6 @@
 ---
 semantic_key: city
-title: city
+title: Thành phố / tỉnh liên hệ (CITY)
 display_names:
 - CITY
 kind: text
@@ -13,37 +13,24 @@ tables:
   type: nvarchar
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CITY
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:cscard.CITY: top=Da Nang(236), Ho Chi Minh(105), Thanh Hoa(1)'
-- 'db2:customer.CITY: top=Da Nang(220), Ho Chi Minh(119), Quang Nam(2), da nang(1)'
+- business_prose
 ---
 
-# city
+# Thành phố / tỉnh liên hệ (CITY)
 
 **Semantic key:** `city` · **Cột vật lý:** `CITY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CITY trên CSCARD, CUSTOMER. db2:cscard: top Ho Chi Minh.
+Thành phố / tỉnh liên hệ — dùng trong Loyalty / thẻ (CSCARD); Master / danh mục (CUSTOMER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `CITY` | nvarchar | có dữ liệu |
-| `db2:customer` | `CITY` | nvarchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cscard.CITY`
-- Null rate trong sample: 95%
-- Distinct ≈1; top: `Ho Chi Minh`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `CITY` | nvarchar | Thành phố / tỉnh liên hệ trên master thẻ khách hàng thân thiết |
+| `db2:customer` | `CITY` | nvarchar | Thành phố / tỉnh liên hệ trên danh mục master khách hàng |

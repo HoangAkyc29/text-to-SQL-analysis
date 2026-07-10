@@ -18,13 +18,8 @@ facts:
 - Mã sản phẩm nội bộ
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:barcode.SKU_ID: top=290112027600(3), 290110899500(3), 290111218900(3), 290112316600(3),
-  290610735800(2)'
-- 'db2:sku_def.SKU_ID: top=290212804400(1), 290400422200(1), 290001061400(1), 290600206600(1),
-  290212918000(1)'
+- business_prose
 ---
 
 # Mã sản phẩm nội bộ SKU_ID
@@ -33,29 +28,15 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-SKU_ID nội bộ (290…). Join STRANS ↔ SKU_DEF. Khác user-facing SKU_CODE (8 chữ số).
+Mã sản phẩm nội bộ (SKU_ID). Join STRANS ↔ SKU_DEF/BARCODE. Khác mã SKU_CODE 8 số mà user thường nhập.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:barcode` | `SKU_ID` | char | có dữ liệu |
-| `db2:sku_def` | `SKU_ID` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:barcode.SKU_ID`
-- Null rate trong sample: 0%
-- Distinct ≈17; top: `290002608000`×3, `290001865200`×2, `290002607300`×1, `290110926600`×1, `290112681000`×1, `290002075000`×1, `290112526700`×1, `290112161100`×1
-
-### `db2:sku_def.SKU_ID`
-- Null rate trong sample: 0%
-- Distinct ≈20; top: `290000000100`×1, `290000000200`×1, `290000000300`×1, `290000000400`×1, `290000000500`×1, `290000000600`×1, `290000000700`×1, `290000000800`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:barcode` | `SKU_ID` | char | Mã sản phẩm nội bộ |
+| `db2:sku_def` | `SKU_ID` | char | Mã sản phẩm nội bộ |
 
 ## Join
 
 Thường join: `TRANS_NUM`
-
-## Ghi chú thêm
-
-- Mã sản phẩm nội bộ

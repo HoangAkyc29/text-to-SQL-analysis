@@ -13,32 +13,24 @@ tables:
   type: char
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột REF_TYPE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:transhdr_arc.REF_TYPE: top=01(16)'
-- 'db2:transhdr.REF_TYPE: top=01(11)'
+- business_prose
 ---
 
 # ref type
 
 **Semantic key:** `ref_type` · **Cột vật lý:** `REF_TYPE`
 
+## Ý nghĩa nghiệp vụ
+
+Thuộc tính ref type — dùng trong POS bán lẻ (TRANSHDR, TRANSHDR_ARC).
+
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:transhdr_arc` | `REF_TYPE` | char | có dữ liệu |
-| `db2:transhdr` | `REF_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
-- Cột REF_TYPE
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:transhdr_arc` | `REF_TYPE` | char | Thuộc tính ref type trên header bill đã archive |
+| `db2:transhdr` | `REF_TYPE` | char | Thuộc tính ref type trên header bill bán lẻ |

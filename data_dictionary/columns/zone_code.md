@@ -1,6 +1,6 @@
 ---
 semantic_key: zone_code
-title: zone code
+title: Mã vùng / zone cửa hàng (ZONE_CODE)
 display_names:
 - ZONE_CODE
 kind: code
@@ -18,42 +18,25 @@ facts:
 - MãZONE_CODE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:hisrtpr.ZONE_CODE: top=000(1000)'
-- 'db2:rdiscinf.ZONE_CODE: top=000(1000)'
+- business_prose
 ---
 
-# zone code
+# Mã vùng / zone cửa hàng (ZONE_CODE)
 
 **Semantic key:** `zone_code` · **Cột vật lý:** `ZONE_CODE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ZONE_CODE trên HISRTPR, RDISCINF. db2:hisrtpr: top 000; db2:rdiscinf: top 000.
+MãZONE_CODE. Dùng trong bảng HISRTPR, rule khuyến mãi / chiết khấu.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:hisrtpr` | `ZONE_CODE` | char | có dữ liệu |
-| `db2:rdiscinf` | `ZONE_CODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:hisrtpr.ZONE_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `000`×20
-
-### `db2:rdiscinf.ZONE_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `000`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:hisrtpr` | `ZONE_CODE` | char | MãZONE_CODE |
+| `db2:rdiscinf` | `ZONE_CODE` | char | MãZONE_CODE |
 
 ## Join
 
 Thường join: `TRANS_NUM`
-
-## Ghi chú thêm
-
-- MãZONE_CODE

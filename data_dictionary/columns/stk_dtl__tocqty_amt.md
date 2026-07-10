@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tocqty_amt
-title: stk dtl · tocqty amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - TOCQTY_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOCQTY_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOCQTY_AMT
-- 'db2:stk_dtl.TOCQTY_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · tocqty amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__tocqty_amt` · **Cột vật lý:** `TOCQTY_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOCQTY_AMT trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh cuối kỳ — tích lũy theo số lượng (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOCQTY_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOCQTY_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOCQTY_AMT` | numeric | Cuối kỳ — movement: TOCQTY_AMT |
 
 ## Ghi chú thêm
 

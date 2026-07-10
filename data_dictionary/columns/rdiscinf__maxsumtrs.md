@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__maxsumtrs
-title: rdiscinf · maxsumtrs
+title: Maxsumtrs (RDISCINF)
 display_names:
 - MAXSUMTRS
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MAXSUMTRS
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MAXSUMTRS
-- 'db2:rdiscinf.MAXSUMTRS: top=0(1000)'
+- business_prose
 ---
 
-# rdiscinf · maxsumtrs
+# Maxsumtrs (RDISCINF)
 
 **Semantic key:** `rdiscinf__maxsumtrs` · **Cột vật lý:** `MAXSUMTRS`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MAXSUMTRS trên RDISCINF. db2:rdiscinf: top 0.
+Trần số lần áp dụng rule trên tổng chương trình.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `MAXSUMTRS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.MAXSUMTRS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `MAXSUMTRS` | numeric | Chỉ số đo lường (maxsumtrs) trên rule khuyến mãi / chiết khấu |

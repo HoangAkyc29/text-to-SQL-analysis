@@ -1,6 +1,6 @@
 ---
 semantic_key: sale_amt
-title: sale amt
+title: Doanh số bán (SALE_AMT)
 display_names:
 - SALE_AMT
 kind: measure
@@ -17,38 +17,21 @@ facts:
 - Số tiền bán
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:pmcrdinf.SALE_AMT: top=0(1000)'
-- 'db2:pmcrdiss.SALE_AMT: top=0(1000)'
+- business_prose
 ---
 
-# sale amt
+# Doanh số bán (SALE_AMT)
 
 **Semantic key:** `sale_amt` · **Cột vật lý:** `SALE_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột SALE_AMT trên PMCRDINF, PMCRDISS. db2:pmcrdinf: top 0; db2:pmcrdiss: top 0.
+Số tiền bán. Dùng trong master thẻ PM / voucher, bảng PMCRDISS.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdinf` | `SALE_AMT` | numeric | có dữ liệu |
-| `db2:pmcrdiss` | `SALE_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:pmcrdinf.SALE_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:pmcrdiss.SALE_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
-- Số tiền bán
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdinf` | `SALE_AMT` | numeric | Số tiền bán |
+| `db2:pmcrdiss` | `SALE_AMT` | numeric | Số tiền bán |

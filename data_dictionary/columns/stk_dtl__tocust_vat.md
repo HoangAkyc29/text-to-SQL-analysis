@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tocust_vat
-title: stk dtl · tocust vat
+title: Tocust Vat (STK_DTL)
 display_names:
 - TOCUST_VAT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOCUST_VAT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOCUST_VAT
-- 'db2:stk_dtl.TOCUST_VAT: top=0.00(907), 7488151.66(1), 280563.24(1), 5751666.27(1),
-  1295272.69(1)'
+- business_prose
 ---
 
-# stk dtl · tocust vat
+# Tocust Vat (STK_DTL)
 
 **Semantic key:** `stk_dtl__tocust_vat` · **Cột vật lý:** `TOCUST_VAT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOCUST_VAT trên STK_DTL. db2:stk_dtl: top 0.00, 872665.76, 4152297.24.
+Phát sinh cuối kỳ — phát sinh liên quan khách (trả hàng / xuất KH) (thuế GTGT) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOCUST_VAT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOCUST_VAT`
-- Null rate trong sample: 0%
-- Distinct ≈4; top: `0.00`×17, `872665.76`×1, `4152297.24`×1, `31211365.42`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOCUST_VAT` | numeric | Cuối kỳ — movement: TOCUST_VAT |
 
 ## Ghi chú thêm
 

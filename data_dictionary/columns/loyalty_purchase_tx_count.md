@@ -14,10 +14,8 @@ facts:
 - 'Phát sinh mua/tích: BUY_TRS'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:crd_info.BUY_TRS: top=0(184), 1(164), 2(100), 3(59), 5(37)'
+- business_prose
 ---
 
 # Số lần phát sinh mua tích điểm (CRD_INFO.BUY_TRS)
@@ -26,19 +24,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-CRD_INFO.BUY_TRS — đếm số lần phát sinh mua liên quan tích điểm. Sample: 0–17, phần lớn 1–2. Không phải số tiền.
+Số lần phát sinh mua được tính vào tích điểm (CRD_INFO.BUY_TRS). Là số lượng giao dịch, không phải số tiền.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BUY_TRS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BUY_TRS`
-- Null rate trong sample: 0%
-- Distinct ≈8; top: `1`×11, `0`×2, `2`×2, `17`×1, `5`×1, `4`×1, `10`×1, `6`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BUY_TRS` | numeric | Phát sinh mua/tích: BUY_TRS |
 
 ## Ghi chú thêm
 

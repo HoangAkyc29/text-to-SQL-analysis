@@ -25,19 +25,11 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MBC
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.MBC: top=False(1000)'
-- 'db2:assolst.MBC: top=False(1000)'
-- 'db2:sku_def.MBC: top=False(1000)'
-- 'db2:strans.MBC: top=False(1000)'
-- 'db2:strans_tmp.MBC: top=False(1000)'
-- 'db2:suspend.MBC: top=False(1000)'
+- business_prose
 ---
 
 # mbc
@@ -46,44 +38,15 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MBC trên ASSOLST, SKU_DEF, STRANS. db1:strans: top False; db2:assolst: top False; db2:sku_def: top False; db2:strans: top False; db2:strans_tmp: top False; db2:suspend: top False.
+Cờ / trạng thái (mbc) — dùng trong POS bán lẻ (STRANS, STRANS_TMP, …); Master / danh mục (SKU_DEF).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `MBC` | bit | có dữ liệu |
-| `db2:assolst` | `MBC` | bit | có dữ liệu |
-| `db2:sku_def` | `MBC` | bit | có dữ liệu |
-| `db2:strans` | `MBC` | bit | có dữ liệu |
-| `db2:strans_tmp` | `MBC` | bit | có dữ liệu |
-| `db2:suspend` | `MBC` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:assolst.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:sku_def.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:strans.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:strans_tmp.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:suspend.MBC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `MBC` | bit | Cờ / trạng thái (mbc) trên dòng bán hàng POS |
+| `db2:assolst` | `MBC` | bit | Cờ / trạng thái (mbc) trên master combo / bundle |
+| `db2:sku_def` | `MBC` | bit | Cờ / trạng thái (mbc) trên master sản phẩm (SKU) |
+| `db2:strans` | `MBC` | bit | Cờ / trạng thái (mbc) trên dòng bán hàng POS |
+| `db2:strans_tmp` | `MBC` | bit | Cờ / trạng thái (mbc) trên dòng bán tạm / suspend |
+| `db2:suspend` | `MBC` | bit | Cờ / trạng thái (mbc) trên bill đang treo / chưa hoàn tất |

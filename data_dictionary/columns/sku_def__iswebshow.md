@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__iswebshow
-title: sku def · iswebshow
+title: Cờ thuộc tính (webshow) (SKU_DEF)
 display_names:
 - IsWebshow
 kind: flag
@@ -10,37 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột IsWebshow
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for IsWebshow
-- 'db2:sku_def.IsWebshow: top=False(1000)'
+- business_prose
 ---
 
-# sku def · iswebshow
+# Cờ thuộc tính (webshow) (SKU_DEF)
 
 **Semantic key:** `sku_def__iswebshow` · **Cột vật lý:** `IsWebshow`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ISWEBSHOW trên SKU_DEF. db2:sku_def: top False.
+Cờ thuộc tính sản phẩm (webshow) trên master SKU — yes/no.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `IsWebshow` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.IsWebshow`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
-- Cột IsWebshow
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `IsWebshow` | bit | Cờ thuộc tính (webshow) trên master sản phẩm (SKU) |

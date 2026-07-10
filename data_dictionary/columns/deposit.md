@@ -13,15 +13,11 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DEPOSIT
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:transhdr_arc.DEPOSIT: top=0.00(1000)'
-- 'db2:transhdr.DEPOSIT: top=0.00(1000)'
+- business_prose
 ---
 
 # deposit
@@ -30,24 +26,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DEPOSIT trên TRANSHDR, TRANSHDR_ARC. db1:transhdr_arc: top 0.00; db2:transhdr: top 0.00.
+Chỉ số đo lường (deposit) — dùng trong POS bán lẻ (TRANSHDR, TRANSHDR_ARC).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:transhdr_arc` | `DEPOSIT` | numeric | có dữ liệu |
-| `db2:transhdr` | `DEPOSIT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:transhdr_arc.DEPOSIT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:transhdr.DEPOSIT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:transhdr_arc` | `DEPOSIT` | numeric | Chỉ số đo lường (deposit) trên header bill đã archive |
+| `db2:transhdr` | `DEPOSIT` | numeric | Chỉ số đo lường (deposit) trên header bill bán lẻ |

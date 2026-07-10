@@ -1,6 +1,6 @@
 ---
 semantic_key: supplier__moa
-title: supplier · moa
+title: Giá trị đơn đặt tối thiểu (MOA) (SUPPLIER)
 display_names:
 - MOA
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MOA
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MOA
-- 'db2:supplier.MOA: top=0.00(1000)'
+- business_prose
 ---
 
-# supplier · moa
+# Giá trị đơn đặt tối thiểu (MOA) (SUPPLIER)
 
 **Semantic key:** `supplier__moa` · **Cột vật lý:** `MOA`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MOA trên SUPPLIER. db2:supplier: top 0.00.
+Minimum Order Amount — giá trị đơn đặt tối thiểu với NCC.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:supplier` | `MOA` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:supplier.MOA`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:supplier` | `MOA` | numeric | Giá trị đơn đặt tối thiểu (moa) trên master nhà cung cấp |

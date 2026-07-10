@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__maxsumqty
-title: rdiscinf · maxsumqty
+title: Maxsumqty (RDISCINF)
 display_names:
 - MAXSUMQTY
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MAXSUMQTY
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MAXSUMQTY
-- 'db2:rdiscinf.MAXSUMQTY: top=0.000(1000)'
+- business_prose
 ---
 
-# rdiscinf · maxsumqty
+# Maxsumqty (RDISCINF)
 
 **Semantic key:** `rdiscinf__maxsumqty` · **Cột vật lý:** `MAXSUMQTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MAXSUMQTY trên RDISCINF. db2:rdiscinf: top 0.000.
+Trần tổng số lượng quà / hàng KM tối đa cho cả rule.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `MAXSUMQTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.MAXSUMQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `MAXSUMQTY` | numeric | Chỉ số đo lường (maxsumqty) trên rule khuyến mãi / chiết khấu |

@@ -1,6 +1,6 @@
 ---
 semantic_key: st_order__ord_price
-title: st order · ord price
+title: Đơn giá (ST_ORDER)
 display_names:
 - ORD_PRICE
 kind: measure
@@ -14,33 +14,20 @@ facts:
 - Giá đặt hàng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for ORD_PRICE
-- 'db2:st_order.ORD_PRICE: top=0.00(1000)'
+- business_prose
 ---
 
-# st order · ord price
+# Đơn giá (ST_ORDER)
 
 **Semantic key:** `st_order__ord_price` · **Cột vật lý:** `ORD_PRICE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ORD_PRICE trên ST_ORDER. db2:st_order: top 0.00.
+Đơn giá đặt hàng trên đơn nội bộ — khác RTPRICE master.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:st_order` | `ORD_PRICE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:st_order.ORD_PRICE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
-- Giá đặt hàng
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:st_order` | `ORD_PRICE` | numeric | Giá đặt hàng |

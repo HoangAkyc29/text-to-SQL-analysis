@@ -1,6 +1,6 @@
 ---
 semantic_key: gift_sqty
-title: gift sqty
+title: Số lượng quà tặng (GIFT_SQTY)
 display_names:
 - GIFT_SQTY
 kind: measure
@@ -26,56 +26,24 @@ facts:
 - 'Quà tặng: GIFT_SQTY'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.GIFT_SQTY: top=0.000(1000)'
-- 'db2:st_order.GIFT_SQTY: top=0.000(1000)'
-- 'db2:strans.GIFT_SQTY: top=0.000(1000)'
-- 'db2:strans_tmp.GIFT_SQTY: top=0.000(1000)'
-- 'db2:suspend.GIFT_SQTY: top=0.000(1000)'
+- business_prose
 ---
 
-# gift sqty
+# Số lượng quà tặng (GIFT_SQTY)
 
 **Semantic key:** `gift_sqty` · **Cột vật lý:** `GIFT_SQTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột GIFT_SQTY trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.000; db2:st_order: top 0.000; db2:strans: top 0.000; db2:strans_tmp: top 0.000; db2:suspend: top 0.000.
+Quà tặng: GIFT_SQTY. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …); Kho / mua hàng (ST_ORDER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `GIFT_SQTY` | numeric | có dữ liệu |
-| `db2:st_order` | `GIFT_SQTY` | decimal | có dữ liệu |
-| `db2:strans` | `GIFT_SQTY` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `GIFT_SQTY` | numeric | có dữ liệu |
-| `db2:suspend` | `GIFT_SQTY` | decimal | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.GIFT_SQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:st_order.GIFT_SQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans.GIFT_SQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans_tmp.GIFT_SQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:suspend.GIFT_SQTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-## Ghi chú thêm
-
-- Quà tặng: GIFT_SQTY
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `GIFT_SQTY` | numeric | Quà tặng: GIFT_SQTY |
+| `db2:st_order` | `GIFT_SQTY` | decimal | Quà tặng: GIFT_SQTY |
+| `db2:strans` | `GIFT_SQTY` | numeric | Quà tặng: GIFT_SQTY |
+| `db2:strans_tmp` | `GIFT_SQTY` | numeric | Quà tặng: GIFT_SQTY |
+| `db2:suspend` | `GIFT_SQTY` | decimal | Quà tặng: GIFT_SQTY |

@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__markup
-title: rdiscinf · markup
+title: Markup (RDISCINF)
 display_names:
 - MARKUP
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MARKUP
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MARKUP
-- 'db2:rdiscinf.MARKUP: top=False(1000)'
+- business_prose
 ---
 
-# rdiscinf · markup
+# Markup (RDISCINF)
 
 **Semantic key:** `rdiscinf__markup` · **Cột vật lý:** `MARKUP`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MARKUP trên RDISCINF. db2:rdiscinf: top False.
+Cờ rule markup giá — tăng/giảm giá theo điều kiện thay vì chiết khấu trực tiếp.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `MARKUP` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.MARKUP`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `MARKUP` | bit | Cờ / trạng thái (markup) trên rule khuyến mãi / chiết khấu |

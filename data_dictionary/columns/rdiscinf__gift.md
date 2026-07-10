@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__gift
-title: rdiscinf · gift
+title: Gift (RDISCINF)
 display_names:
 - GIFT
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột GIFT
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for GIFT
-- 'db2:rdiscinf.GIFT: top=False(996), True(4)'
+- business_prose
 ---
 
-# rdiscinf · gift
+# Gift (RDISCINF)
 
 **Semantic key:** `rdiscinf__gift` · **Cột vật lý:** `GIFT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột GIFT trên RDISCINF. db2:rdiscinf: top False.
+Cờ đánh dấu rule quà tặng — khi bật, KM trả quà thay vì (hoặc kèm) giảm giá tiền.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `GIFT` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.GIFT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `GIFT` | bit | Cờ / trạng thái (gift) trên rule khuyến mãi / chiết khấu |

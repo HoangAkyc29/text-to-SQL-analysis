@@ -13,17 +13,11 @@ tables:
   type: nvarchar
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột DISTRICT
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:cscard.DISTRICT: top=Quan Hai Chau(108), Quan 1(40), Quan Thanh Khe(5), Quan
-  Son Tra(5), Quan Lien Chieu(2)'
-- 'db2:customer.DISTRICT: top=Quan Hai Chau(98), Quan 1(55), Quan Thanh Khe(8), Quan
-  Son Tra(6), Huyen Hoa Vang(2)'
+- business_prose
 ---
 
 # district
@@ -32,20 +26,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DISTRICT trên CSCARD, CUSTOMER. db2:cscard: top Quan 1.
+Thuộc tính district — dùng trong Loyalty / thẻ (CSCARD); Master / danh mục (CUSTOMER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `DISTRICT` | nvarchar | có dữ liệu |
-| `db2:customer` | `DISTRICT` | nvarchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cscard.DISTRICT`
-- Null rate trong sample: 95%
-- Distinct ≈1; top: `Quan 1`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `DISTRICT` | nvarchar | Thuộc tính district trên master thẻ khách hàng thân thiết |
+| `db2:customer` | `DISTRICT` | nvarchar | Thuộc tính district trên danh mục master khách hàng |

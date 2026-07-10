@@ -23,13 +23,8 @@ facts:
 - Loại tiền ngoại tệ
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.FOREX_CYS: top=VND(773)'
-- 'db2:strans.FOREX_CYS: top=VND(874)'
-- 'db2:strans_tmp.FOREX_CYS: top=VND(1000)'
-- 'db2:suspend.FOREX_CYS: top=VND(1000)'
+- business_prose
 ---
 
 # forex cys
@@ -38,27 +33,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FOREX_CYS trên STRANS, STRANS_TMP, SUSPEND. db2:strans_tmp: top VND; db2:suspend: top VND.
+Loại tiền ngoại tệ. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `FOREX_CYS` | char | có dữ liệu |
-| `db2:strans` | `FOREX_CYS` | char | có dữ liệu |
-| `db2:strans_tmp` | `FOREX_CYS` | char | có dữ liệu |
-| `db2:suspend` | `FOREX_CYS` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:strans_tmp.FOREX_CYS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `VND`×20
-
-### `db2:suspend.FOREX_CYS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `VND`×20
-
-## Ghi chú thêm
-
-- Loại tiền ngoại tệ
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `FOREX_CYS` | char | Loại tiền ngoại tệ |
+| `db2:strans` | `FOREX_CYS` | char | Loại tiền ngoại tệ |
+| `db2:strans_tmp` | `FOREX_CYS` | char | Loại tiền ngoại tệ |
+| `db2:suspend` | `FOREX_CYS` | char | Loại tiền ngoại tệ |

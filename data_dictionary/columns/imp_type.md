@@ -17,11 +17,8 @@ facts:
 - 'Nhập / import: IMP_TYPE'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:transhdr_arc.IMP_TYPE: top=03(939), 01(51)'
-- 'db2:transhdr.IMP_TYPE: top=03(950), 01(39), 02(2), 05(1), 04(1)'
+- business_prose
 ---
 
 # imp type
@@ -30,25 +27,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột IMP_TYPE trên TRANSHDR, TRANSHDR_ARC. db1:transhdr_arc: top 03; db2:transhdr: top 01.
+Nhập / import: IMP_TYPE. Dùng trong POS bán lẻ (TRANSHDR, TRANSHDR_ARC).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:transhdr_arc` | `IMP_TYPE` | char | có dữ liệu |
-| `db2:transhdr` | `IMP_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:transhdr_arc.IMP_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `03`×20
-
-### `db2:transhdr.IMP_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `01`×20
-
-## Ghi chú thêm
-
-- Nhập / import: IMP_TYPE
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:transhdr_arc` | `IMP_TYPE` | char | Nhập / import: IMP_TYPE |
+| `db2:transhdr` | `IMP_TYPE` | char | Nhập / import: IMP_TYPE |

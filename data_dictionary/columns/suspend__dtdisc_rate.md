@@ -1,6 +1,6 @@
 ---
 semantic_key: suspend__dtdisc_rate
-title: suspend · dtdisc rate
+title: Tỷ lệ / phần trăm (dtdisc rate) (SUSPEND)
 display_names:
 - DTDISC_RATE
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Tỷ lệDTDISC_RATE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DTDISC_RATE
-- 'db2:suspend.DTDISC_RATE: top=0.00(1000)'
+- business_prose
 ---
 
-# suspend · dtdisc rate
+# Tỷ lệ / phần trăm (dtdisc rate) (SUSPEND)
 
 **Semantic key:** `suspend__dtdisc_rate` · **Cột vật lý:** `DTDISC_RATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DTDISC_RATE trên SUSPEND. db2:suspend: top 0.00.
+Tỷ lệ / phần trăm (dtdisc rate) — bill đang treo / chưa hoàn tất.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:suspend` | `DTDISC_RATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:suspend.DTDISC_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:suspend` | `DTDISC_RATE` | numeric | Tỷ lệDTDISC_RATE |
 
 ## Ghi chú thêm
 

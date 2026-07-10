@@ -1,6 +1,6 @@
 ---
 semantic_key: mdadd_amt
-title: mdadd amt
+title: Số tiền phụ thu markdown add-on (MDADD_AMT)
 display_names:
 - MDADD_AMT
 kind: measure
@@ -26,56 +26,24 @@ facts:
 - 'Phụ thu manual: MDADD_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.MDADD_AMT: top=0.00(1000)'
-- 'db2:st_order.MDADD_AMT: top=0.00(1000)'
-- 'db2:strans.MDADD_AMT: top=0.00(1000)'
-- 'db2:strans_tmp.MDADD_AMT: top=0.00(1000)'
-- 'db2:suspend.MDADD_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# mdadd amt
+# Số tiền phụ thu markdown add-on (MDADD_AMT)
 
 **Semantic key:** `mdadd_amt` · **Cột vật lý:** `MDADD_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MDADD_AMT trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.00; db2:st_order: top 0.00; db2:strans: top 0.00; db2:strans_tmp: top 0.00; db2:suspend: top 0.00.
+Phụ thu manual: MDADD_AMT. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …); Kho / mua hàng (ST_ORDER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `MDADD_AMT` | numeric | có dữ liệu |
-| `db2:st_order` | `MDADD_AMT` | numeric | có dữ liệu |
-| `db2:strans` | `MDADD_AMT` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `MDADD_AMT` | numeric | có dữ liệu |
-| `db2:suspend` | `MDADD_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.MDADD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:st_order.MDADD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans.MDADD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans_tmp.MDADD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:suspend.MDADD_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
-- Phụ thu manual: MDADD_AMT
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `MDADD_AMT` | numeric | Phụ thu manual: MDADD_AMT |
+| `db2:st_order` | `MDADD_AMT` | numeric | Phụ thu manual: MDADD_AMT |
+| `db2:strans` | `MDADD_AMT` | numeric | Phụ thu manual: MDADD_AMT |
+| `db2:strans_tmp` | `MDADD_AMT` | numeric | Phụ thu manual: MDADD_AMT |
+| `db2:suspend` | `MDADD_AMT` | numeric | Phụ thu manual: MDADD_AMT |

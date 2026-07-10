@@ -291,6 +291,8 @@ def infer_join_with(column: str, kind: str) -> list[str]:
 def build_semantic_inventory(
     occurrences: list[ColumnOccurrence],
     profiles: dict[str, dict[str, Any]] | None = None,
+    *,
+    include_sample_evidence: bool = True,
 ) -> list[SemanticColumn]:
     """Group occurrences into semantic columns (merge by default, split via rules)."""
     profiles = profiles or {}
@@ -318,6 +320,8 @@ def build_semantic_inventory(
         if descs:
             facts.append(next(iter(descs)))
         for o in occs:
+            if not include_sample_evidence:
+                continue
             prof_key = f"{o.table_ref}.{o.column}"
             prof = profiles.get(prof_key) or profiles.get(o.column)
             if prof and not prof.get("empty"):

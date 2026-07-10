@@ -19,13 +19,8 @@ facts:
 - Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:transhdr_arc.CARD_ID: top=F10000000009(4), F10000000014(3), A10000054864(2),
-  e10000000327(2), A10000054247(2)'
-- 'db2:transhdr.CARD_ID: top=E10000002650(2), E10000003181(2), E10000002279(2), E10000003319(2),
-  A10000072086(2)'
+- business_prose
 ---
 
 # Thẻ loyalty trên header bill (TRANSHDR / archive)
@@ -34,20 +29,14 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CARD_ID trên TRANSHDR, TRANSHDR_ARC. db1:transhdr_arc: prefix A (vd. A10000064516); db2:transhdr: sample toàn rỗng.
+Mã thẻ khách hàng thân thiết. Thẻ gắn trên header bill khi thanh toán có loyalty.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:transhdr_arc` | `CARD_ID` | char | có dữ liệu |
-| `db2:transhdr` | `CARD_ID` | char | Thẻ quét trên giao dịch — sample thường rỗng |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:transhdr_arc.CARD_ID`
-- Null rate trong sample: 35%
-- Distinct ≈13; top: `A10000064516`×1, `A10000073670`×1, `A10000073072`×1, `E10000004037`×1, `E10000002980`×1, `E10000003935`×1, `A10000075044`×1, `A10000067985`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:transhdr_arc` | `CARD_ID` | char | Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng |
+| `db2:transhdr` | `CARD_ID` | char | thẻ gắn trên header bill khi thanh toán có loyalty |
 
 ## Join
 

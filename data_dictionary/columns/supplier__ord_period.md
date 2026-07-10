@@ -1,6 +1,6 @@
 ---
 semantic_key: supplier__ord_period
-title: supplier · ord period
+title: Ord Period (SUPPLIER)
 display_names:
 - ORD_PERIOD
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột ORD_PERIOD
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for ORD_PERIOD
-- 'db2:supplier.ORD_PERIOD: top=0(1000)'
+- business_prose
 ---
 
-# supplier · ord period
+# Ord Period (SUPPLIER)
 
 **Semantic key:** `supplier__ord_period` · **Cột vật lý:** `ORD_PERIOD`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ORD_PERIOD trên SUPPLIER. db2:supplier: top 0.
+Chu kỳ đặt hàng mặc định (ngày/tuần) gắn NCC — lập lịch replenishment.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:supplier` | `ORD_PERIOD` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:supplier.ORD_PERIOD`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:supplier` | `ORD_PERIOD` | numeric | Chỉ số đo lường (ord period) trên master nhà cung cấp |

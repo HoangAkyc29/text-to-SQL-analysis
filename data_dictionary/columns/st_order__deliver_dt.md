@@ -1,6 +1,6 @@
 ---
 semantic_key: st_order__deliver_dt
-title: st order · deliver dt
+title: Ngày deliver (ST_ORDER)
 display_names:
 - DELIVER_DT
 kind: date
@@ -14,34 +14,20 @@ facts:
 - Ngày giao hàng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for DELIVER_DT
-- 'db2:st_order.DELIVER_DT: top=2026-06-20 00:00:00(129), 2026-06-22 00:00:00(76),
-  2026-06-24 00:00:00(68), 2026-06-03 00:00:00(67), 2026-06-08 00:00:00(64)'
+- business_prose
 ---
 
-# st order · deliver dt
+# Ngày deliver (ST_ORDER)
 
 **Semantic key:** `st_order__deliver_dt` · **Cột vật lý:** `DELIVER_DT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DELIVER_DT trên ST_ORDER. db2:st_order: top 2026-06-01T00:00:00.
+Ngày giao hàng dự kiến / thực tế trên đơn ST_ORDER.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:st_order` | `DELIVER_DT` | datetime | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:st_order.DELIVER_DT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `2026-06-01T00:00:00`×20
-
-## Ghi chú thêm
-
-- Ngày giao hàng
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:st_order` | `DELIVER_DT` | datetime | Ngày giao hàng |

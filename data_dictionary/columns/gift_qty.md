@@ -30,15 +30,8 @@ facts:
 - Số lượng quà tặng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.GIFT_QTY: top=0.000(1000)'
-- 'db2:st_order.GIFT_QTY: top=0.000(1000)'
-- 'db2:strans.GIFT_QTY: top=0.000(1000)'
-- 'db2:strans_tmp.GIFT_QTY: top=0.000(1000)'
-- 'db2:suspend.GIFT_QTY: top=0.000(1000)'
-- 'db2:webrpt_sales_sku_daily.gift_qty: top=0.0000(1000)'
+- business_prose
 ---
 
 # gift qty
@@ -47,44 +40,18 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột GIFT_QTY trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.000; db2:st_order: top 0.000; db2:strans: top 0.000; db2:strans_tmp: top 0.000; db2:suspend: top 0.000; db2:webrpt_sales_sku_daily: top 0.0000.
+Chỉ số aggregate trên báo cáo WEBRPT_SALES_SKU_DAILY — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `GIFT_QTY` | numeric | có dữ liệu |
-| `db2:st_order` | `GIFT_QTY` | decimal | có dữ liệu |
-| `db2:strans` | `GIFT_QTY` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `GIFT_QTY` | numeric | có dữ liệu |
-| `db2:suspend` | `GIFT_QTY` | decimal | có dữ liệu |
-| `db2:webrpt_sales_sku_daily` | `gift_qty` | decimal | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.GIFT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:st_order.GIFT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans.GIFT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans_tmp.GIFT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:suspend.GIFT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:webrpt_sales_sku_daily.gift_qty`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.0000`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `GIFT_QTY` | numeric | Quà tặng: GIFT_QTY |
+| `db2:st_order` | `GIFT_QTY` | decimal | Quà tặng: GIFT_QTY |
+| `db2:strans` | `GIFT_QTY` | numeric | Quà tặng: GIFT_QTY |
+| `db2:strans_tmp` | `GIFT_QTY` | numeric | Quà tặng: GIFT_QTY |
+| `db2:suspend` | `GIFT_QTY` | decimal | Quà tặng: GIFT_QTY |
+| `db2:webrpt_sales_sku_daily` | `gift_qty` | decimal | Số lượng quà tặng |
 
 ## Ghi chú thêm
 

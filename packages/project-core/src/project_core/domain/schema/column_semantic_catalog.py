@@ -107,7 +107,19 @@ class ColumnSemanticCatalog:
         names = ", ".join(meta.display_names) or semantic_key
         table_refs = ", ".join(str(t.get("ref")) for t in meta.tables[:12])
         facts = "; ".join(meta.facts[:6])
-        return f"column {semantic_key} ({names}): kind={meta.kind}. Tables: {table_refs}. Facts: {facts}"
+        business = ""
+        if meta.body and "## Ý nghĩa nghiệp vụ" in meta.body:
+            section = meta.body.split("## Ý nghĩa nghiệp vụ", 1)[-1]
+            business = section.split("\n##", 1)[0].strip().replace("\n", " ")[:600]
+        parts = [
+            f"column {semantic_key} ({names}): kind={meta.kind}.",
+            f"Tables: {table_refs}.",
+        ]
+        if business:
+            parts.append(f"Business: {business}")
+        if facts:
+            parts.append(f"Facts: {facts}")
+        return " ".join(parts)
 
     def table_refs(self) -> set[str]:
         refs: set[str] = set()

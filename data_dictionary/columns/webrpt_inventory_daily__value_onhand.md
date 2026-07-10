@@ -1,6 +1,6 @@
 ---
 semantic_key: webrpt_inventory_daily__value_onhand
-title: webrpt inventory daily · value onhand
+title: Value Onhand (WEBRPT_INVENTORY_DAILY)
 display_names:
 - value_onhand
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - Giá trị tồn
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for value_onhand
-- 'db2:webrpt_inventory_daily.value_onhand: top=0.00(554), 120000.00(3), 105000.00(3),
-  75000.00(3), 119000.00(2)'
+- business_prose
 ---
 
-# webrpt inventory daily · value onhand
+# Value Onhand (WEBRPT_INVENTORY_DAILY)
 
 **Semantic key:** `webrpt_inventory_daily__value_onhand` · **Cột vật lý:** `value_onhand`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột VALUE_ONHAND trên WEBRPT_INVENTORY_DAILY. db2:webrpt_inventory_daily: top 0.00, 144.00, 226.00.
+Chỉ số aggregate trên báo cáo WEBRPT_INVENTORY_DAILY — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_inventory_daily` | `value_onhand` | decimal | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_inventory_daily.value_onhand`
-- Null rate trong sample: 0%
-- Distinct ≈12; top: `0.00`×9, `144.00`×1, `226.00`×1, `8280.00`×1, `167.00`×1, `576460.00`×1, `800000.16`×1, `843776.10`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_inventory_daily` | `value_onhand` | decimal | Giá trị tồn |
 
 ## Ghi chú thêm
 

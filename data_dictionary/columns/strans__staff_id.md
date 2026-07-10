@@ -1,6 +1,6 @@
 ---
 semantic_key: strans__staff_id
-title: strans · staff id
+title: Mã định danh (staff id) (STRANS)
 display_names:
 - STAFF_ID
 kind: identifier
@@ -14,30 +14,24 @@ facts:
 - Mã nhân viên
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for STAFF_ID
-- 'db1:strans.STAFF_ID: top=465346(1)'
+- business_prose
 ---
 
-# strans · staff id
+# Mã định danh (staff id) (STRANS)
 
 **Semantic key:** `strans__staff_id` · **Cột vật lý:** `STAFF_ID`
 
 ## Ý nghĩa nghiệp vụ
 
-Mã nhân viên
+Mã định danh (staff id) — dòng bán hàng POS.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `STAFF_ID` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `STAFF_ID` | char | Mã nhân viên |
 
 ## Ghi chú thêm
 
+- Mã nhân viên

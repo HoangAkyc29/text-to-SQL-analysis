@@ -13,15 +13,11 @@ tables:
   type: char
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CUST_TYPE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:inv_iss.CUST_TYPE: top=03(1000)'
-- 'db2:rdiscinf.CUST_TYPE: top=01(546), 03(454)'
+- business_prose
 ---
 
 # cust type
@@ -30,24 +26,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CUST_TYPE trên INV_ISS, RDISCINF. db2:inv_iss: top 03; db2:rdiscinf: top 03.
+Thuộc tính cust type — dùng trong Kho / mua hàng (INV_ISS).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:inv_iss` | `CUST_TYPE` | char | có dữ liệu |
-| `db2:rdiscinf` | `CUST_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:inv_iss.CUST_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `03`×20
-
-### `db2:rdiscinf.CUST_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `03`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:inv_iss` | `CUST_TYPE` | char | Thuộc tính cust type trên phiếu xuất kho |
+| `db2:rdiscinf` | `CUST_TYPE` | char | Thuộc tính cust type trên rule khuyến mãi / chiết khấu |

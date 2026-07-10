@@ -25,8 +25,24 @@ class AuditLogger:
             "at": utc_now().isoformat(),
         }
         self._events.append(event)
-        if event_type.startswith("sql_"):
+        if event_type.startswith("sql_") or event_type == "agent_ii_plan":
             self._append_sql_file(event)
+
+    def log_agent_ii_plan(
+        self,
+        *,
+        trace_id: str,
+        actor_id: str,
+        payload: dict[str, Any],
+    ) -> str:
+        """Log full Agent II plan (all sql_queries, reasoning, meta) for debugging."""
+        event_id = str(uuid4())
+        self.log(
+            "agent_ii_plan",
+            trace_id=trace_id,
+            payload={"event_id": event_id, "actor_id": actor_id, **payload},
+        )
+        return event_id
 
     def log_sql_execute(
         self,
@@ -46,6 +62,7 @@ class AuditLogger:
             payload={
                 "actor_id": actor_id,
                 "role": role,
+                "sql": sql,
                 "sql_hash": hashlib.sha256(sql.encode()).hexdigest()[:16],
                 "target_db": target_db,
                 "row_count": row_count,
@@ -91,6 +108,7 @@ class AuditLogger:
             trace_id=trace_id,
             payload={
                 "actor_id": actor_id,
+                "sql": sql,
                 "sql_hash": hashlib.sha256(sql.encode()).hexdigest()[:16],
                 "sql_preview": sql[:300],
                 "target_db": target_db,

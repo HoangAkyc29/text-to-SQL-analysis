@@ -1,6 +1,6 @@
 ---
 semantic_key: cscard__bonus_pc
-title: cscard · bonus pc
+title: Bonus Pc (CSCARD)
 display_names:
 - BONUS_PC
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Phần trăm thưởng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BONUS_PC
-- 'db2:cscard.BONUS_PC: top=0.00(1000)'
+- business_prose
 ---
 
-# cscard · bonus pc
+# Bonus Pc (CSCARD)
 
 **Semantic key:** `cscard__bonus_pc` · **Cột vật lý:** `BONUS_PC`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BONUS_PC trên CSCARD. db2:cscard: top 0.00.
+Tỷ lệ thưởng điểm bonus (%) so với tích chuẩn.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `BONUS_PC` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cscard.BONUS_PC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `BONUS_PC` | numeric | Phần trăm thưởng |
 
 ## Ghi chú thêm
 

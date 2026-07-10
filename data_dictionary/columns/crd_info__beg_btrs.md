@@ -1,6 +1,6 @@
 ---
 semantic_key: crd_info__beg_btrs
-title: crd info · beg btrs
+title: Beg Btrs (CRD_INFO)
 display_names:
 - BEG_BTRS
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Số dư đầu kỳ: BEG_BTRS'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BEG_BTRS
-- 'db2:crd_info.BEG_BTRS: top=0(1000)'
+- business_prose
 ---
 
-# crd info · beg btrs
+# Beg Btrs (CRD_INFO)
 
 **Semantic key:** `crd_info__beg_btrs` · **Cột vật lý:** `BEG_BTRS`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BEG_BTRS trên CRD_INFO. db2:crd_info: top 0.
+Số giao dịch mua tích điểm đầu kỳ (beginning buy transactions).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BEG_BTRS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BEG_BTRS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BEG_BTRS` | numeric | Số dư đầu kỳ: BEG_BTRS |
 
 ## Ghi chú thêm
 

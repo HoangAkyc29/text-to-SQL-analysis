@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__by_each
-title: rdiscinf · by each
+title: By Each (RDISCINF)
 display_names:
 - BY_EACH
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột BY_EACH
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BY_EACH
-- 'db2:rdiscinf.BY_EACH: top=False(688), True(312)'
+- business_prose
 ---
 
-# rdiscinf · by each
+# By Each (RDISCINF)
 
 **Semantic key:** `rdiscinf__by_each` · **Cột vật lý:** `BY_EACH`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BY_EACH trên RDISCINF. db2:rdiscinf: top False, True.
+Cờ áp dụng theo từng đơn vị / từng dòng thay vì cả bill.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `BY_EACH` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.BY_EACH`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `False`×19, `True`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `BY_EACH` | bit | Cờ / trạng thái (by each) trên rule khuyến mãi / chiết khấu |

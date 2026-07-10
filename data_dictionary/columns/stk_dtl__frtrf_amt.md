@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frtrf_amt
-title: stk dtl · frtrf amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - FRTRF_AMT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRTRF_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRTRF_AMT
-- 'db2:stk_dtl.FRTRF_AMT: top=0.00(984), 15390000.00(1), 51944520.00(1), 7820000.00(1),
-  32740776.00(1)'
+- business_prose
 ---
 
-# stk dtl · frtrf amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__frtrf_amt` · **Cột vật lý:** `FRTRF_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRTRF_AMT trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh đầu kỳ — điều chuyển kho nội bộ (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRTRF_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRTRF_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRTRF_AMT` | numeric | Đầu kỳ — movement: FRTRF_AMT |
 
 ## Ghi chú thêm
 

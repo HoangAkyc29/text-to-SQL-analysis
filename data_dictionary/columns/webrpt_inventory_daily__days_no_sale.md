@@ -1,6 +1,6 @@
 ---
 semantic_key: webrpt_inventory_daily__days_no_sale
-title: webrpt inventory daily · days no sale
+title: Days No Sale (WEBRPT_INVENTORY_DAILY)
 display_names:
 - days_no_sale
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - Số ngày không bán
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for days_no_sale
-- 'db2:webrpt_inventory_daily.days_no_sale: min=41.0 max=909.0'
+- business_prose
 ---
 
-# webrpt inventory daily · days no sale
+# Days No Sale (WEBRPT_INVENTORY_DAILY)
 
 **Semantic key:** `webrpt_inventory_daily__days_no_sale` · **Cột vật lý:** `days_no_sale`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DAYS_NO_SALE trên WEBRPT_INVENTORY_DAILY. db2:webrpt_inventory_daily: 113.0…800.0.
+Chỉ số aggregate trên báo cáo WEBRPT_INVENTORY_DAILY — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_inventory_daily` | `days_no_sale` | int | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_inventory_daily.days_no_sale`
-- Null rate trong sample: 55%
-- Numeric range: 113.0 … 800.0
-- Ví dụ: 136, 289, 113, 462, 711
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_inventory_daily` | `days_no_sale` | int | Số ngày không bán |
 
 ## Ghi chú thêm
 

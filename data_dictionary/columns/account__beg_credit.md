@@ -1,6 +1,6 @@
 ---
 semantic_key: account__beg_credit
-title: account · beg credit
+title: Beg Credit (ACCOUNT)
 display_names:
 - BEG_CREDIT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Số dư đầu kỳ: BEG_CREDIT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BEG_CREDIT
-- 'db2:account.BEG_CREDIT: top=0.00(1000)'
+- business_prose
 ---
 
-# account · beg credit
+# Beg Credit (ACCOUNT)
 
 **Semantic key:** `account__beg_credit` · **Cột vật lý:** `BEG_CREDIT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BEG_CREDIT trên ACCOUNT. db2:account: top 0.00.
+Dư có đầu kỳ trên tài khoản kế toán.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:account` | `BEG_CREDIT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:account.BEG_CREDIT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:account` | `BEG_CREDIT` | numeric | Số dư đầu kỳ: BEG_CREDIT |
 
 ## Ghi chú thêm
 

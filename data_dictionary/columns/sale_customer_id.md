@@ -14,8 +14,8 @@ facts:
 - Mã khách hàng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
+- business_prose
 ---
 
 # Mã khách trên header bill
@@ -24,17 +24,13 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
-CUST_ID trên TRANSHDR — khách gắn bill. Sample thường rỗng nếu KH không đăng ký; khác CSCARD.CUST_ID (master loyalty).
+Mã khách trên header bill (TRANSHDR). Thường trống nếu KH không đăng ký; khác CUST_ID trên master loyalty CSCARD.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:transhdr` | `CUST_ID` | char | Không có giá trị trong sample |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:transhdr` | `CUST_ID` | char | Mã khách hàng |
 
 ## Ghi chú thêm
 

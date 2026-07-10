@@ -13,16 +13,11 @@ tables:
   type: varchar
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột FAX
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:partner.FAX: top=722266(1), 05113.739296(1), 0510722266(1), 045375985(1), 0511744622(1)'
-- 'db2:supplier.FAX: top=08.38341208(1), 045375985(1), 05113.739296(1), 0510722266(1),
-  0511 830 664(1)'
+- business_prose
 ---
 
 # fax
@@ -31,24 +26,11 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FAX trên PARTNER, SUPPLIER. db2:partner: top 087551837, 833208, 0510722266; db2:supplier: top 087551837, 833208, 0510722266.
+Thuộc tính fax — dùng trong Master / danh mục (PARTNER, SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:partner` | `FAX` | varchar | có dữ liệu |
-| `db2:supplier` | `FAX` | varchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:partner.FAX`
-- Null rate trong sample: 85%
-- Distinct ≈3; top: `087551837`×1, `833208`×1, `0510722266`×1
-
-### `db2:supplier.FAX`
-- Null rate trong sample: 85%
-- Distinct ≈3; top: `087551837`×1, `833208`×1, `0510722266`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:partner` | `FAX` | varchar | Thuộc tính fax trên đối tác / khách B2B |
+| `db2:supplier` | `FAX` | varchar | Thuộc tính fax trên master nhà cung cấp |

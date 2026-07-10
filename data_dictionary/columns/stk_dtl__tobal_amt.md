@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tobal_amt
-title: stk dtl · tobal amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - TOBAL_AMT
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOBAL_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOBAL_AMT
-- 'db2:stk_dtl.TOBAL_AMT: top=0.00(989), 1466560.00(1), 4943211.72(1), 1218560.00(1),
-  73000000.00(1)'
+- business_prose
 ---
 
-# stk dtl · tobal amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__tobal_amt` · **Cột vật lý:** `TOBAL_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOBAL_AMT trên STK_DTL. db2:stk_dtl: top 0.00, 6836026.00.
+Phát sinh cuối kỳ — điều chỉnh cân bằng kỳ (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOBAL_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOBAL_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `0.00`×19, `6836026.00`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOBAL_AMT` | numeric | Cuối kỳ — movement: TOBAL_AMT |
 
 ## Ghi chú thêm
 

@@ -14,10 +14,8 @@ facts:
 - 'Phát sinh mua/tích: BUY_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:rdiscinf.BUY_AMT: top=0(1000)'
+- business_prose
 ---
 
 # buy amt
@@ -26,19 +24,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BUY_AMT trên RDISCINF. db2:rdiscinf: top 0.
+Ngưỡng giá trị mua / min bill trong rule khuyến mãi RDISCINF — khác BUY_AMT trên CRD_INFO (lifetime loyalty).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `BUY_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.BUY_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `BUY_AMT` | numeric | Phát sinh mua/tích: BUY_AMT |
 
 ## Ghi chú thêm
 

@@ -38,18 +38,8 @@ facts:
 - Đã cập nhật (bit)
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:pmtrans.UPDATED: top=False(1000)'
-- 'db1:strans.UPDATED: top=True(974), False(26)'
-- 'db1:transhdr_arc.UPDATED: top=False(1000)'
-- 'db2:pmtrans.UPDATED: top=False(1000)'
-- 'db2:st_order.UPDATED: top=False(1000)'
-- 'db2:strans.UPDATED: top=True(1000)'
-- 'db2:strans_tmp.UPDATED: top=True(1000)'
-- 'db2:suspend.UPDATED: top=False(1000)'
-- 'db2:transhdr.UPDATED: top=False(1000)'
+- business_prose
 ---
 
 # updated
@@ -58,60 +48,18 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột UPDATED trên PMTRANS, STRANS, STRANS_TMP. db1:pmtrans: top False; db1:strans: top True; db1:transhdr_arc: top False; db2:pmtrans: top False; db2:st_order: top False; db2:strans: top True; db2:strans_tmp: top True; db2:suspend: top False; db2:transhdr: top False.
+Đã cập nhật (bit). Dùng trong POS bán lẻ (PMTRANS, STRANS, …); Kho / mua hàng (ST_ORDER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:pmtrans` | `UPDATED` | bit | có dữ liệu |
-| `db1:strans` | `UPDATED` | bit | có dữ liệu |
-| `db1:transhdr_arc` | `UPDATED` | bit | có dữ liệu |
-| `db2:pmtrans` | `UPDATED` | bit | có dữ liệu |
-| `db2:st_order` | `UPDATED` | bit | có dữ liệu |
-| `db2:strans` | `UPDATED` | bit | có dữ liệu |
-| `db2:strans_tmp` | `UPDATED` | bit | có dữ liệu |
-| `db2:suspend` | `UPDATED` | bit | có dữ liệu |
-| `db2:transhdr` | `UPDATED` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:pmtrans.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db1:strans.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-### `db1:transhdr_arc.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:pmtrans.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:st_order.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:strans.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-### `db2:strans_tmp.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-### `db2:suspend.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-### `db2:transhdr.UPDATED`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
-- Đã cập nhật (bit)
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:pmtrans` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db1:strans` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db1:transhdr_arc` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:pmtrans` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:st_order` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:strans` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:strans_tmp` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:suspend` | `UPDATED` | bit | Đã cập nhật (bit) |
+| `db2:transhdr` | `UPDATED` | bit | Đã cập nhật (bit) |

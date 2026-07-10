@@ -1,6 +1,6 @@
 ---
 semantic_key: tax_name
-title: tax name
+title: Tên đơn vị trên hóa đơn GTGT (TAX_NAME)
 display_names:
 - TAX_NAME
 kind: text
@@ -20,37 +20,22 @@ facts:
 - Tên đơn vị trên HĐ
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:inv_iss.TAX_NAME: top=C«ng Ty Cæ PhÇn DÞch Vô Nhµ Ga Quèc TÕ §µ N½ng(14), C«ng
-  Ty Cæ PhÇn C¶ng §µ N½ng(12), C«ng Ty Cæ PhÇn D­îc Danapha(8), Tæng C«ng Ty §iÖn
-  Lùc MiÒn Trung(6), Ng©n Hµng Nhµ N­íc Chi Nh¸nh Khu Vùc 9(5)'
-- 'db2:partner.TAX_NAME: top=NCC Anh §oµi(1), C«ng ty Cæ PhÇn C¶ng §µ N½ng(1), Cty
-  TNHH Hieu Hang(1), C«ng ty TNHH MTV FDV(1), CT TNHH Hoµng TrÇn THT(1)'
-- 'db2:supplier.TAX_NAME: top=CT TNHH Hoµng TrÇn THT(1), LA FRESH(1), C«ng ty CP ThÞnh
-  Thiªn Kú(1)'
+- business_prose
 ---
 
-# tax name
+# Tên đơn vị trên hóa đơn GTGT (TAX_NAME)
 
 **Semantic key:** `tax_name` · **Cột vật lý:** `TAX_NAME`
 
 ## Ý nghĩa nghiệp vụ
 
-Tên đơn vị trên HĐ
+Tên đơn vị trên HĐ. Dùng trong Kho / mua hàng (INV_ISS); Master / danh mục (PARTNER, SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:inv_iss` | `TAX_NAME` | nvarchar | có dữ liệu |
-| `db2:partner` | `TAX_NAME` | nvarchar | có dữ liệu |
-| `db2:supplier` | `TAX_NAME` | nvarchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:inv_iss` | `TAX_NAME` | nvarchar | Tên đơn vị trên HĐ |
+| `db2:partner` | `TAX_NAME` | nvarchar | Tên đơn vị trên HĐ |
+| `db2:supplier` | `TAX_NAME` | nvarchar | Tên đơn vị trên HĐ |

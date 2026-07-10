@@ -1,6 +1,6 @@
 ---
 semantic_key: partner__inter_rate
-title: partner · inter rate
+title: Tỷ lệ / phần trăm (inter rate) (PARTNER)
 display_names:
 - INTER_RATE
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Tỷ lệINTER_RATE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for INTER_RATE
-- 'db2:partner.INTER_RATE: top=0.00(1000)'
+- business_prose
 ---
 
-# partner · inter rate
+# Tỷ lệ / phần trăm (inter rate) (PARTNER)
 
 **Semantic key:** `partner__inter_rate` · **Cột vật lý:** `INTER_RATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột INTER_RATE trên PARTNER. db2:partner: top 0.00.
+Tỷ lệ / phần trăm (inter rate) — đối tác / khách B2B.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:partner` | `INTER_RATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:partner.INTER_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:partner` | `INTER_RATE` | numeric | Tỷ lệINTER_RATE |
 
 ## Ghi chú thêm
 

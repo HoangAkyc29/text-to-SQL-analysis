@@ -26,14 +26,8 @@ facts:
 - 'Hoa hồng transaction: TCOMM_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.TCOMM_AMT: top=0.00(1000)'
-- 'db2:st_order.TCOMM_AMT: top=0(1000)'
-- 'db2:strans.TCOMM_AMT: top=0.00(1000)'
-- 'db2:strans_tmp.TCOMM_AMT: top=0.00(1000)'
-- 'db2:suspend.TCOMM_AMT: top=0.00(1000)'
+- business_prose
 ---
 
 # tcomm amt
@@ -42,39 +36,17 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TCOMM_AMT trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 0.00; db2:st_order: top 0; db2:strans: top 0.00; db2:strans_tmp: top 0.00; db2:suspend: top 0.00.
+Tiền hoa hồng thương mại trên dòng / đơn.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `TCOMM_AMT` | numeric | có dữ liệu |
-| `db2:st_order` | `TCOMM_AMT` | numeric | có dữ liệu |
-| `db2:strans` | `TCOMM_AMT` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `TCOMM_AMT` | numeric | có dữ liệu |
-| `db2:suspend` | `TCOMM_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.TCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:st_order.TCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:strans.TCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans_tmp.TCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:suspend.TCOMM_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `TCOMM_AMT` | numeric | Hoa hồng transaction: TCOMM_AMT |
+| `db2:st_order` | `TCOMM_AMT` | numeric | Hoa hồng transaction: TCOMM_AMT |
+| `db2:strans` | `TCOMM_AMT` | numeric | Hoa hồng transaction: TCOMM_AMT |
+| `db2:strans_tmp` | `TCOMM_AMT` | numeric | Hoa hồng transaction: TCOMM_AMT |
+| `db2:suspend` | `TCOMM_AMT` | numeric | Hoa hồng transaction: TCOMM_AMT |
 
 ## Ghi chú thêm
 

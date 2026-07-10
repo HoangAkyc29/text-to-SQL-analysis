@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frcamt_amt
-title: stk dtl · frcamt amt
+title: Số tiền / giá trị (STK_DTL)
 display_names:
 - FRCAMT_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRCAMT_AMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRCAMT_AMT
-- 'db2:stk_dtl.FRCAMT_AMT: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · frcamt amt
+# Số tiền / giá trị (STK_DTL)
 
 **Semantic key:** `stk_dtl__frcamt_amt` · **Cột vật lý:** `FRCAMT_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRCAMT_AMT trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh đầu kỳ — tích lũy theo giá trị tiền (giá trị tồn (tiền)) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRCAMT_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRCAMT_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRCAMT_AMT` | numeric | Đầu kỳ — movement: FRCAMT_AMT |
 
 ## Ghi chú thêm
 

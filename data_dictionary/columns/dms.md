@@ -20,12 +20,8 @@ facts:
 - Days of supply
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:sku_def.DMS: top=0.05(944), 0.00(8), 0.22(4), 0.06(3), 0.12(2)'
-- 'db2:st_order.DMS: top=0.000(1000)'
-- 'db2:webrpt_inventory_daily.DMS: top=0.00(1000)'
+- business_prose
 ---
 
 # dms
@@ -34,29 +30,15 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột DMS trên SKU_DEF, ST_ORDER, WEBRPT_INVENTORY_DAILY. db2:sku_def: top 0.05, 2.20; db2:st_order: top 0.000; db2:webrpt_inventory_daily: top 0.00.
+Chỉ số aggregate trên báo cáo WEBRPT_INVENTORY_DAILY — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `DMS` | numeric | có dữ liệu |
-| `db2:st_order` | `DMS` | numeric | có dữ liệu |
-| `db2:webrpt_inventory_daily` | `DMS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.DMS`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `0.05`×19, `2.20`×1
-
-### `db2:st_order.DMS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:webrpt_inventory_daily.DMS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `DMS` | numeric | Days of supply |
+| `db2:st_order` | `DMS` | numeric | Days of supply |
+| `db2:webrpt_inventory_daily` | `DMS` | numeric | Chỉ số DMS (days of supply) |
 
 ## Ghi chú thêm
 

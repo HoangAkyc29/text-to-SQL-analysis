@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frmul_qty
-title: stk dtl · frmul qty
+title: Số lượng (STK_DTL)
 display_names:
 - FRMUL_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRMUL_QTY'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRMUL_QTY
-- 'db2:stk_dtl.FRMUL_QTY: top=0.000(995), 816.000(1), 114.000(1), 196.000(1), 204.000(1)'
+- business_prose
 ---
 
-# stk dtl · frmul qty
+# Số lượng (STK_DTL)
 
 **Semantic key:** `stk_dtl__frmul_qty` · **Cột vật lý:** `FRMUL_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRMUL_QTY trên STK_DTL. db2:stk_dtl: top 0.000.
+Phát sinh đầu kỳ — ghép lô / nhân bản tồn (số lượng) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRMUL_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRMUL_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRMUL_QTY` | numeric | Đầu kỳ — movement: FRMUL_QTY |
 
 ## Ghi chú thêm
 

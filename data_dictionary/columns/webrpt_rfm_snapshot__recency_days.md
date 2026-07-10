@@ -1,6 +1,6 @@
 ---
 semantic_key: webrpt_rfm_snapshot__recency_days
-title: webrpt rfm snapshot · recency days
+title: Recency Days (WEBRPT_RFM_SNAPSHOT)
 display_names:
 - recency_days
 kind: measure
@@ -14,33 +14,23 @@ facts:
 - Số ngày từ lần mua gần nhất
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for recency_days
-- 'db2:webrpt_rfm_snapshot.recency_days: min=0.0 max=89.0'
+- business_prose
 ---
 
-# webrpt rfm snapshot · recency days
+# Recency Days (WEBRPT_RFM_SNAPSHOT)
 
 **Semantic key:** `webrpt_rfm_snapshot__recency_days` · **Cột vật lý:** `recency_days`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột RECENCY_DAYS trên WEBRPT_RFM_SNAPSHOT. db2:webrpt_rfm_snapshot: 2.0…85.0.
+Chỉ số aggregate trên báo cáo WEBRPT_RFM_SNAPSHOT — dùng cho phân tích nhanh, không thay chi tiết POS live.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:webrpt_rfm_snapshot` | `recency_days` | int | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:webrpt_rfm_snapshot.recency_days`
-- Null rate trong sample: 0%
-- Numeric range: 2.0 … 85.0
-- Ví dụ: 14, 64, 23, 26, 66
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:webrpt_rfm_snapshot` | `recency_days` | int | Số ngày từ lần mua gần nhất |
 
 ## Ghi chú thêm
 

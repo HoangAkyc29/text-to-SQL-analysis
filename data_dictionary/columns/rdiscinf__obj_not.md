@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__obj_not
-title: rdiscinf · obj not
+title: Obj Not (RDISCINF)
 display_names:
 - OBJ_NOT
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột OBJ_NOT
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for OBJ_NOT
-- 'db2:rdiscinf.OBJ_NOT: top=False(999), True(1)'
+- business_prose
 ---
 
-# rdiscinf · obj not
+# Obj Not (RDISCINF)
 
 **Semantic key:** `rdiscinf__obj_not` · **Cột vật lý:** `OBJ_NOT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột OBJ_NOT trên RDISCINF. db2:rdiscinf: top False, True.
+Cờ phủ định đối tượng — rule áp dụng khi KHÔNG thuộc OBJ_VALUE.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `OBJ_NOT` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.OBJ_NOT`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `False`×19, `True`×1
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `OBJ_NOT` | bit | Cờ / trạng thái (obj not) trên rule khuyến mãi / chiết khấu |

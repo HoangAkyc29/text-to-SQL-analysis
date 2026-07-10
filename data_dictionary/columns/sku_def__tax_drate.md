@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__tax_drate
-title: sku def · tax drate
+title: Tax Drate (SKU_DEF)
 display_names:
 - TAX_DRATE
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột TAX_DRATE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TAX_DRATE
-- 'db2:sku_def.TAX_DRATE: top=0.00(1000)'
+- business_prose
 ---
 
-# sku def · tax drate
+# Tax Drate (SKU_DEF)
 
 **Semantic key:** `sku_def__tax_drate` · **Cột vật lý:** `TAX_DRATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TAX_DRATE trên SKU_DEF. db2:sku_def: top 0.00.
+Thuế suất giảm / đặc biệt (nếu có) trên master SKU.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `TAX_DRATE` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.TAX_DRATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `TAX_DRATE` | numeric | Chỉ số đo lường (tax drate) trên master sản phẩm (SKU) |

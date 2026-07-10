@@ -1,6 +1,6 @@
 ---
 semantic_key: pmt_code
-title: pmt code
+title: Hình thức thanh toán (tiền mặt, thẻ, chuyển khoản, …) (PMT_CODE)
 display_names:
 - PMT_CODE
 kind: code
@@ -15,36 +15,24 @@ facts:
 - 'Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space)'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:cash_st.PMT_CODE: top=CASH(1000)'
+- business_prose
 ---
 
-# pmt code
+# Hình thức thanh toán (tiền mặt, thẻ, chuyển khoản, …) (PMT_CODE)
 
 **Semantic key:** `pmt_code` · **Cột vật lý:** `PMT_CODE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột PMT_CODE trên CASH_ST. db2:cash_st: CASH.
+Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space) (ngữ cảnh: quỹ tiền mặt theo mệnh giá).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cash_st` | `PMT_CODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cash_st.PMT_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `CASH`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cash_st` | `PMT_CODE` | char | Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space) |
 
 ## Join
 
 Thường join: `TRANS_NUM`
-
-## Ghi chú thêm
-
-- Hình thức TT: CASH, CARD, BANK, OWNCP (có thể có space)

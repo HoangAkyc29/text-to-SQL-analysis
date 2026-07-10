@@ -1,6 +1,6 @@
 ---
 semantic_key: supplier__moq
-title: supplier · moq
+title: Số lượng đặt hàng tối thiểu (MOQ) (SUPPLIER)
 display_names:
 - MOQ
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột MOQ
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for MOQ
-- 'db2:supplier.MOQ: top=0.000(1000)'
+- business_prose
 ---
 
-# supplier · moq
+# Số lượng đặt hàng tối thiểu (MOQ) (SUPPLIER)
 
 **Semantic key:** `supplier__moq` · **Cột vật lý:** `MOQ`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MOQ trên SUPPLIER. db2:supplier: top 0.000.
+Minimum Order Quantity — số lượng đặt hàng tối thiểu với NCC.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:supplier` | `MOQ` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:supplier.MOQ`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:supplier` | `MOQ` | numeric | Số lượng đặt hàng tối thiểu (moq) trên master nhà cung cấp |

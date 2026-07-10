@@ -1,6 +1,6 @@
 ---
 semantic_key: trans_type
-title: trans type
+title: Kiểu giao dịch chi tiết hơn TRANS_CODE (TRANS_TYPE)
 display_names:
 - TRANS_TYPE
 kind: text
@@ -23,34 +23,26 @@ facts:
 - Phân loại giao dịch thẻ
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:ctrans.TRANS_TYPE: top=01(1000)'
+- business_prose
 ---
 
-# trans type
+# Kiểu giao dịch chi tiết hơn TRANS_CODE (TRANS_TYPE)
 
 **Semantic key:** `trans_type` · **Cột vật lý:** `TRANS_TYPE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TRANS_TYPE trên CRDTRANS, CRDTRANS_ARC, CRDTRANS_TMP. db2:ctrans: top 01.
+Phân loại chi tiết loại giao dịch — bổ sung cho TRANS_CODE.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:crdtrans_arc` | `TRANS_TYPE` | char | Không có giá trị trong sample |
-| `db2:crdtrans` | `TRANS_TYPE` | char | Không có giá trị trong sample |
-| `db2:crdtrans_tmp` | `TRANS_TYPE` | char | Không có giá trị trong sample |
-| `db2:ctrans` | `TRANS_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:ctrans.TRANS_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `01`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:crdtrans_arc` | `TRANS_TYPE` | char | Phân loại giao dịch thẻ |
+| `db2:crdtrans` | `TRANS_TYPE` | char | Phân loại giao dịch thẻ |
+| `db2:crdtrans_tmp` | `TRANS_TYPE` | char | Phân loại giao dịch thẻ |
+| `db2:ctrans` | `TRANS_TYPE` | char | Phân loại giao dịch thẻ |
 
 ## Ghi chú thêm
 

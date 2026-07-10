@@ -1,6 +1,6 @@
 ---
 semantic_key: cscard__radius
-title: cscard · radius
+title: Radius (CSCARD)
 display_names:
 - RADIUS
 kind: measure
@@ -10,37 +10,23 @@ tables:
   type: int
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột RADIUS
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for RADIUS
-- 'db2:cscard.RADIUS: min=0.0 max=0.0'
+- business_prose
 ---
 
-# cscard · radius
+# Radius (CSCARD)
 
 **Semantic key:** `cscard__radius` · **Cột vật lý:** `RADIUS`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột RADIUS trên CSCARD. db2:cscard: 0.0…0.0.
+Bán kính / phạm vi cửa hàng áp dụng thẻ (geo radius).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `RADIUS` | int | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cscard.RADIUS`
-- Null rate trong sample: 0%
-- Numeric range: 0.0 … 0.0
-- Ví dụ: 0, 0, 0, 0, 0
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `RADIUS` | int | Chỉ số đo lường (radius) trên master thẻ khách hàng thân thiết |

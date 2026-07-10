@@ -1,6 +1,6 @@
 ---
 semantic_key: barcode
-title: barcode
+title: Mã vạch quét tại quầy (EAN/GTIN) (BARCODE)
 display_names:
 - BARCODE
 kind: identifier
@@ -18,35 +18,25 @@ facts:
 - Mã vạch
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db2:cscard.BARCODE: top=239010000672(1), 230000009176(1), 230000006719(1), 239010001754(1),
-  230000009700(1)'
+- business_prose
 ---
 
-# barcode
+# Mã vạch quét tại quầy (EAN/GTIN) (BARCODE)
 
 **Semantic key:** `barcode` · **Cột vật lý:** `BARCODE`
 
 ## Ý nghĩa nghiệp vụ
 
-Mã vạch
+Mã vạch quét POS — join BARCODE ↔ SKU_DEF để tra SKU.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `BARCODE` | char | có dữ liệu |
-| `db2:pmcrdinf` | `BARCODE` | char | Không có giá trị trong sample |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `BARCODE` | char | Mã vạch quét tại quầy (ean/gtin) trên master thẻ khách hàng thân thiết |
+| `db2:pmcrdinf` | `BARCODE` | char | Mã vạch quét tại quầy (ean/gtin) trên master thẻ PM / voucher |
 
 ## Join
 
 Thường join: `TRANS_NUM`
-
-## Ghi chú thêm
-

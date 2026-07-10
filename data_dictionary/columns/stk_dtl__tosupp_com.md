@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tosupp_com
-title: stk dtl · tosupp com
+title: Tosupp Com (STK_DTL)
 display_names:
 - TOSUPP_COM
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOSUPP_COM'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOSUPP_COM
-- 'db2:stk_dtl.TOSUPP_COM: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · tosupp com
+# Tosupp Com (STK_DTL)
 
 **Semantic key:** `stk_dtl__tosupp_com` · **Cột vật lý:** `TOSUPP_COM`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOSUPP_COM trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh cuối kỳ — nhập từ nhà cung cấp (hoa hồng / chi phí liên quan) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOSUPP_COM` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOSUPP_COM`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOSUPP_COM` | numeric | Cuối kỳ — movement: TOSUPP_COM |
 
 ## Ghi chú thêm
 

@@ -1,6 +1,6 @@
 ---
 semantic_key: ctrans__bill
-title: ctrans · bill
+title: Bill (CTRANS)
 display_names:
 - BILL
 kind: identifier
@@ -14,32 +14,23 @@ facts:
 - Tham chiếu bill / chứng từ gốc
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BILL
-- 'db2:ctrans.BILL: top=True(1000)'
+- business_prose
 ---
 
-# ctrans · bill
+# Bill (CTRANS)
 
 **Semantic key:** `ctrans__bill` · **Cột vật lý:** `BILL`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BILL trên CTRANS. db2:ctrans: top True.
+Cờ tham chiếu bill POS gốc — link CTRANS ↔ bán lẻ.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:ctrans` | `BILL` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:ctrans.BILL`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:ctrans` | `BILL` | bit | Tham chiếu bill / chứng từ gốc |
 
 ## Ghi chú thêm
 

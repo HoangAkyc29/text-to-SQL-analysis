@@ -1,6 +1,6 @@
 ---
 semantic_key: account__bank_acc
-title: account · bank acc
+title: Bank Acc (ACCOUNT)
 display_names:
 - BANK_ACC
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột BANK_ACC
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BANK_ACC
-- 'db2:account.BANK_ACC: top=False(1000)'
+- business_prose
 ---
 
-# account · bank acc
+# Bank Acc (ACCOUNT)
 
 **Semantic key:** `account__bank_acc` · **Cột vật lý:** `BANK_ACC`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BANK_ACC trên ACCOUNT. db2:account: top False.
+Cờ tài khoản ngân hàng — phân biệt TK công nợ vs bank.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:account` | `BANK_ACC` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:account.BANK_ACC`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:account` | `BANK_ACC` | bit | Cờ / trạng thái (bank acc) trên tài khoản kế toán công nợ |

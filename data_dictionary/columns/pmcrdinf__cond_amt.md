@@ -1,6 +1,6 @@
 ---
 semantic_key: pmcrdinf__cond_amt
-title: pmcrdinf · cond amt
+title: Số tiền / giá trị (PMCRDINF)
 display_names:
 - COND_AMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số tiềnCOND_AMT
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for COND_AMT
-- 'db2:pmcrdinf.COND_AMT: top=0(1000)'
+- business_prose
 ---
 
-# pmcrdinf · cond amt
+# Số tiền / giá trị (PMCRDINF)
 
 **Semantic key:** `pmcrdinf__cond_amt` · **Cột vật lý:** `COND_AMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột COND_AMT trên PMCRDINF. db2:pmcrdinf: top 0.
+Ngưỡng giá trị bill tối thiểu để voucher PM có hiệu lực (điều kiện sử dụng).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdinf` | `COND_AMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:pmcrdinf.COND_AMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdinf` | `COND_AMT` | numeric | Số tiềnCOND_AMT |
 
 ## Ghi chú thêm
 

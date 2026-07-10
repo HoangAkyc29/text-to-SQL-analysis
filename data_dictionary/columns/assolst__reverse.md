@@ -1,6 +1,6 @@
 ---
 semantic_key: assolst__reverse
-title: assolst · reverse
+title: Reverse (ASSOLST)
 display_names:
 - REVERSE
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột REVERSE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for REVERSE
-- 'db2:assolst.REVERSE: top=True(1000)'
+- business_prose
 ---
 
-# assolst · reverse
+# Reverse (ASSOLST)
 
 **Semantic key:** `assolst__reverse` · **Cột vật lý:** `REVERSE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột REVERSE trên ASSOLST. db2:assolst: top True.
+Cờ combo reverse — đảo chiều quy tắc gộp (bundle ngược / unbundle).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:assolst` | `REVERSE` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:assolst.REVERSE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `True`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:assolst` | `REVERSE` | bit | Cờ / trạng thái (reverse) trên master combo / bundle |

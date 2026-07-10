@@ -1,6 +1,6 @@
 ---
 semantic_key: crd_info__beg_bamt
-title: crd info · beg bamt
+title: Beg Bamt (CRD_INFO)
 display_names:
 - BEG_BAMT
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Số dư đầu kỳ: BEG_BAMT'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BEG_BAMT
-- 'db2:crd_info.BEG_BAMT: top=0(998), 3057750(1), 175349(1)'
+- business_prose
 ---
 
-# crd info · beg bamt
+# Beg Bamt (CRD_INFO)
 
 **Semantic key:** `crd_info__beg_bamt` · **Cột vật lý:** `BEG_BAMT`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BEG_BAMT trên CRD_INFO. db2:crd_info: top 0.
+Doanh thu mua tích điểm đầu kỳ (beginning buy amount) trên CRD_INFO.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BEG_BAMT` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BEG_BAMT`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BEG_BAMT` | numeric | Số dư đầu kỳ: BEG_BAMT |
 
 ## Ghi chú thêm
 

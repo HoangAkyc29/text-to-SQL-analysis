@@ -1,6 +1,6 @@
 ---
 semantic_key: pmcrdstk__rcv_qty
-title: pmcrdstk · rcv qty
+title: Số lượng (PMCRDSTK)
 display_names:
 - RCV_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - SL nhận
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for RCV_QTY
-- 'db2:pmcrdstk.RCV_QTY: top=1(349), 2(145), 3(85), 0(77), 4(48)'
+- business_prose
 ---
 
-# pmcrdstk · rcv qty
+# Số lượng (PMCRDSTK)
 
 **Semantic key:** `pmcrdstk__rcv_qty` · **Cột vật lý:** `RCV_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột RCV_QTY trên PMCRDSTK. db2:pmcrdstk: top 0, 2, 46.
+Số lượng — bảng PMCRDSTK.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:pmcrdstk` | `RCV_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:pmcrdstk.RCV_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈8; top: `0`×13, `2`×1, `46`×1, `54`×1, `41`×1, `47`×1, `29`×1, `857`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:pmcrdstk` | `RCV_QTY` | numeric | SL nhận |
 
 ## Ghi chú thêm
 

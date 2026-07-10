@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__ispack
-title: sku def · ispack
+title: Cờ thuộc tính (pack) (SKU_DEF)
 display_names:
 - IsPack
 kind: flag
@@ -10,37 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột IsPack
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for IsPack
-- 'db2:sku_def.IsPack: top=False(1000)'
+- business_prose
 ---
 
-# sku def · ispack
+# Cờ thuộc tính (pack) (SKU_DEF)
 
 **Semantic key:** `sku_def__ispack` · **Cột vật lý:** `IsPack`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ISPACK trên SKU_DEF. db2:sku_def: top False.
+Cờ thuộc tính sản phẩm (pack) trên master SKU — yes/no.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `IsPack` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.IsPack`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
-- Cột IsPack
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `IsPack` | bit | Cờ thuộc tính (pack) trên master sản phẩm (SKU) |

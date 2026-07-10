@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_def__isreserv
-title: sku def · isreserv
+title: Cờ thuộc tính (reserv) (SKU_DEF)
 display_names:
 - IsReserv
 kind: flag
@@ -10,37 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột IsReserv
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for IsReserv
-- 'db2:sku_def.IsReserv: top=False(1000)'
+- business_prose
 ---
 
-# sku def · isreserv
+# Cờ thuộc tính (reserv) (SKU_DEF)
 
 **Semantic key:** `sku_def__isreserv` · **Cột vật lý:** `IsReserv`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột ISRESERV trên SKU_DEF. db2:sku_def: top False.
+Cờ thuộc tính sản phẩm (reserv) trên master SKU — yes/no.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_def` | `IsReserv` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_def.IsReserv`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
-- Cột IsReserv
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_def` | `IsReserv` | bit | Cờ thuộc tính (reserv) trên master sản phẩm (SKU) |

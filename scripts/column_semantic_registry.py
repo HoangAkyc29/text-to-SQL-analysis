@@ -164,101 +164,132 @@ SEMANTIC_TITLES: dict[str, str] = {
     "sale_header_store_id": "Cửa hàng trên header bill",
     "sale_customer_id": "Mã khách trên header bill",
     "product_barcode": "Barcode quét POS — join BARCODE ↔ SKU_DEF",
+    "cust_name": "Tên khách hàng",
+    "dept_id": "Mã ngành hàng (merchandise department)",
+    "vat_amt": "Tiền thuế GTGT (VAT_AMT)",
+    "discount": "Giảm giá / chiết khấu (DISCOUNT)",
+    "comm_amt": "Tiền hoa hồng (COMM_AMT)",
+    "tax_rate": "Thuế suất (TAX_RATE)",
+    "price": "Đơn giá bán (PRICE)",
 }
 
-# Business prose paragraphs (sample-informed where noted)
+# Business prose — natural language (exploration-informed, no sample dumps in text)
 SEMANTIC_BUSINESS: dict[str, str] = {
     "loyalty_card_master_id": (
-        "Định danh thẻ khách hàng thân thiết trên master CSCARD. Sample db2: prefix `A` "
-        "(vd. A10000000003). Dùng join CRDTRANS/CRD_INFO, lọc VIP theo prefix E/F/H. "
-        "Khác với CARD_ID trên STRANS (chỉ là thẻ quét trên bill, thường rỗng)."
+        "Định danh thẻ khách hàng thân thiết trên master CSCARD/CRD_INFO. "
+        "Thẻ thường có prefix A (phổ thông) hoặc E/F/H (VIP). "
+        "Dùng join CRDTRANS và tra cứu điểm; khác CARD_ID trên STRANS (chỉ khi quét thẻ lúc bán, thường để trống)."
     ),
     "cscard_alternate_card_slot": (
-        "Cột CARD_ID2 trên CSCARD — slot thẻ phụ / mã liên kết thứ hai trong master loyalty. "
-        "Sample TOP 20: toàn bộ rỗng → có thể legacy hoặc ít dùng; không nhầm với CARD_ID chính."
+        "Slot thẻ phụ (CARD_ID2) trên master CSCARD — mã liên kết thứ hai nếu có. "
+        "Ít được populate; không nhầm với CARD_ID chính."
     ),
     "sale_line_loyalty_card_ref": (
-        "Thẻ loyalty gắn trên dòng STRANS khi thanh toán có quét thẻ. Sample gần như luôn rỗng "
-        "trong các bill bán lẻ thông thường — chỉ populate khi POS ghi nhận CARD_ID trên dòng."
+        "Thẻ loyalty gắn trên dòng STRANS khi POS ghi nhận quét thẻ lúc bán. "
+        "Thường để trống với bill không loyalty."
     ),
     "amount_bill_header": (
-        "Tổng tiền bill trên TRANSHDR (TRANS_CODE=113). Dùng cho điều kiện min bill hợp lệ. "
-        "Sample: 410000, 2206000, 732000 VND. Khác grain với AMOUNT dòng STRANS (line-level)."
+        "Tổng tiền cả bill trên TRANSHDR (TRANS_CODE=113). "
+        "Dùng cho điều kiện bill tối thiểu (min bill). Khác grain với AMOUNT từng dòng STRANS."
     ),
     "amount_line_item": (
-        "Giá trị/thành tiền trên dòng STRANS. Sample có 0.00 (gift/khuyến mãi) và các mức 120k–725k. "
-        "Không dùng thay TRANSHDR.AMOUNT khi lọc min bill."
+        "Thành tiền / giá trị trên dòng STRANS. "
+        "Có thể bằng 0 với quà tặng hoặc khuyến mãi. Không thay TRANSHDR.AMOUNT khi lọc min bill."
     ),
     "amount_payment": (
-        "Số tiền trên PMTRANS — thanh toán bill. Sample có giá trị âm (chi quỹ/refund). "
-        "TRANS_CODE 222/008 phổ biến trong sample."
+        "Số tiền trên PMTRANS — thanh toán hoặc chi quỹ bill. "
+        "Có thể âm khi hoàn / điều chỉnh quỹ."
     ),
     "loyalty_purchase_tx_count": (
-        "CRD_INFO.BUY_TRS — đếm số lần phát sinh mua liên quan tích điểm. Sample: 0–17, "
-        "phần lớn 1–2. Không phải số tiền."
+        "Số lần phát sinh mua được tính vào tích điểm (CRD_INFO.BUY_TRS). "
+        "Là số lượng giao dịch, không phải số tiền."
     ),
     "sale_document_number": (
-        "TRANS_NUM liên kết TRANSHDR ↔ STRANS ↔ PMTRANS. Sample STRANS: 000001132605000001; "
-        "PMTRANS prefix 000AB008/000AB222."
+        "Số chứng từ / bill (TRANS_NUM) — khóa join TRANSHDR ↔ STRANS ↔ PMTRANS."
     ),
     "product_internal_id": (
-        "SKU_ID nội bộ (290…). Join STRANS ↔ SKU_DEF. Khác user-facing SKU_CODE (8 chữ số)."
+        "Mã sản phẩm nội bộ (SKU_ID). Join STRANS ↔ SKU_DEF/BARCODE. "
+        "Khác mã SKU_CODE 8 số mà user thường nhập."
     ),
     "loyalty_tx_card_id": (
-        "Thẻ trong giao dịch CRDTRANS — luôn populate (khác STRANS.CARD_ID). Sample: prefix A/E; "
-        "E… thường VIP. Join qua CARD_ID tới CSCARD/CRD_INFO."
+        "Thẻ trong giao dịch tích điểm CRDTRANS — luôn populate (khác STRANS.CARD_ID). "
+        "Prefix E thường gắn VIP."
     ),
     "loyalty_tx_amount": (
-        "Doanh thu gốc dùng tính điểm trên CRDTRANS (811 live) / CRDTRANS_ARC (812 archive). "
-        "Sample live: 450k–10M dương. Sample archive: **âm** (-5M, -100k) khi đổi quà/trừ điểm. "
-        "Quy tắc quan sát: AMOUNT/MARK ≈ 50,000 VND/điểm."
+        "Doanh thu gốc dùng tính điểm trên CRDTRANS (811) / CRDTRANS_ARC (812). "
+        "Archive có thể âm khi đổi quà. Quy tắc tham khảo: ~50.000 VND / 1 điểm."
     ),
     "loyalty_points_earned": (
-        "Điểm cộng trên CRDTRANS (TRANS_CODE=811). Sample: 4–66 điểm; tỷ lệ ~AMOUNT/50000."
+        "Điểm cộng trên CRDTRANS (TRANS_CODE=811) khi tích từ mua hàng."
     ),
     "loyalty_points_redeemed": (
-        "Điểm trừ trên CRDTRANS_ARC (TRANS_CODE=812). Sample: -100, -500 điểm kèm AMOUNT âm "
-        "(đổi thẻ quà 50k/100k). REMARK mô tả: 'tang 02 the 50k=100d', 'giam 100 diem…'."
+        "Điểm trừ trên CRDTRANS_ARC (TRANS_CODE=812) khi đổi quà hoặc điều chỉnh thủ công."
     ),
     "loyalty_tx_operator_note": (
-        "REMARK do nhân viên nhập tay khi điều chỉnh thẻ — giải thích lý do trừ/cộng điểm, "
-        "đổi quà, tích nhầm mã thẻ. Sample: 'tich nham ma the', 'giam 100 diem = 01 the 100k'."
+        "Ghi chú do nhân viên nhập khi điều chỉnh thẻ — giải thích trừ/cộng điểm, đổi quà, sửa tích nhầm."
     ),
     "loyalty_accrual_document_type": (
-        "TRANS_CODE=811 trên CRDTRANS (db2 live) — giao dịch tích điểm từ mua hàng/thanh toán."
+        "Loại giao dịch tích điểm live (TRANS_CODE=811 trên CRDTRANS db2)."
     ),
     "loyalty_adjustment_document_type": (
-        "TRANS_CODE=812 trên CRDTRANS_ARC (db1 archive) — điều chỉnh thủ công, đổi quà, trừ điểm."
+        "Loại giao dịch điều chỉnh / đổi quà (TRANS_CODE=812 trên CRDTRANS_ARC db1)."
     ),
     "loyalty_points_balance": (
-        "Số dư điểm tích lũy trên CRD_INFO (aggregate theo thẻ). Khác MARK trên CRDTRANS (phát sinh từng GD)."
+        "Số dư điểm tích lũy aggregate trên CRD_INFO — khác điểm phát sinh từng dòng CRDTRANS."
     ),
     "loyalty_lifetime_purchase_amount": (
-        "CRD_INFO.BUY_AMT — tổng doanh thu mua đã tích điểm lifetime. Sample: 1M–5.9M VND."
+        "Tổng doanh thu mua đã tích điểm lifetime (CRD_INFO.BUY_AMT)."
     ),
     "loyalty_lifetime_points_earned": (
-        "CRD_INFO.BUY_MARK — tổng điểm đã tích lifetime. Sample: 1–5 điểm phổ biến."
+        "Tổng điểm đã tích lifetime (CRD_INFO.BUY_MARK)."
     ),
     "sale_line_sku_id": (
-        "SKU_ID trên dòng STRANS — join SKU_DEF/BARCODE để lọc quà tặng, hàng KM. "
-        "User thường nhập SKU_CODE 8 số; trong DB là mã nội bộ 290…"
+        "Mã SKU trên dòng STRANS — join SKU_DEF/BARCODE để lọc quà tặng, hàng KM. "
+        "User hay tra theo SKU_CODE 8 số."
     ),
     "sale_line_quantity": (
-        "QTY trên STRANS — số lượng bán. Gift line có thể QTY=1, AMOUNT=0."
+        "Số lượng bán trên dòng STRANS. Dòng quà tặng có thể QTY=1, AMOUNT=0."
     ),
     "sale_header_document_type": (
-        "TRANS_CODE trên TRANSHDR — 113 = header bill bán lẻ. Join STRANS/PMTRANS qua TRANS_NUM."
+        "Loại chứng từ header bill (TRANSHDR) — 113 = bán lẻ POS."
     ),
     "payment_method_code": (
-        "PMT_CODE trên PMTRANS: CASH, CARD, BANK. Phân biệt hình thức thanh toán trong bill."
+        "Hình thức thanh toán trên PMTRANS: tiền mặt (CASH), thẻ (CARD), chuyển khoản (BANK), …"
     ),
     "product_barcode": (
-        "Barcode EAN/GTIN trên BARCODE — quét POS. Sample: 13 chữ số, ISDEFAULT flag. "
-        "Join SKU_ID ↔ STRANS qua lookup SKU_DEF."
+        "Mã vạch EAN/GTIN trên BARCODE — quét POS, map sang SKU_ID qua master."
     ),
     "sale_customer_id": (
-        "CUST_ID trên TRANSHDR — khách gắn bill. Sample thường rỗng nếu KH không đăng ký; "
-        "khác CSCARD.CUST_ID (master loyalty)."
+        "Mã khách trên header bill (TRANSHDR). Thường trống nếu KH không đăng ký; "
+        "khác CUST_ID trên master loyalty CSCARD."
+    ),
+    "cust_name": (
+        "Tên khách hàng đã đăng ký hoặc ghi nhận trên chứng từ. "
+        "Trên CUSTOMER là tên master; trên INV_ISS là tên in phiếu xuất."
+    ),
+    "dept_id": (
+        "Mã ngành hàng / phòng ban merchandise — phân loại SKU và nhà cung cấp theo cây ngành hàng nội bộ."
+    ),
+    "vat_amt": (
+        "Số tiền thuế GTGT (VAT) ghi trên chứng từ — grain phụ thuộc bảng. "
+        "Trên STRANS/STRANS_TMP/SUSPEND là thuế từng dòng bán; "
+        "TRANSHDR/TRANSHDR_ARC là tổng thuế cả bill; "
+        "CRDTRANS/CRDTRANS_ARC/CRDTRANS_TMP là thuế trên doanh thu loyalty; "
+        "INV_HDR/INV_ISS là thuế trên chứng từ kho; ST_ORDER là thuế trên đơn nội bộ. "
+        "Không cộng VAT dòng STRANS để suy ra min bill — dùng TRANSHDR.AMOUNT / TRANSHDR.VAT_AMT."
+    ),
+    "debt_no": (
+        "Số chứng từ công nợ — khóa join DEBT ↔ CTRANS ↔ thanh toán. "
+        "Dùng tra công nợ phải thu/phải trả khách hoặc NCC."
+    ),
+    "debt_date": "Ngày phát sinh công nợ trên chứng từ DEBT / CTRANS.",
+    "buy_amt": (
+        "Ngưỡng giá trị mua / min bill trong rule khuyến mãi RDISCINF — "
+        "khác BUY_AMT trên CRD_INFO (lifetime loyalty)."
+    ),
+    "cdisc_rate": "Tỷ lệ chiết khấu coupon (%) trên dòng bán STRANS / đơn KM.",
+    "rdiscinf__gift": (
+        "Cờ đánh dấu rule quà tặng — khi bật, KM trả quà thay vì (hoặc kèm) giảm giá tiền."
     ),
 }
 

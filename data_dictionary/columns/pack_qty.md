@@ -1,6 +1,6 @@
 ---
 semantic_key: pack_qty
-title: pack qty
+title: Số lượng trong pack / thùng (PACK_QTY)
 display_names:
 - PACK_QTY
 kind: measure
@@ -23,50 +23,23 @@ facts:
 - Số lượng gói
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.PACK_QTY: top=0(1000)'
-- 'db2:strans.PACK_QTY: top=0(1000)'
-- 'db2:strans_tmp.PACK_QTY: top=0(1000)'
-- 'db2:suspend.PACK_QTY: top=0(1000)'
+- business_prose
 ---
 
-# pack qty
+# Số lượng trong pack / thùng (PACK_QTY)
 
 **Semantic key:** `pack_qty` · **Cột vật lý:** `PACK_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột PACK_QTY trên STRANS, STRANS_TMP, SUSPEND. db1:strans: top 0; db2:strans: top 0; db2:strans_tmp: top 0; db2:suspend: top 0.
+Số lượng gói. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `PACK_QTY` | numeric | có dữ liệu |
-| `db2:strans` | `PACK_QTY` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `PACK_QTY` | numeric | có dữ liệu |
-| `db2:suspend` | `PACK_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.PACK_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:strans.PACK_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:strans_tmp.PACK_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-### `db2:suspend.PACK_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
-- Số lượng gói
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `PACK_QTY` | numeric | Số lượng gói |
+| `db2:strans` | `PACK_QTY` | numeric | Số lượng gói |
+| `db2:strans_tmp` | `PACK_QTY` | numeric | Số lượng gói |
+| `db2:suspend` | `PACK_QTY` | numeric | Số lượng gói |

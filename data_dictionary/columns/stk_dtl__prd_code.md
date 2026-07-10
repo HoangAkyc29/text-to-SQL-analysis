@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__prd_code
-title: stk dtl · prd code
+title: Mã phân loại prd (STK_DTL)
 display_names:
 - PRD_CODE
 kind: code
@@ -15,32 +15,23 @@ facts:
 - Mã kỳ tồn kho
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for PRD_CODE
-- 'db2:stk_dtl.PRD_CODE: top=202211(1000)'
+- business_prose
 ---
 
-# stk dtl · prd code
+# Mã phân loại prd (STK_DTL)
 
 **Semantic key:** `stk_dtl__prd_code` · **Cột vật lý:** `PRD_CODE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột PRD_CODE trên STK_DTL. db2:stk_dtl: top 202211.
+Mã kỳ báo cáo tồn kho — xác định chu kỳ (tháng/tuần) của bản ghi STK_DTL.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `PRD_CODE` | varchar | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.PRD_CODE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `202211`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `PRD_CODE` | varchar | Mã kỳ tồn kho |
 
 ## Join
 

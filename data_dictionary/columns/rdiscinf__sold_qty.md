@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__sold_qty
-title: rdiscinf · sold qty
+title: Số lượng (RDISCINF)
 display_names:
 - SOLD_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - Số lượngSOLD_QTY
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for SOLD_QTY
-- 'db2:rdiscinf.SOLD_QTY: top=1.000(977), 0.000(21), 2.000(1), 100.000(1)'
+- business_prose
 ---
 
-# rdiscinf · sold qty
+# Số lượng (RDISCINF)
 
 **Semantic key:** `rdiscinf__sold_qty` · **Cột vật lý:** `SOLD_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột SOLD_QTY trên RDISCINF. db2:rdiscinf: top 0.010, 1.000.
+Ngưỡng số lượng đã bán / cần mua để rule KM kích hoạt.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `SOLD_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.SOLD_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `0.010`×17, `1.000`×3
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `SOLD_QTY` | numeric | Số lượngSOLD_QTY |
 
 ## Ghi chú thêm
 

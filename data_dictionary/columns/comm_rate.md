@@ -1,6 +1,6 @@
 ---
 semantic_key: comm_rate
-title: comm rate
+title: Tỷ lệ hoa hồng (%) (COMM_RATE)
 display_names:
 - COMM_RATE
 kind: measure
@@ -32,68 +32,26 @@ facts:
 - Tỷ lệ hoa hồng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.COMM_RATE: top=0.00(1000)'
-- 'db2:customer.COMM_RATE: top=0.00(1000)'
-- 'db2:st_order.COMM_RATE: top=0.00(1000)'
-- 'db2:strans.COMM_RATE: top=0.00(1000)'
-- 'db2:strans_tmp.COMM_RATE: top=0.00(1000)'
-- 'db2:supplier.COMM_RATE: top=0.00(1000)'
-- 'db2:suspend.COMM_RATE: top=0.00(1000)'
+- business_prose
 ---
 
-# comm rate
+# Tỷ lệ hoa hồng (%) (COMM_RATE)
 
 **Semantic key:** `comm_rate` · **Cột vật lý:** `COMM_RATE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột COMM_RATE trên CUSTOMER, STRANS, STRANS_TMP. db1:strans: top 0.00; db2:customer: top 0.00; db2:st_order: top 0.00; db2:strans: top 0.00; db2:strans_tmp: top 0.00; db2:supplier: top 0.00; db2:suspend: top 0.00.
+Tỷ lệ hoa hồng. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …); Kho / mua hàng (ST_ORDER); Master / danh mục (CUSTOMER, SUPPLIER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `COMM_RATE` | numeric | có dữ liệu |
-| `db2:customer` | `COMM_RATE` | numeric | có dữ liệu |
-| `db2:st_order` | `COMM_RATE` | decimal | có dữ liệu |
-| `db2:strans` | `COMM_RATE` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `COMM_RATE` | numeric | có dữ liệu |
-| `db2:supplier` | `COMM_RATE` | numeric | có dữ liệu |
-| `db2:suspend` | `COMM_RATE` | decimal | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:customer.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:st_order.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:strans_tmp.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:supplier.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:suspend.COMM_RATE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
-- Tỷ lệ hoa hồng
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `COMM_RATE` | numeric | Tỷ lệ hoa hồng |
+| `db2:customer` | `COMM_RATE` | numeric | Tỷ lệ hoa hồng |
+| `db2:st_order` | `COMM_RATE` | decimal | Tỷ lệ hoa hồng |
+| `db2:strans` | `COMM_RATE` | numeric | Tỷ lệ hoa hồng |
+| `db2:strans_tmp` | `COMM_RATE` | numeric | Tỷ lệ hoa hồng |
+| `db2:supplier` | `COMM_RATE` | numeric | Tỷ lệ hoa hồng |
+| `db2:suspend` | `COMM_RATE` | decimal | Tỷ lệ hoa hồng |

@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frcamt_sur
-title: stk dtl · frcamt sur
+title: Frcamt Sur (STK_DTL)
 display_names:
 - FRCAMT_SUR
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRCAMT_SUR'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRCAMT_SUR
-- 'db2:stk_dtl.FRCAMT_SUR: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · frcamt sur
+# Frcamt Sur (STK_DTL)
 
 **Semantic key:** `stk_dtl__frcamt_sur` · **Cột vật lý:** `FRCAMT_SUR`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRCAMT_SUR trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh đầu kỳ — tích lũy theo giá trị tiền (thặng dư / chênh lệch tồn) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRCAMT_SUR` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRCAMT_SUR`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRCAMT_SUR` | numeric | Đầu kỳ — movement: FRCAMT_SUR |
 
 ## Ghi chú thêm
 

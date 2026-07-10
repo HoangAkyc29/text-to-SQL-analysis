@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__frsupp_com
-title: stk dtl · frsupp com
+title: Frsupp Com (STK_DTL)
 display_names:
 - FRSUPP_COM
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Đầu kỳ — movement: FRSUPP_COM'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for FRSUPP_COM
-- 'db2:stk_dtl.FRSUPP_COM: top=0.00(1000)'
+- business_prose
 ---
 
-# stk dtl · frsupp com
+# Frsupp Com (STK_DTL)
 
 **Semantic key:** `stk_dtl__frsupp_com` · **Cột vật lý:** `FRSUPP_COM`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FRSUPP_COM trên STK_DTL. db2:stk_dtl: top 0.00.
+Phát sinh đầu kỳ — nhập từ nhà cung cấp (hoa hồng / chi phí liên quan) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `FRSUPP_COM` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.FRSUPP_COM`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `FRSUPP_COM` | numeric | Đầu kỳ — movement: FRSUPP_COM |
 
 ## Ghi chú thêm
 

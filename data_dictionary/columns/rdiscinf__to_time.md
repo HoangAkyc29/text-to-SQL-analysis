@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__to_time
-title: rdiscinf · to time
+title: Giờ to (RDISCINF)
 display_names:
 - TO_TIME
 kind: measure
@@ -10,36 +10,23 @@ tables:
   type: numeric
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột TO_TIME
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TO_TIME
-- 'db2:rdiscinf.TO_TIME: top=0(998), 43200(2)'
+- business_prose
 ---
 
-# rdiscinf · to time
+# Giờ to (RDISCINF)
 
 **Semantic key:** `rdiscinf__to_time` · **Cột vật lý:** `TO_TIME`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TO_TIME trên RDISCINF. db2:rdiscinf: top 0.
+Giờ kết thúc áp dụng rule trong ngày.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `TO_TIME` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.TO_TIME`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `TO_TIME` | numeric | Giờ to trên rule khuyến mãi / chiết khấu |

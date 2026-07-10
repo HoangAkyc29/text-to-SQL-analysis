@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__chg_type
-title: rdiscinf · chg type
+title: Chg Type (RDISCINF)
 display_names:
 - CHG_TYPE
 kind: text
@@ -10,36 +10,23 @@ tables:
   type: char
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CHG_TYPE
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for CHG_TYPE
-- 'db2:rdiscinf.CHG_TYPE: top=02(949), 01(29), 03(22)'
+- business_prose
 ---
 
-# rdiscinf · chg type
+# Chg Type (RDISCINF)
 
 **Semantic key:** `rdiscinf__chg_type` · **Cột vật lý:** `CHG_TYPE`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CHG_TYPE trên RDISCINF. db2:rdiscinf: top 02.
+Kiểu thay đổi giá trị khi KM kích hoạt (%, tiền, quà, điểm, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `CHG_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.CHG_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `02`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `CHG_TYPE` | char | Thuộc tính chg type trên rule khuyến mãi / chiết khấu |

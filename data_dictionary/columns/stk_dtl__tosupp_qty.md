@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tosupp_qty
-title: stk dtl · tosupp qty
+title: Số lượng (STK_DTL)
 display_names:
 - TOSUPP_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOSUPP_QTY'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOSUPP_QTY
-- 'db2:stk_dtl.TOSUPP_QTY: top=0.000(999), 136.000(1)'
+- business_prose
 ---
 
-# stk dtl · tosupp qty
+# Số lượng (STK_DTL)
 
 **Semantic key:** `stk_dtl__tosupp_qty` · **Cột vật lý:** `TOSUPP_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOSUPP_QTY trên STK_DTL. db2:stk_dtl: top 0.000, 640.000.
+Phát sinh cuối kỳ — nhập từ nhà cung cấp (số lượng) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOSUPP_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOSUPP_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈2; top: `0.000`×19, `640.000`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOSUPP_QTY` | numeric | Cuối kỳ — movement: TOSUPP_QTY |
 
 ## Ghi chú thêm
 

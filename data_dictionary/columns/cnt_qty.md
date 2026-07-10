@@ -1,6 +1,6 @@
 ---
 semantic_key: cnt_qty
-title: cnt qty
+title: Số lượng đếm / count quantity (CNT_QTY)
 display_names:
 - CNT_QTY
 kind: measure
@@ -23,50 +23,23 @@ facts:
 - Số lượngCNT_QTY
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.CNT_QTY: top=0.000(1000)'
-- 'db2:strans.CNT_QTY: top=0.000(1000)'
-- 'db2:strans_tmp.CNT_QTY: top=0.000(1000)'
-- 'db2:suspend.CNT_QTY: top=0.000(1000)'
+- business_prose
 ---
 
-# cnt qty
+# Số lượng đếm / count quantity (CNT_QTY)
 
 **Semantic key:** `cnt_qty` · **Cột vật lý:** `CNT_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CNT_QTY trên STRANS, STRANS_TMP, SUSPEND. db1:strans: top 0.000; db2:strans: top 0.000; db2:strans_tmp: top 0.000; db2:suspend: top 0.000.
+Số lượngCNT_QTY. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `CNT_QTY` | numeric | có dữ liệu |
-| `db2:strans` | `CNT_QTY` | numeric | có dữ liệu |
-| `db2:strans_tmp` | `CNT_QTY` | numeric | có dữ liệu |
-| `db2:suspend` | `CNT_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.CNT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans.CNT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:strans_tmp.CNT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-### `db2:suspend.CNT_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
-
-## Ghi chú thêm
-
-- Số lượngCNT_QTY
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `CNT_QTY` | numeric | Số lượngCNT_QTY |
+| `db2:strans` | `CNT_QTY` | numeric | Số lượngCNT_QTY |
+| `db2:strans_tmp` | `CNT_QTY` | numeric | Số lượngCNT_QTY |
+| `db2:suspend` | `CNT_QTY` | numeric | Số lượngCNT_QTY |

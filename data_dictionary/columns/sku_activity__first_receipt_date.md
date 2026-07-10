@@ -1,6 +1,6 @@
 ---
 semantic_key: sku_activity__first_receipt_date
-title: sku activity · first receipt date
+title: Ngày first receipt (SKU_ACTIVITY)
 display_names:
 - first_receipt_date
 kind: date
@@ -14,33 +14,23 @@ facts:
 - Ngày nhập đầu tiên
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for first_receipt_date
-- 'db2:sku_activity.first_receipt_date: top=2024-01-31(45), 2024-10-31(36), 2024-09-30(34),
-  2024-06-14(13), 2024-03-20(12)'
+- business_prose
 ---
 
-# sku activity · first receipt date
+# Ngày first receipt (SKU_ACTIVITY)
 
 **Semantic key:** `sku_activity__first_receipt_date` · **Cột vật lý:** `first_receipt_date`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột FIRST_RECEIPT_DATE trên SKU_ACTIVITY. db2:sku_activity: top 2024-01-31, 2024-01-26, 2024-10-12.
+Ngày first receipt — bảng SKU_ACTIVITY.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:sku_activity` | `first_receipt_date` | date | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:sku_activity.first_receipt_date`
-- Null rate trong sample: 55%
-- Distinct ≈7; top: `2024-01-31`×2, `2024-01-26`×2, `2024-10-12`×1, `2024-01-20`×1, `2025-08-07`×1, `2024-02-24`×1, `2024-09-30`×1
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:sku_activity` | `first_receipt_date` | date | Ngày nhập đầu tiên |
 
 ## Ghi chú thêm
 

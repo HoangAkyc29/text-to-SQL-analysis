@@ -1,6 +1,6 @@
 ---
 semantic_key: crd_info__beg_omark
-title: crd info · beg omark
+title: Beg Omark (CRD_INFO)
 display_names:
 - BEG_OMARK
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Số dư đầu kỳ: BEG_OMARK'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BEG_OMARK
-- 'db2:crd_info.BEG_OMARK: top=0(999), 150(1)'
+- business_prose
 ---
 
-# crd info · beg omark
+# Beg Omark (CRD_INFO)
 
 **Semantic key:** `crd_info__beg_omark` · **Cột vật lý:** `BEG_OMARK`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BEG_OMARK trên CRD_INFO. db2:crd_info: top 0.
+Điểm other đầu kỳ trên CRD_INFO.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BEG_OMARK` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BEG_OMARK`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BEG_OMARK` | numeric | Số dư đầu kỳ: BEG_OMARK |
 
 ## Ghi chú thêm
 

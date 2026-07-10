@@ -1,6 +1,6 @@
 ---
 semantic_key: cscard__post
-title: cscard · post
+title: Post (CSCARD)
 display_names:
 - POST
 kind: text
@@ -14,32 +14,23 @@ facts:
 - Trạng thái post chứng từ
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for POST
-- 'db2:cscard.POST: top=D(35)'
+- business_prose
 ---
 
-# cscard · post
+# Post (CSCARD)
 
 **Semantic key:** `cscard__post` · **Cột vật lý:** `POST`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột POST trên CSCARD. db2:cscard: top D.
+Trạng thái post / duyệt thẻ trên master CSCARD.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:cscard` | `POST` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:cscard.POST`
-- Null rate trong sample: 15%
-- Distinct ≈1; top: `D`×17
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:cscard` | `POST` | char | Trạng thái post chứng từ |
 
 ## Ghi chú thêm
 

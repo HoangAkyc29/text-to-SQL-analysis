@@ -1,6 +1,6 @@
 ---
 semantic_key: crd_info__beg_otrs
-title: crd info · beg otrs
+title: Beg Otrs (CRD_INFO)
 display_names:
 - BEG_OTRS
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Số dư đầu kỳ: BEG_OTRS'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BEG_OTRS
-- 'db2:crd_info.BEG_OTRS: top=0(1000)'
+- business_prose
 ---
 
-# crd info · beg otrs
+# Beg Otrs (CRD_INFO)
 
 **Semantic key:** `crd_info__beg_otrs` · **Cột vật lý:** `BEG_OTRS`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột BEG_OTRS trên CRD_INFO. db2:crd_info: top 0.
+Số giao dịch other đầu kỳ trên CRD_INFO.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:crd_info` | `BEG_OTRS` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:crd_info.BEG_OTRS`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:crd_info` | `BEG_OTRS` | numeric | Số dư đầu kỳ: BEG_OTRS |
 
 ## Ghi chú thêm
 

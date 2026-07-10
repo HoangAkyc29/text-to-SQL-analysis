@@ -1,6 +1,6 @@
 ---
 semantic_key: customer__block_code
-title: customer · block code
+title: Mã phân loại block (CUSTOMER)
 display_names:
 - BLOCK_CODE
 kind: code
@@ -15,30 +15,23 @@ facts:
 - MãBLOCK_CODE
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for BLOCK_CODE
-- 'db2:customer.BLOCK_CODE: top=0(3)'
+- business_prose
 ---
 
-# customer · block code
+# Mã phân loại block (CUSTOMER)
 
 **Semantic key:** `customer__block_code` · **Cột vật lý:** `BLOCK_CODE`
 
 ## Ý nghĩa nghiệp vụ
 
-MãBLOCK_CODE
+Mã block / phân khối phân loại khách hoặc NCC trên master. Trên master CUSTOMER.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:customer` | `BLOCK_CODE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-_Chưa có sample trong `samples_top20.json` — cần chạy `explore_db_samples.py` hoặc khai phá DB._
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:customer` | `BLOCK_CODE` | char | MãBLOCK_CODE |
 
 ## Join
 
@@ -46,3 +39,4 @@ Thường join: `TRANS_NUM`
 
 ## Ghi chú thêm
 
+- MãBLOCK_CODE

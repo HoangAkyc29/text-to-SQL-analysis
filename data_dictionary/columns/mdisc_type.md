@@ -23,13 +23,8 @@ facts:
 - 'Chiết khấu manual: MDISC_TYPE'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.MDISC_TYPE: top=02(9), 01(6), 03(1)'
-- 'db2:strans.MDISC_TYPE: top=01(1), 03(1)'
-- 'db2:strans_tmp.MDISC_TYPE: top=02(5), 03(2)'
-- 'db2:suspend.MDISC_TYPE: top=02(5), 03(4), 01(1)'
+- business_prose
 ---
 
 # mdisc type
@@ -38,23 +33,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột MDISC_TYPE trên STRANS, STRANS_TMP, SUSPEND. db2:strans: top 01.
+Chiết khấu manual: MDISC_TYPE. Dùng trong POS bán lẻ (STRANS, STRANS_TMP, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `MDISC_TYPE` | char | có dữ liệu |
-| `db2:strans` | `MDISC_TYPE` | char | có dữ liệu |
-| `db2:strans_tmp` | `MDISC_TYPE` | char | có dữ liệu |
-| `db2:suspend` | `MDISC_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:strans.MDISC_TYPE`
-- Null rate trong sample: 75%
-- Distinct ≈1; top: `01`×5
-
-## Ghi chú thêm
-
-- Chiết khấu manual: MDISC_TYPE
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `MDISC_TYPE` | char | Chiết khấu manual: MDISC_TYPE |
+| `db2:strans` | `MDISC_TYPE` | char | Chiết khấu manual: MDISC_TYPE |
+| `db2:strans_tmp` | `MDISC_TYPE` | char | Chiết khấu manual: MDISC_TYPE |
+| `db2:suspend` | `MDISC_TYPE` | char | Chiết khấu manual: MDISC_TYPE |

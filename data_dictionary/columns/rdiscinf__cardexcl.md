@@ -1,6 +1,6 @@
 ---
 semantic_key: rdiscinf__cardexcl
-title: rdiscinf · cardexcl
+title: Cardexcl (RDISCINF)
 display_names:
 - CARDEXCL
 kind: flag
@@ -10,36 +10,23 @@ tables:
   type: bit
 join_with: []
 related_semantic_keys: []
-facts:
-- Cột CARDEXCL
+facts: []
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for CARDEXCL
-- 'db2:rdiscinf.CARDEXCL: top=False(999), True(1)'
+- business_prose
 ---
 
-# rdiscinf · cardexcl
+# Cardexcl (RDISCINF)
 
 **Semantic key:** `rdiscinf__cardexcl` · **Cột vật lý:** `CARDEXCL`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột CARDEXCL trên RDISCINF. db2:rdiscinf: top False.
+Cờ loại trừ thẻ — rule không áp dụng cho loại thẻ trong danh sách loại trừ.
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:rdiscinf` | `CARDEXCL` | bit | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:rdiscinf.CARDEXCL`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `False`×20
-
-## Ghi chú thêm
-
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:rdiscinf` | `CARDEXCL` | bit | Cờ / trạng thái (cardexcl) trên rule khuyến mãi / chiết khấu |

@@ -23,13 +23,8 @@ facts:
 - Loại kho đối ứng
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:strans.OSTK_TYPE: top=03(773), 05(53), 01(22), 06(2)'
-- 'db2:st_order.OSTK_TYPE: top=01(1000)'
-- 'db2:strans.OSTK_TYPE: top=03(871), 05(47), 01(10), 04(3), 06(1)'
-- 'db2:strans_tmp.OSTK_TYPE: top=03(1000)'
+- business_prose
 ---
 
 # ostk type
@@ -38,35 +33,13 @@ evidence:
 
 ## Ý nghĩa nghiệp vụ
 
-Cột OSTK_TYPE trên STRANS, STRANS_TMP, ST_ORDER. db1:strans: top 05; db2:st_order: top 01; db2:strans: top 05; db2:strans_tmp: top 04.
+Loại kho đối ứng. Dùng trong POS bán lẻ (STRANS, STRANS_TMP); Kho / mua hàng (ST_ORDER).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:strans` | `OSTK_TYPE` | char | có dữ liệu |
-| `db2:st_order` | `OSTK_TYPE` | char | có dữ liệu |
-| `db2:strans` | `OSTK_TYPE` | char | có dữ liệu |
-| `db2:strans_tmp` | `OSTK_TYPE` | char | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:strans.OSTK_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `05`×20
-
-### `db2:st_order.OSTK_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `01`×20
-
-### `db2:strans.OSTK_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `05`×20
-
-### `db2:strans_tmp.OSTK_TYPE`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `04`×20
-
-## Ghi chú thêm
-
-- Loại kho đối ứng
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:strans` | `OSTK_TYPE` | char | Loại kho đối ứng |
+| `db2:st_order` | `OSTK_TYPE` | char | Loại kho đối ứng |
+| `db2:strans` | `OSTK_TYPE` | char | Loại kho đối ứng |
+| `db2:strans_tmp` | `OSTK_TYPE` | char | Loại kho đối ứng |

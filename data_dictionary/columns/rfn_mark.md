@@ -1,6 +1,6 @@
 ---
 semantic_key: rfn_mark
-title: rfn mark
+title: Điểm hoàn / điểm trả lại (RFN_MARK)
 display_names:
 - RFN_MARK
 kind: measure
@@ -20,44 +20,22 @@ facts:
 - 'Hoàn / refund điểm: RFN_MARK'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- 'db1:crdtrans_arc.RFN_MARK: top=0.00(1000)'
-- 'db2:crdtrans.RFN_MARK: top=0.00(1000)'
-- 'db2:crdtrans_tmp.RFN_MARK: top=0.00(1000)'
+- business_prose
 ---
 
-# rfn mark
+# Điểm hoàn / điểm trả lại (RFN_MARK)
 
 **Semantic key:** `rfn_mark` · **Cột vật lý:** `RFN_MARK`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột RFN_MARK trên CRDTRANS, CRDTRANS_ARC, CRDTRANS_TMP. db1:crdtrans_arc: top 0.00; db2:crdtrans: top 0.00; db2:crdtrans_tmp: top 0.00.
+Hoàn / refund điểm: RFN_MARK. Dùng trong Loyalty / thẻ (CRDTRANS, CRDTRANS_ARC, …).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db1:crdtrans_arc` | `RFN_MARK` | numeric | có dữ liệu |
-| `db2:crdtrans` | `RFN_MARK` | numeric | có dữ liệu |
-| `db2:crdtrans_tmp` | `RFN_MARK` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db1:crdtrans_arc.RFN_MARK`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:crdtrans.RFN_MARK`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-### `db2:crdtrans_tmp.RFN_MARK`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.00`×20
-
-## Ghi chú thêm
-
-- Hoàn / refund điểm: RFN_MARK
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db1:crdtrans_arc` | `RFN_MARK` | numeric | Hoàn / refund điểm: RFN_MARK |
+| `db2:crdtrans` | `RFN_MARK` | numeric | Hoàn / refund điểm: RFN_MARK |
+| `db2:crdtrans_tmp` | `RFN_MARK` | numeric | Hoàn / refund điểm: RFN_MARK |

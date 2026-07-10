@@ -1,6 +1,6 @@
 ---
 semantic_key: stk_dtl__tomul_qty
-title: stk dtl · tomul qty
+title: Số lượng (STK_DTL)
 display_names:
 - TOMUL_QTY
 kind: measure
@@ -14,32 +14,23 @@ facts:
 - 'Cuối kỳ — movement: TOMUL_QTY'
 sources:
 - table_md
-- samples_top20
 - column_semantic_registry
-evidence:
-- role-specific semantic key for TOMUL_QTY
-- 'db2:stk_dtl.TOMUL_QTY: top=0.000(998), 295.376(1), 1008.000(1)'
+- business_prose
 ---
 
-# stk dtl · tomul qty
+# Số lượng (STK_DTL)
 
 **Semantic key:** `stk_dtl__tomul_qty` · **Cột vật lý:** `TOMUL_QTY`
 
 ## Ý nghĩa nghiệp vụ
 
-Cột TOMUL_QTY trên STK_DTL. db2:stk_dtl: top 0.000.
+Phát sinh cuối kỳ — ghép lô / nhân bản tồn (số lượng) trên sổ chi tiết tồn kho STK_DTL. Grain: STK_ID × SKU_ID × kỳ (PRD_CODE).
 
 ## Bảng & vai trò
 
-| Bảng | Cột | Kiểu | Vai trò / sample |
-|------|-----|------|------------------|
-| `db2:stk_dtl` | `TOMUL_QTY` | numeric | có dữ liệu |
-
-## Quan sát từ sample (TOP 20 db2/db1)
-
-### `db2:stk_dtl.TOMUL_QTY`
-- Null rate trong sample: 0%
-- Distinct ≈1; top: `0.000`×20
+| Bảng | Cột | Kiểu | Vai trò |
+|------|-----|------|---------|
+| `db2:stk_dtl` | `TOMUL_QTY` | numeric | Cuối kỳ — movement: TOMUL_QTY |
 
 ## Ghi chú thêm
 
