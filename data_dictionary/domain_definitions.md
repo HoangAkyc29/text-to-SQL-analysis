@@ -23,8 +23,8 @@ cutoff = ngày 1 của tháng trước (so với GETDATE())
 
 | Mã | Ý nghĩa |
 |----|---------|
-| `113` | Bán lẻ — header (TRANSHDR) và dòng hàng (STRANS) |
-| `221` | Thanh toán bill bán (PMTRANS, TRANSHDR_ARC) |
+| `113` | Bán lẻ (một loại chứng từ trên TRANSHDR / STRANS) |
+| `221` | Thanh toán bill — xuất hiện trên **PMTRANS** và cũng rất phổ biến trên **STRANS / TRANSHDR** live |
 | `008` | Thu/chi quỹ tiền mặt (PMTRANS; AMOUNT có thể âm khi chi) |
 | `222` | Thanh toán / điều chỉnh khác trên PMTRANS (cần xác nhận) |
 | `010` | Kiểm đếm quỹ tiền mặt theo mệnh giá (CASH_ST) |
@@ -33,6 +33,8 @@ cutoff = ngày 1 của tháng trước (so với GETDATE())
 | `812` | Giao dịch thẻ loyalty archive (CRDTRANS_ARC, db1) |
 | `821` | Xuất/nhập kho thẻ PM gift/voucher |
 | `320`, `340`, `310`, `318`, `316` | Loại chứng từ khác trên STRANS (điều chỉnh, KM, …) — cần map đầy đủ |
+
+**Lưu ý:** `STRANS` / `TRANSHDR` mang **nhiều** `TRANS_CODE` (`113`, `221`, `310`, …). Không suy ra mọi dòng hàng đều là `113`. Chọn filter `TRANS_CODE` theo brief + column/case-study retrieval, không theo mặc định cứng trong glossary.
 
 ## PMT_CODE — hình thức thanh toán
 

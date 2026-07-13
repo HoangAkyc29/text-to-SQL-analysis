@@ -1,6 +1,6 @@
 ---
 semantic_key: sale_line_document_type
-title: Loại chứng từ dòng — 113=bán lẻ
+title: Loại chứng từ dòng STRANS — nhiều mã (221/113/…)
 display_names:
 - TRANS_CODE
 kind: code
@@ -29,22 +29,22 @@ sources:
 - business_prose
 ---
 
-# Loại chứng từ dòng — 113=bán lẻ
+# Loại chứng từ dòng STRANS — nhiều mã (221/113/…)
 
 **Semantic key:** `sale_line_document_type` · **Cột vật lý:** `TRANS_CODE`
 
 ## Ý nghĩa nghiệp vụ
 
-Phân loại loại chứng từ trong hệ POS/ERP. 113 = bán lẻ; 221 = thanh toán bill; 811/812 = tích điểm / điều chỉnh loyalty — grain phụ thuộc bảng.
+Phân loại chứng từ trên dòng `STRANS`. Có nhiều mã (`113`, `221`, `310`, …) — ý nghĩa và khi nào lọc lấy từ domain glossary + case study retrieve, không mặc định một mã cho mọi bài.
 
 ## Bảng & vai trò
 
 | Bảng | Cột | Kiểu | Vai trò |
 |------|-----|------|---------|
-| `db1:strans` | `TRANS_CODE` | char | 113 = dòng bán lẻ POS |
-| `db2:strans` | `TRANS_CODE` | char | 113 = dòng bán lẻ POS |
-| `db2:strans_tmp` | `TRANS_CODE` | char | Loại chứng từ — xem domain_definitions.md (113=bán lẻ, 221=thanh toán, 811/812=thẻ, 008=quỹ, …) |
-| `db2:suspend` | `TRANS_CODE` | char | Loại chứng từ — xem domain_definitions.md (113=bán lẻ, 221=thanh toán, 811/812=thẻ, 008=quỹ, …) |
+| `db1:strans` | `TRANS_CODE` | char | Nhiều mã chứng từ trên dòng hàng |
+| `db2:strans` | `TRANS_CODE` | char | Nhiều mã; live thường nhiều `221` hơn `113` |
+| `db2:strans_tmp` | `TRANS_CODE` | char | Loại chứng từ — xem domain_definitions.md |
+| `db2:suspend` | `TRANS_CODE` | char | Loại chứng từ — xem domain_definitions.md |
 
 ## Join
 

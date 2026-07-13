@@ -42,26 +42,25 @@
 
 When `retrieval_context.phase` is `hierarchical`:
 
-1. Read **`retrieval_context.columns` first** — map brief terms (bill, SKU, quantity, gift) to `semantic_key` and `facts_excerpt`.
+1. Read **`retrieval_context.columns` first** — map brief terms to `semantic_key` and `facts_excerpt`.
 2. Derive **candidate tables** from column `tables` refs and `candidate_tables`.
-3. Confirm grain/join from column facts (`amount_bill_header` = TRANSHDR.AMOUNT for min bill; `amount_line_item` = STRANS line).
+3. Confirm grain/join from column facts and table join hints.
 4. Read **`retrieval_context.tables`** for join hints and column lists.
-5. Check **`retrieval_context.case_studies`** with matching `links` for SQL patterns.
+5. Prefer **`retrieval_context.case_studies`** with matching `links` for join/filter patterns and business formulas — **do not invent domain recipes in this guide**.
 6. Emit `schema_tables_used` (logical names) and `semantic_keys_used` in your JSON response.
 
 Legacy flat `retrieval_context` as `list[str]` is still supported — treat each string as a hint chunk.
-```
 
-Rules:
+## Rules (topology / policy only)
+
 - `len(sql_queries)` == `len(target_dbs)` == `len(query_meta)` (≤ 6).
 - Default fact queries on **db2**; use **db1** shards only when `time_range` needs history before cutoff.
 - Master lookups (SKU, barcode, card) → **db2**.
 - **Never** prefix tables with `db1.dbo.` or `db2.dbo.` — `target_db` selects the connection; use bare table names (`STRANS`, `TRANSHDR`, …).
 - Only reference tables listed in `schema_context.logical_tables` / data_dictionary. Do **not** invent table names (e.g. `rankedSales`, `productSkus`); use `WITH` CTEs or subqueries instead.
-- Multi-SKU gift queries with min bill value: probe `SKU_DEF`, join `STRANS` to `TRANSHDR` on `TRANS_NUM`, filter `TRANSHDR.AMOUNT >= min_bill`, `TRANS_CODE='113'`.
-- Use `FORMAT(TRAN_DATE,'yyyy-MM')` for monthly grain.
-- VIP revenue: join `CSCARD` + `PMTRANS`, filter `card_prefix` via `CARD_ID LIKE 'E%'` when in filters.
-- Apply `STK_ID IN (...)` when `brief.filters.STK_ID` or store scope present.
+- Use `FORMAT(TRAN_DATE,'yyyy-MM')` for monthly grain when brief asks month grain.
+- Apply `STK_ID IN (...)` when `brief.filters.STK_ID` or store scope is already in the brief (pipeline/role may also inject).
+- Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, column facts, and **case studies** — not from hardcoded recipes in this file.
 
 ## Output: `clarify`
 
@@ -87,19 +86,18 @@ Rules:
 ```
 
 Emit `clarify` on attempt 1 when:
-- VIP intent lacks `card_prefix`/`loyalty_tier` and not `exploration_mode`.
-- Multiple `product_code` values (list ≥2) **and** (`min_bill_value` or `min_transaction_value` in filters) — ask: mã hàng là SKU nội bộ hay barcode? Bill hợp lệ = tổng TRANSHDR.AMOUNT?
-- Bill validity rule ambiguous (header total vs line sum vs payment) and `min_bill` in filters.
-- User message uses informal product codes (7 digits) without technical terms — prefer clarify over assuming expert.
+- Required business definition is missing and not `exploration_mode` (VIP tier, bill validity rule, product id kind, store scope, etc.).
+- Multiple plausible grains/filters and guessing would change the answer set.
+- Informal user codes without technical terms — prefer clarify over assuming expert.
 
 ## Probe-once-then-fact (mandatory)
 
 When `inbox.data_feedback.issue` is `probe_success_needs_fact` or a prior attempt returned probe rows:
 1. **Do not** emit another probe-only `probe_sql` plan.
 2. Emit `plan_sql` with at least one `query_meta[].role: "main"` fact query.
-3. Use resolved `SKU_ID` from probe (not raw user code) on `STRANS`.
-4. Join `TRANSHDR` on `TRANS_NUM`; filter `TRANSHDR.AMOUNT >= min_bill_value` when present.
-5. For top-N per SKU: `ROW_NUMBER() OVER (PARTITION BY SKU_ID ORDER BY TRAN_DATE DESC)`.
+3. Use resolved keys from probe (e.g. `SKU_ID`) on fact tables — not raw unresolved user codes when probe already succeeded.
+4. Join/filter using column facts + case studies; keep grain consistent with the brief.
+5. For top-N windows when brief asks: `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`.
 
 Always set `reasoning` explaining the role of each query (`probe` vs `main`).
 
@@ -124,15 +122,6 @@ Read `schema_context.product_resolution_hints` when present — pick a strategy 
 
 Read `schema_context.shard_plan` — `needs_db2` / `needs_db1` / `shards` / `cutoff` for date routing.
 
-### Bill threshold + multi-SKU pattern (reasoning, not template)
-
-When brief asks quantity per SKU **and** bill total threshold **and** top-N bills:
-1. **Probe** `SKU_DEF`/`BARCODE` per `product_resolution_hints` — user code ≠ `SKU_ID`.
-2. **Valid bills**: `TRANSHDR` where `TRANS_CODE='113'`, date in `time_range`, `AMOUNT >= min_bill` (header total).
-3. **Gift lines**: `STRANS` join valid bills on `TRANS_NUM`, filter resolved `SKU_ID`, `TRANS_CODE='113'`.
-4. **Top N per SKU**: `ROW_NUMBER() OVER (PARTITION BY SKU_ID ORDER BY TRAN_DATE DESC)` in a CTE — CTE names are local, not dictionary tables.
-5. If unsure about bill total column or min_bill semantics → `clarify` on attempt 1.
-
 ### Policy violation cheat-sheet
 
 | violation | Fix |
@@ -151,9 +140,9 @@ Structured hierarchical payload (preferred) or legacy flat strings.
 When hierarchical:
 - Phase 1 columns define **which data points** matter and their **semantic grain**.
 - Phase 2 tables confirm **where** those columns live and how to join.
-- Case studies with `links` matching your semantic keys are high-trust patterns.
+- Case studies with `links` matching your semantic keys are high-trust patterns — **parameterize** dates/filters from current `brief`; do not copy unrelated templates blindly.
 
 When flat list of strings:
-- Reuse join patterns and `TRANS_CODE` filters.
+- Reuse join patterns from retrieved text.
 - Re-parameterize dates, `STK_ID`, card prefix from current `brief`.
 - Prefer promoted case studies over inventing new join paths.

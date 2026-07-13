@@ -15,7 +15,7 @@ Chi tiết từng dòng trên chứng từ bán: SKU, số lượng, giá, chi�
 
 **Liên kết:** TRANS_NUM + TRANS_CODE + TRAN_DATE → TRANSHDR / PMTRANS
 
-**Lưu ý:** Lịch sử trước cutoff; chọn shard YYYYMM theo TRAN_DATE. cutoff = ngày 1 của tháng trước (so với ngày chạy query). Ví dụ hôm nay 22/06/2026 → cutoff = 2026-05-01. AMOUNT=0 thường là dòng quà/KM.
+**Lưu ý:** Lịch sử trước cutoff; chọn shard YYYYMM theo TRAN_DATE. cutoff = ngày 1 của tháng trước (so với ngày chạy query). Ví dụ hôm nay 22/06/2026 → cutoff = 2026-05-01. AMOUNT=0 thường là dòng quà/KM. Nhiều TRANS_CODE — xem domain_definitions / case studies.
 
 | column | type | description |
 |--------|------|-------------|

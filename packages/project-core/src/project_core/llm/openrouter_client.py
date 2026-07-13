@@ -23,7 +23,7 @@ class OpenRouterClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float = 120.0,
+        timeout: float = 300.0,
     ) -> None:
         self.api_key = api_key or get_openrouter_api_key()
         self.base_url = (base_url or "https://openrouter.ai/api/v1").rstrip("/")

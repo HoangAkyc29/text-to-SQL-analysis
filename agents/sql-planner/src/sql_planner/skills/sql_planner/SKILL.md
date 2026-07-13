@@ -32,7 +32,7 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 - Chỉ `SELECT` / `WITH` readonly; `TOP` ≤ 50000.
 - Chỉ bảng trong `schema_context.tables` / role allowlist.
 - Store manager: mọi query phải lọc `STK_ID` (pipeline inject nếu thiếu).
-- `TRANS_CODE`: `113` bán lẻ STRANS, `221` thanh toán PMTRANS, `811`/`812` thẻ loyalty.
+- `TRANS_CODE` / mã chứng từ: xem `domain_definitions` + column facts; không giả định một mã duy nhất cho mọi query trên `STRANS`.
 
 ## Đọc thêm
 

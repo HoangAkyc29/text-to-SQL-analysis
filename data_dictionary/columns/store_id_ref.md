@@ -88,7 +88,7 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
-Mã cửa hàng trên báo cáo — grain store × SKU × ngày. (bảng WEBRPT_INVENTORY_DAILY).
+Mã cửa hàng / siêu thị (`STK_ID`). Scope cửa hàng lấy từ brief/filters hoặc case study retrieve — không mặc định một bộ STK cố định trong column dict.
 
 ## Bảng & vai trò
 

@@ -1,14 +1,29 @@
+# Cheaper default: Gemini 2.5 Flash (below Sonnet). Keep Sonnet/Opus profiles for optional upgrade.
 default_profile: openrouter_mimo
 
 agent_profiles:
   router: openrouter_mimo
-  sql_planner: openrouter_fast
-  risk_reviewer: openrouter_fast
+  sql_planner: openrouter_mimo
+  risk_reviewer: openrouter_mimo
   analyst: openrouter_mimo
-  analyst_vision: openrouter_vision
+  analyst_vision: openrouter_mimo
   embed: openrouter_embed
 
 profiles:
+  openrouter_strong:
+    provider: openrouter
+    model_id: anthropic/claude-sonnet-4.5
+    supports_vision: true
+    params:
+      max_tokens: 8192
+      temperature: 0.2
+  openrouter_premium:
+    provider: openrouter
+    model_id: anthropic/claude-opus-4.1
+    supports_vision: true
+    params:
+      max_tokens: 16384
+      temperature: 0.2
   openrouter_mimo:
     provider: openrouter
     model_id: xiaomi/mimo-v2.5

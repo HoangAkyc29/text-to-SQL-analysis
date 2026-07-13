@@ -38,7 +38,7 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
-Thành tiền / giá trị trên dòng STRANS. Có thể bằng 0 với quà tặng hoặc khuyến mãi. Không thay TRANSHDR.AMOUNT khi lọc min bill.
+Thành tiền / giá trị trên dòng STRANS (`AMOUNT`). Có thể bằng 0 với quà tặng hoặc khuyến mãi. Không thay `TRANSHDR.AMOUNT` khi lọc min bill trừ khi domain/case study chỉ rõ cách tính giá trị dòng/bill.
 
 ## Bảng & vai trò
 

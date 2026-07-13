@@ -27,7 +27,7 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
-Điểm cộng trên CRDTRANS (TRANS_CODE=811) khi tích từ mua hàng.
+Điểm cộng trên CRDTRANS (ví dụ `TRANS_CODE=811`) hoặc metric điểm liên quan thẻ. Công thức tính lại điểm theo kỳ (nếu khác cột `MARK`) lấy từ **case study retrieve**, không hardcode trong column dict.
 
 ## Bảng & vai trò
 

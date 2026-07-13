@@ -29,7 +29,7 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
-Tổng tiền cả bill trên TRANSHDR (TRANS_CODE=113). Dùng cho điều kiện bill tối thiểu (min bill). Khác grain với AMOUNT từng dòng STRANS.
+Tổng tiền cả bill trên `TRANSHDR.AMOUNT`. Khác grain với `AMOUNT` từng dòng `STRANS`. Công thức nghiệp vụ chi tiết (khi nào cộng `SURPLUS`/`VAT_AMT`, khi nào tin header) lấy từ **case study / column facts retrieve**, không hardcode một recipe duy nhất ở đây.
 
 ## Bảng & vai trò
 

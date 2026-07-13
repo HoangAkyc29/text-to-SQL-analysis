@@ -5,7 +5,7 @@ notes: |
   Danh mục (SKU, khách, …) không có trên db1 — query db2.
 logical_tables:
   STRANS:
-    description: Chi tiết từng dòng trên chứng từ bán (SKU, SL, giá, chiết khấu, VAT, quà). TRANS_CODE=113.
+    description: Chi tiết từng dòng chứng từ (SKU, SL, giá, chiết khấu, VAT, quà). Nhiều TRANS_CODE (221/113/310/…); không mặc định chỉ 113.
     physical_pattern: STRANS_{YYYYMM}
     shard_key_column: TRAN_DATE
     schema_file: tables/db1/STRANS.md

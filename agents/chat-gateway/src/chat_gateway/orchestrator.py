@@ -54,7 +54,9 @@ class ChatOrchestrator:
         self.clarify = ClarificationCoordinator(
             bridge=ClarificationBridge(min_confidence=self.cfg.clarification.bridge_min_confidence),
         )
-        self._http = httpx.Client(timeout=120.0)
+        # mimo / large prompts often exceed 120s per agent call; keep in sync with
+        # pipeline.max_sync_seconds and OpenRouterClient timeout.
+        self._http = httpx.Client(timeout=600.0)
         self._agent_circuit = CircuitBreaker()
         self._sql_circuit = CircuitBreaker()
         self._cancel_tokens: dict[str, CancellationToken] = {}

@@ -27,9 +27,9 @@ Mỗi query trong plan phải có `target_dbs[i]` tương ứng.
 
 | Use case | Tables |
 |----------|--------|
-| Doanh thu bán lẻ | `STRANS`, `TRANSHDR` — `TRANS_CODE='113'` |
-| Thanh toán / VIP bill | `PMTRANS`, `CSCARD`, `TRANSHDR_ARC` — `TRANS_CODE='221'` |
-| Điểm thẻ | `CRDTRANS` (db2), `CRDTRANS_ARC` (db1) — `TRANS_CODE='811'`/`812` |
+| Doanh thu / dòng hàng | `STRANS`, `TRANSHDR` — mã `TRANS_CODE` theo domain/RAG, không hardcode trong skill |
+| Thanh toán / VIP | `PMTRANS`, `CSCARD`, `TRANSHDR` / `TRANSHDR_ARC` |
+| Điểm thẻ | `CRDTRANS` / `CRDTRANS_ARC` (+ công thức nghiệp vụ từ case study / column facts nếu retrieve được) |
 | Master SKU | `SKU_DEF`, `BARCODE`, `PLU` |
 | Tồn kho | `STK_DTL`, `INV_HDR` |
 | Lịch sử shard db1 | `STRANS_YYYYMM`, `PMTRANS_YYYYMM` |

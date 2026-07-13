@@ -125,7 +125,9 @@ def main() -> int:
     if LOG_PATH.exists():
         LOG_PATH.unlink()
 
-    with httpx.Client(timeout=600.0) as client:
+    # Must exceed pipeline.max_sync_seconds: a late Agent II call can still run
+    # up to the gateway httpx timeout after the sync deadline check.
+    with httpx.Client(timeout=1200.0) as client:
         login = client.post(
             f"{base}/auth/login",
             json={"username": "hq.analyst", "password": password},
