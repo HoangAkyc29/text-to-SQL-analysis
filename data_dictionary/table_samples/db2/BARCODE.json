@@ -12,22 +12,31 @@
   ],
   "rows": [
     {
-      "BARCODE": "0010300843191",
-      "SKU_ID": "290612727200",
-      "TYPE": "01",
+      "BARCODE": "58934588183138",
+      "SKU_ID": "280001000169",
+      "TYPE": "03",
       "DESCRIPT": "",
-      "UNIT_SYMB": "GOI",
+      "UNIT_SYMB": "THU",
       "UNITCONV": "1",
       "ISDEFAULT": false
     },
     {
-      "BARCODE": "0010044500411",
-      "SKU_ID": "290002075000",
+      "BARCODE": "0011747623742",
+      "SKU_ID": "290002076700",
       "TYPE": "01",
       "DESCRIPT": "",
       "UNIT_SYMB": "GOI",
       "UNITCONV": "1",
       "ISDEFAULT": true
+    },
+    {
+      "BARCODE": "0012044000250",
+      "SKU_ID": "290002772500",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "CAI",
+      "UNITCONV": "1",
+      "ISDEFAULT": false
     },
     {
       "BARCODE": "0001700012214",
@@ -46,22 +55,16 @@
       "UNIT_SYMB": "HU",
       "UNITCONV": "1",
       "ISDEFAULT": true
-    },
-    {
-      "BARCODE": "0011747620581",
-      "SKU_ID": "290001865400",
-      "TYPE": "01",
-      "DESCRIPT": "",
-      "UNIT_SYMB": "GOI",
-      "UNITCONV": "1",
-      "ISDEFAULT": true
     }
   ],
   "selection": {
-    "candidate_pool": 20,
+    "candidate_pool": 60,
     "score": "minimize_null_zero_or_whitespace_cells",
-    "picked": "random_5_from_best_tier",
-    "source_table": "BARCODE",
+    "picked": "diverse_rarity_weighted_full_pool",
+    "source": "db_stratified",
+    "stratify_column": "TYPE",
+    "physical_table": "BARCODE",
+    "env_key": "ANALYTICS_DB_DSN_2",
     "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
   }
 }

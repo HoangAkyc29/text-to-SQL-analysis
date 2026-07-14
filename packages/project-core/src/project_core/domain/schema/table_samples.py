@@ -21,6 +21,11 @@ _SHARD_RE = re.compile(
     r"^(?P<base>STRANS|PMTRANS|CRDTRANS|TRANSHDR)(?:_ARC)?(?:_\d{6})?$",
     re.IGNORECASE,
 )
+# Only true physical month shards (not bare logical STRANS).
+_SHARD_PHYSICAL_RE = re.compile(
+    r"^(?P<base>STRANS|PMTRANS|CRDTRANS)_\d{6}$",
+    re.IGNORECASE,
+)
 
 # Columns whose values must stay strings (leading zeros / padding matter).
 _CODE_ID_HINTS = (
@@ -114,34 +119,97 @@ def row_null_or_zero_score(row: dict[str, Any]) -> int:
     return sum(1 for k, v in row.items() if is_null_or_zero(sanitize_sample_value(str(k), v)))
 
 
+def _diversity_gain(candidate: dict[str, Any], picked: list[dict[str, Any]]) -> float:
+    """Rarity-weighted count of new non-empty values vs picked set (higher = better).
+
+    Columns that are still mono / empty in the picked set get a large boost when a
+    new value appears — so e.g. a new TRANS_CODE beats another SKU_ID variant.
+    """
+    if not picked:
+        return float(sum(1 for v in candidate.values() if not is_null_or_zero(v)))
+    gain = 0.0
+    for col, val in candidate.items():
+        if is_null_or_zero(val):
+            continue
+        seen = {p.get(col) for p in picked if not is_null_or_zero(p.get(col))}
+        if val in seen:
+            continue
+        # Prefer breaking mono columns first.
+        if len(seen) <= 1:
+            gain += 12.0
+        else:
+            gain += 1.0 / (1.0 + len(seen))
+    return gain
+
+
+def _overlap_count(candidate: dict[str, Any], picked: list[dict[str, Any]]) -> int:
+    """Count non-empty cells matching any already-picked row on the same column (lower = better)."""
+    if not picked:
+        return 0
+    overlaps = 0
+    for col, val in candidate.items():
+        if is_null_or_zero(val):
+            continue
+        if any(p.get(col) == val for p in picked):
+            overlaps += 1
+    return overlaps
+
+
 def pick_quality_rows(
     rows: list[dict[str, Any]],
     *,
     n: int = ROWS_PER_TABLE,
     rng: random.Random | None = None,
 ) -> list[dict[str, Any]]:
-    """Prefer fewest null/zero/whitespace cells; fill up to n from best tiers.
+    """Pick up to n sanitized rows: prefer dense rows, maximize value diversity.
 
-    Returned rows are sanitized (strings stripped; ID/CODE forced to str).
+    Uses the **full** candidate list (not only the densest tier) so categorical
+    diversity (e.g. TRANS_CODE) is not wiped out by TOP-N skewed sources. Quality
+    only biases the seed row toward denser examples.
     """
     if not rows or n <= 0:
         return []
     cleaned = [sanitize_sample_row(r) for r in rows if isinstance(r, dict)]
     chooser = rng or random.Random()
-    scored = [(row_null_or_zero_score(r), i, r) for i, r in enumerate(cleaned)]
-    by_score: dict[int, list[dict[str, Any]]] = {}
-    for score, _i, row in scored:
-        by_score.setdefault(score, []).append(row)
-    picked: list[dict[str, Any]] = []
-    for score in sorted(by_score):
-        if len(picked) >= n:
-            break
-        tier = by_score[score]
-        need = n - len(picked)
-        if len(tier) <= need:
-            picked.extend(tier)
-        else:
-            picked.extend(chooser.sample(tier, need))
+
+    # Drop exact duplicate rows.
+    unique: list[tuple[int, dict[str, Any]]] = []
+    seen_fp: set[str] = set()
+    for idx, row in enumerate(cleaned):
+        fp = json.dumps(row, sort_keys=True, default=str, ensure_ascii=False)
+        if fp in seen_fp:
+            continue
+        seen_fp.add(fp)
+        unique.append((idx, row))
+
+    if len(unique) <= n:
+        return [row for _, row in unique]
+
+    scores = {idx: row_null_or_zero_score(row) for idx, row in unique}
+    best_q = min(scores.values())
+    # Seed among densest quartile (or best score), random among those.
+    sorted_by_q = sorted(unique, key=lambda ir: scores[ir[0]])
+    seed_cut = max(1, len(sorted_by_q) // 4)
+    seed_pool = [(i, r) for i, r in sorted_by_q[:seed_cut] if scores[i] == best_q] or sorted_by_q[:seed_cut]
+    seed_idx, seed_row = chooser.choice(seed_pool)
+    picked: list[dict[str, Any]] = [seed_row]
+    remaining = [(idx, row) for idx, row in unique if idx != seed_idx]
+
+    while len(picked) < n and remaining:
+        best_key: tuple[float, int, float] | None = None
+        best_item: tuple[int, dict[str, Any]] | None = None
+        for idx, row in remaining:
+            # Maximize rarity-weighted new values; then minimize raw overlaps.
+            gain = _diversity_gain(row, picked)
+            overlaps = _overlap_count(row, picked)
+            key = (-gain, overlaps, chooser.random())
+            if best_key is None or key < best_key:
+                best_key = key
+                best_item = (idx, row)
+        assert best_item is not None
+        pick_idx, pick_row = best_item
+        picked.append(pick_row)
+        remaining = [(idx, row) for idx, row in remaining if idx != pick_idx]
     return picked
 
 
@@ -162,16 +230,57 @@ def normalize_sample_table_key(table: str) -> str:
     return name
 
 
+_DB1_FACT_LOGICAL = frozenset({"STRANS", "PMTRANS", "CRDTRANS", "TRANSHDR_ARC", "CRDTRANS_ARC"})
+
+
+def infer_sample_data_sources(
+    table: str,
+    *,
+    hint: str | None = None,
+    needs_db1: bool = False,
+    needs_db2: bool = False,
+) -> list[str]:
+    """Decide which sample files to load for a logical/physical table name.
+
+    - Explicit hint wins (single source).
+    - ARC / db1-only history → db1.
+    - Fact tables spanning cutoff (needs_db1+needs_db2) → both db2 then db1.
+    - Otherwise prefer db2, fall back db1.
+    """
+    key = normalize_sample_table_key(table).upper()
+    if hint in {"db1", "db2"}:
+        return [hint]
+    if key.endswith("_ARC") or key in {"TRANSHDR_ARC", "CRDTRANS_ARC"}:
+        return ["db1"]
+    # Physical month shard implies archive history on db1.
+    if _SHARD_PHYSICAL_RE.match(table or ""):
+        return ["db1"]
+    if key in {"STRANS", "PMTRANS", "CRDTRANS"}:
+        if needs_db1 and needs_db2:
+            return ["db2", "db1"]
+        if needs_db1 and not needs_db2:
+            return ["db1"]
+        return ["db2"]
+    if needs_db1 and not needs_db2 and key in _DB1_FACT_LOGICAL:
+        return ["db1"]
+    return ["db2"]
+
+
 def _preferred_data_sources(table: str, hint: str | None) -> list[str]:
+    """Resolve which sample folders to try for one logical table.
+
+    When ``hint`` is an explicit db1/db2 request (e.g. from
+    ``infer_sample_data_sources`` / agent ``selected_target_dbs``), only that
+    folder is tried — never silently fall back to the other DB. Cross-DB
+    fallback is only for unhinted lookups.
+    """
     key = normalize_sample_table_key(table)
     upper = key.upper()
     if hint in {"db1", "db2"}:
-        ordered = [hint] + [d for d in ("db2", "db1") if d != hint]
-    elif upper in {"TRANSHDR_ARC", "CRDTRANS_ARC"} or upper.endswith("_ARC"):
-        ordered = ["db1", "db2"]
-    else:
-        ordered = ["db2", "db1"]
-    return ordered
+        return [hint]
+    if upper in {"TRANSHDR_ARC", "CRDTRANS_ARC"} or upper.endswith("_ARC"):
+        return ["db1", "db2"]
+    return ["db2", "db1"]
 
 
 def sample_path_for(table: str, data_source: str, *, root: Path | None = None) -> Path:
@@ -226,17 +335,23 @@ def load_table_samples(
     allowed_tables: Iterable[str] | None = None,
     data_source_hints: dict[str, str] | None = None,
     target_dbs: list[str] | None = None,
+    needs_db1: bool = False,
+    needs_db2: bool = False,
     root: Path | None = None,
     max_tables: int = MAX_TABLES_PER_ATTEMPT,
 ) -> list[dict[str, Any]]:
-    """Load up to max_tables static samples; ACL-filter when allowed_tables given."""
+    """Load up to max_tables static samples; ACL-filter when allowed_tables given.
+
+    Same logical table may appear once per data_source (e.g. STRANS db2 + db1)
+    when the date range spans the archive cutoff.
+    """
     allowed_upper: set[str] | None = None
     if allowed_tables is not None:
         allowed_upper = {str(t).split(".")[-1].upper() for t in allowed_tables}
 
     hints = data_source_hints or {}
     out: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for idx, raw in enumerate(tables):
         if len(out) >= max_tables:
             break
@@ -244,8 +359,6 @@ def load_table_samples(
         if not name:
             continue
         key = normalize_sample_table_key(name)
-        if key.upper() in seen:
-            continue
         if allowed_upper is not None and key.upper() not in allowed_upper:
             out.append(
                 {
@@ -254,12 +367,23 @@ def load_table_samples(
                     "error": "table_not_allowed",
                 }
             )
-            seen.add(key.upper())
             continue
         hint = hints.get(name) or hints.get(key)
         if hint is None and target_dbs and idx < len(target_dbs):
             hint = target_dbs[idx]
-        sample = load_one_table_sample(name, data_source_hint=hint, root=root)
-        out.append(sample)
-        seen.add(key.upper())
+        sources = infer_sample_data_sources(
+            name,
+            hint=hint if hint in {"db1", "db2"} else None,
+            needs_db1=needs_db1,
+            needs_db2=needs_db2,
+        )
+        for ds in sources:
+            if len(out) >= max_tables:
+                break
+            seen_key = (ds, key.upper())
+            if seen_key in seen:
+                continue
+            sample = load_one_table_sample(name, data_source_hint=ds, root=root)
+            out.append(sample)
+            seen.add(seen_key)
     return out

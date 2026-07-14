@@ -24,8 +24,29 @@
   ],
   "rows": [
     {
-      "PLU_CODE": "0012",
-      "SKU_ID": "290300012300",
+      "PLU_CODE": "0023",
+      "SKU_ID": "290400023200",
+      "MERC_TYPE": "01",
+      "USEBYDAYS": "0",
+      "PACKDAYS": "0",
+      "SELLBYDAYS": "0",
+      "LBL_TYPE": "",
+      "CYS": "",
+      "RTPRICE": "0.00",
+      "LASTRTPR": "0.00",
+      "DISC_RATE": "0.00",
+      "VAT_INCL": false,
+      "OPEN_DATE": null,
+      "MODI_DATE": null,
+      "USER_ID": "0",
+      "WS_ID": "0",
+      "FR_DATE": null,
+      "TO_DATE": null,
+      "STATUS": true
+    },
+    {
+      "PLU_CODE": "0160",
+      "SKU_ID": "290300071800",
       "MERC_TYPE": "02",
       "USEBYDAYS": "0",
       "PACKDAYS": "0",
@@ -45,8 +66,8 @@
       "STATUS": true
     },
     {
-      "PLU_CODE": "0008",
-      "SKU_ID": "290300007800",
+      "PLU_CODE": "0080",
+      "SKU_ID": "290300055300",
       "MERC_TYPE": "02",
       "USEBYDAYS": "0",
       "PACKDAYS": "0",
@@ -66,8 +87,8 @@
       "STATUS": true
     },
     {
-      "PLU_CODE": "0005",
-      "SKU_ID": "290300005100",
+      "PLU_CODE": "0010",
+      "SKU_ID": "290300010200",
       "MERC_TYPE": "02",
       "USEBYDAYS": "0",
       "PACKDAYS": "0",
@@ -87,29 +108,8 @@
       "STATUS": true
     },
     {
-      "PLU_CODE": "0017",
-      "SKU_ID": "290300016500",
-      "MERC_TYPE": "02",
-      "USEBYDAYS": "0",
-      "PACKDAYS": "0",
-      "SELLBYDAYS": "0",
-      "LBL_TYPE": "",
-      "CYS": "",
-      "RTPRICE": "0.00",
-      "LASTRTPR": "0.00",
-      "DISC_RATE": "0.00",
-      "VAT_INCL": false,
-      "OPEN_DATE": null,
-      "MODI_DATE": null,
-      "USER_ID": "0",
-      "WS_ID": "0",
-      "FR_DATE": null,
-      "TO_DATE": null,
-      "STATUS": true
-    },
-    {
-      "PLU_CODE": "0016",
-      "SKU_ID": "290300015700",
+      "PLU_CODE": "0099",
+      "SKU_ID": "290300062000",
       "MERC_TYPE": "02",
       "USEBYDAYS": "0",
       "PACKDAYS": "0",
@@ -130,10 +130,13 @@
     }
   ],
   "selection": {
-    "candidate_pool": 20,
+    "candidate_pool": 400,
     "score": "minimize_null_zero_or_whitespace_cells",
-    "picked": "random_5_from_best_tier",
-    "source_table": "PLU",
+    "picked": "diverse_rarity_weighted_full_pool",
+    "source": "db_stratified",
+    "stratify_column": "STATUS",
+    "physical_table": "PLU",
+    "env_key": "ANALYTICS_DB_DSN_2",
     "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
   }
 }

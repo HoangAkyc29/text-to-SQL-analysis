@@ -331,6 +331,8 @@ class SupermarketAnalysisPipeline:
                 selected_tables,
                 allowed_tables=permissions.allowed_tables,
                 target_dbs=selected_dbs or None,
+                needs_db1=bool(shard_plan.needs_db1),
+                needs_db2=bool(shard_plan.needs_db2),
             )
 
             budget.record("II")

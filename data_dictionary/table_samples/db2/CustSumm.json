@@ -12,6 +12,33 @@
   ],
   "rows": [
     {
+      "Card_ID": "h10000000136",
+      "Name": "Nguyễn Thị Bớch Thủy (E3172)",
+      "Address": "387 trưng nữ vương",
+      "Phone": "0983098327",
+      "Mobil": "0983098327",
+      "Amount": "16644032",
+      "Remark": "Hủy thẻ a32113- Đổi thẻ E3172 ngày 13/9/2023"
+    },
+    {
+      "Card_ID": "h10000001681",
+      "Name": "Lương Thị Ngọc Lan (E3036)",
+      "Address": "137 Nguyễn Khỏnh Toàn",
+      "Phone": "0988373792",
+      "Mobil": "0988373792",
+      "Amount": "9401090",
+      "Remark": "200(12/1/17)- - Đổi thẻ E3036 ngày 23/6/2023"
+    },
+    {
+      "Card_ID": "h10000000758",
+      "Name": "Nguyễn Thị Thanh Lan E3080",
+      "Address": "122 Lờ Lợi",
+      "Phone": "0919034088",
+      "Mobil": "0919034088",
+      "Amount": "19898508",
+      "Remark": "150(24/3/16)"
+    },
+    {
       "Card_ID": "H10000002432",
       "Name": "Tụn Nữ ý Minh",
       "Address": "K10/9 Phạm Văn Nghị",
@@ -21,47 +48,23 @@
       "Remark": "Đổi Thẻ 2694 ngày 09/02/2022"
     },
     {
-      "Card_ID": "h10000002107",
-      "Name": "Ngụ Thị Lờ",
-      "Address": "317 Nguyễn Hoàng",
-      "Phone": "0905873338",
-      "Mobil": "",
-      "Amount": "1794431",
-      "Remark": "E1845 rớt"
-    },
-    {
-      "Card_ID": "H10000002134",
-      "Name": "Đặng Hồng Quang E2388",
-      "Address": "Tổ 23 Khuờ trung",
-      "Phone": "0905293279",
-      "Mobil": "",
-      "Amount": "780798",
-      "Remark": "Đổi thẻ 25/8/19"
-    },
-    {
-      "Card_ID": "h10000002148",
-      "Name": "Nguyễn Thị Sơn",
-      "Address": "19 Lờ Lai",
-      "Phone": "0903501303",
-      "Mobil": "",
-      "Amount": "3546420",
-      "Remark": ""
-    },
-    {
-      "Card_ID": "h10000002390",
-      "Name": "Trần Thị Thu Tuyền",
-      "Address": "37A Phạm Cự Lượng",
-      "Phone": "0934829379",
-      "Mobil": "",
-      "Amount": "9227277",
-      "Remark": ""
+      "Card_ID": "E10000001057",
+      "Name": "Cao Thị Thương E1057",
+      "Address": "Chung cư Vũng Thựng",
+      "Phone": "0989077089",
+      "Mobil": "0989077089",
+      "Amount": "41937986",
+      "Remark": "221(17/1/14)"
     }
   ],
   "selection": {
-    "candidate_pool": 20,
+    "candidate_pool": 400,
     "score": "minimize_null_zero_or_whitespace_cells",
-    "picked": "random_5_from_best_tier",
-    "source_table": "CustSumm",
+    "picked": "diverse_rarity_weighted_full_pool",
+    "source": "db_top",
+    "stratify_column": null,
+    "physical_table": "CustSumm",
+    "env_key": "ANALYTICS_DB_DSN_2",
     "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
   }
 }
