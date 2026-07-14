@@ -1,0 +1,67 @@
+{
+  "table": "sku_activity",
+  "data_source": "db2",
+  "columns": [
+    "stk_id",
+    "sku_id",
+    "first_sale_date",
+    "last_sale_date",
+    "first_receipt_date",
+    "last_receipt_date",
+    "updated_at"
+  ],
+  "rows": [
+    {
+      "stk_id": "10001",
+      "sku_id": "290000000300",
+      "first_sale_date": "2024-01-01",
+      "last_sale_date": "2026-03-31",
+      "first_receipt_date": "2024-01-20",
+      "last_receipt_date": "2026-03-19",
+      "updated_at": "2026-04-01T04:58:44.783000"
+    },
+    {
+      "stk_id": "10001",
+      "sku_id": "290000011500",
+      "first_sale_date": "2024-01-06",
+      "last_sale_date": "2024-09-25",
+      "first_receipt_date": "2024-01-26",
+      "last_receipt_date": "2024-09-30",
+      "updated_at": "2026-04-01T04:46:13.540000"
+    },
+    {
+      "stk_id": "10001",
+      "sku_id": "290000011400",
+      "first_sale_date": "2024-01-07",
+      "last_sale_date": "2024-04-22",
+      "first_receipt_date": "2024-01-31",
+      "last_receipt_date": "2024-09-30",
+      "updated_at": "2026-04-01T04:46:13.540000"
+    },
+    {
+      "stk_id": "10001",
+      "sku_id": "290000009300",
+      "first_sale_date": "2024-01-01",
+      "last_sale_date": "2025-12-11",
+      "first_receipt_date": "2024-02-24",
+      "last_receipt_date": "2025-12-08",
+      "updated_at": "2026-04-01T04:46:13.540000"
+    },
+    {
+      "stk_id": "10001",
+      "sku_id": "290000012300",
+      "first_sale_date": "2024-01-02",
+      "last_sale_date": "2026-03-31",
+      "first_receipt_date": "2024-09-30",
+      "last_receipt_date": "2024-09-30",
+      "updated_at": "2026-04-01T04:58:44.703000"
+    }
+  ],
+  "selection": {
+    "candidate_pool": 20,
+    "score": "minimize_null_zero_or_whitespace_cells",
+    "picked": "random_5_from_best_tier",
+    "source_table": "sku_activity",
+    "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
+  }
+}

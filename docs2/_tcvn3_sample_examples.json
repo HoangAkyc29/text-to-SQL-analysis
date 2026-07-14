@@ -1,0 +1,92 @@
+[
+  {
+    "file": "PMTRANS.json",
+    "col": "REMARK",
+    "old": "Cân đối điều chỉnh quỹ thu ngân về 0",
+    "new": "Cõn đối điều chỉnh quỹ thu ngõn về 0"
+  },
+  {
+    "file": "PMTRANS.json",
+    "col": "REMARK",
+    "old": "Cân đối điều chỉnh quỹ thu ngân về 0",
+    "new": "Cõn đối điều chỉnh quỹ thu ngõn về 0"
+  },
+  {
+    "file": "PMTRANS.json",
+    "col": "REMARK",
+    "old": "Cân đối điều chỉnh quỹ thu ngân về 0",
+    "new": "Cõn đối điều chỉnh quỹ thu ngõn về 0"
+  },
+  {
+    "file": "PMTRANS.json",
+    "col": "REMARK",
+    "old": "Cân đối điều chỉnh quỹ thu ngân về 0",
+    "new": "Cõn đối điều chỉnh quỹ thu ngõn về 0"
+  },
+  {
+    "file": "PMTRANS.json",
+    "col": "REMARK",
+    "old": "Cân đối điều chỉnh quỹ thu ngân về 0",
+    "new": "Cõn đối điều chỉnh quỹ thu ngõn về 0"
+  },
+  {
+    "file": "ACCOUNT.json",
+    "col": "NAME",
+    "old": "CN Công ty Dược phẩm AAA",
+    "new": "CN Cụng ty Dược phẩm AAA"
+  },
+  {
+    "file": "ACCOUNT.json",
+    "col": "NAME",
+    "old": "Công ty yến sào Khánh Hoà",
+    "new": "Cụng ty yến sào Khỏnh Hoà"
+  },
+  {
+    "file": "ACCOUNT.json",
+    "col": "NAME",
+    "old": "Công ty TNHH chế biến LTTP Vạn Hương",
+    "new": "Cụng ty TNHH chế biến LTTP Vạn Hương"
+  },
+  {
+    "file": "ACCOUNT.json",
+    "col": "NAME",
+    "old": "Công ty TNHH Nguyên Hải (Sữa)",
+    "new": "Cụng ty TNHH Nguyờn Hải (Sữa)"
+  },
+  {
+    "file": "ACCOUNT.json",
+    "col": "NAME",
+    "old": "Công ty TNHH Nguyên Vũ",
+    "new": "Cụng ty TNHH Nguyờn Vũ"
+  },
+  {
+    "file": "ASSOLST.json",
+    "col": "DESCRIPT",
+    "old": "Cà phê Intimex gói 500g (túi zip) GG2",
+    "new": "Cà phờ Intimex gúi 500g (tỳi zip) GG2"
+  },
+  {
+    "file": "ASSOLST.json",
+    "col": "DESCRIPT",
+    "old": "Mận khô Pum gg",
+    "new": "Mận khụ Pum gg"
+  },
+  {
+    "file": "ASSOLST.json",
+    "col": "DESCRIPT",
+    "old": "Rau câu GG",
+    "new": "Rau cõu GG"
+  },
+  {
+    "file": "CRDTRANS.json",
+    "col": "REMARK",
+    "old": "TĂNG 9 ĐIểM DO LàM THẻ THàNH VIÊN (BQ2212606003998)",
+    "new": "TĂNG 9 ĐIểM DO LàM THẻ THàNH VIấN (BQ2212606003998)"
+  },
+  {
+    "file": "CRDTRANS.json",
+    "col": "REMARK",
+    "old": "kích hoạt thẻ cho khách bill bq221..255",
+    "new": "kớch hoạt thẻ cho khỏch bill bq221..255"
+  }
+]

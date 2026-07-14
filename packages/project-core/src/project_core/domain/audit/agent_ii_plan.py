@@ -35,6 +35,8 @@ def build_agent_ii_plan_payload(
         "reason": parsed.reason,
         "schema_tables_used": list(parsed.schema_tables_used),
         "semantic_keys_used": list(parsed.semantic_keys_used),
+        "selected_tables": list(parsed.selected_tables),
+        "selected_target_dbs": list(parsed.selected_target_dbs),
         "queries": queries,
         "usage_tokens": usage_tokens,
         "clarification_request": parsed.clarification_request,

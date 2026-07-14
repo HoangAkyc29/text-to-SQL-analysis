@@ -16,6 +16,9 @@ class SqlPlannerResponse(BaseModel):
     schema_tables_used: list[str] = Field(default_factory=list)
     semantic_keys_used: list[str] = Field(default_factory=list)
     reasoning: str | None = None
+    # Phase select_tables: logical table names only (no SQL / filters).
+    selected_tables: list[str] = Field(default_factory=list)
+    selected_target_dbs: list[str] = Field(default_factory=list)
 
 
 class RiskReviewResponse(BaseModel):

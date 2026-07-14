@@ -49,8 +49,11 @@ def test_pipeline_emits_agent_ii_plan_audit(pipeline_factory, workflow_state, hq
     pipeline.audit = audit
     pipeline.run(brief=AnalysisBrief(intent="x"), workflow=workflow_state, permissions=hq_permissions)
     plan_events = [e for e in audit.events() if e["event_type"] == "agent_ii_plan"]
-    assert len(plan_events) == 1
-    payload = plan_events[0]["payload"]
+    assert len(plan_events) == 2  # select_tables + plan_sql
+    sql_plans = [e for e in plan_events if e["payload"].get("action") == "plan_sql"]
+    assert len(sql_plans) == 1
+    payload = sql_plans[0]["payload"]
     assert payload["queries"][0]["sql"] == sql
     assert payload["reasoning"] == "Fact query STRANS sales"
+    assert any(s.step_type.value == "select_tables" for s in workflow_state.steps)
     assert any(s.step_type.value == "plan_sql" for s in workflow_state.steps)

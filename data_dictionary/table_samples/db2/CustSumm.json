@@ -1,0 +1,67 @@
+{
+  "table": "CustSumm",
+  "data_source": "db2",
+  "columns": [
+    "Card_ID",
+    "Name",
+    "Address",
+    "Phone",
+    "Mobil",
+    "Amount",
+    "Remark"
+  ],
+  "rows": [
+    {
+      "Card_ID": "H10000002432",
+      "Name": "Tụn Nữ ý Minh",
+      "Address": "K10/9 Phạm Văn Nghị",
+      "Phone": "0905232710",
+      "Mobil": "0905232710",
+      "Amount": "268500",
+      "Remark": "Đổi Thẻ 2694 ngày 09/02/2022"
+    },
+    {
+      "Card_ID": "h10000002107",
+      "Name": "Ngụ Thị Lờ",
+      "Address": "317 Nguyễn Hoàng",
+      "Phone": "0905873338",
+      "Mobil": "",
+      "Amount": "1794431",
+      "Remark": "E1845 rớt"
+    },
+    {
+      "Card_ID": "H10000002134",
+      "Name": "Đặng Hồng Quang E2388",
+      "Address": "Tổ 23 Khuờ trung",
+      "Phone": "0905293279",
+      "Mobil": "",
+      "Amount": "780798",
+      "Remark": "Đổi thẻ 25/8/19"
+    },
+    {
+      "Card_ID": "h10000002148",
+      "Name": "Nguyễn Thị Sơn",
+      "Address": "19 Lờ Lai",
+      "Phone": "0903501303",
+      "Mobil": "",
+      "Amount": "3546420",
+      "Remark": ""
+    },
+    {
+      "Card_ID": "h10000002390",
+      "Name": "Trần Thị Thu Tuyền",
+      "Address": "37A Phạm Cự Lượng",
+      "Phone": "0934829379",
+      "Mobil": "",
+      "Amount": "9227277",
+      "Remark": ""
+    }
+  ],
+  "selection": {
+    "candidate_pool": 20,
+    "score": "minimize_null_zero_or_whitespace_cells",
+    "picked": "random_5_from_best_tier",
+    "source_table": "CustSumm",
+    "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
+  }
+}

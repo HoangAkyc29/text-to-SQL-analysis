@@ -24,7 +24,7 @@ def test_communication_II_to_III_to_IV_order(pipeline_factory, workflow_state, h
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    assert invoker.agents_called()[:3] == ["II", "III", "IV"]
+    assert invoker.agents_called()[:4] == ["II", "II", "III", "IV"]
 
 
 def test_communication_III_receives_sql_from_II(pipeline_factory, workflow_state, hq_permissions):
@@ -81,9 +81,15 @@ def test_communication_IV_to_II_data_feedback_inbox(pipeline_factory, workflow_s
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    second_ii = [c for c in invoker.calls if c["agent"] == "II"][1]
-    inbox = second_ii["payload"].get("inbox", {})
+    plan_calls = [
+        c
+        for c in invoker.calls
+        if c["agent"] == "II" and c["metadata"].get("mode") == "plan_sql"
+    ]
+    assert len(plan_calls) == 2
+    inbox = plan_calls[1]["payload"].get("inbox", {})
     assert "data_feedback" in inbox
+    assert inbox.get("table_samples")
 
 
 def test_communication_I_not_in_pipeline_invoke(pipeline_factory, workflow_state, hq_permissions):

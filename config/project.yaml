@@ -24,7 +24,7 @@ rag:
 budget:
   agent_caps:
     I: 5
-    II: 6
+    II: 12
     III: 18
     IV: 4
   max_tokens_per_trace: 200000

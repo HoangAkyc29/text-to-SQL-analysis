@@ -49,6 +49,7 @@ from project_core.domain.sql.shard_resolver import suggest_query_plan
 from project_core.domain.sql.planner_context import policy_feedback_hints, product_resolution_hints
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
+from project_core.domain.schema.table_samples import load_table_samples
 from project_core.domain.workflow.steps import has_step_type
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
 
@@ -206,18 +207,141 @@ class SupermarketAnalysisPipeline:
             if isinstance(retrieval_payload, list):
                 retrieval_context = [getattr(c, "text", str(c)) for c in retrieval_payload]
 
+            inbox.pop("table_samples", None)
+
+            workflow.progress_step = WorkflowStepType.SELECT_TABLES.value
+            self._emit_progress(workflow, on_progress)
+
+            ii_payload_base = {
+                "brief": brief.model_dump(),
+                "inbox": inbox,
+                "attempt": sql_attempt,
+                "schema_context": schema_context,
+                "retrieval_context": retrieval_context,
+                "permissions": permissions.model_dump(mode="json"),
+            }
+
+            # Phase 1: select tables only (mandatory before plan_sql, including IV retries).
+            select_raw = self.agent_invoker.invoke(
+                "II",
+                ii_payload_base,
+                {"mode": "select_tables"},
+            )
+            budget.add_tokens(int(select_raw.get("usage_tokens", 0) or 0))
+            try:
+                select_parsed = parse_agent_response("II", select_raw)
+            except ContractInvalidError as exc:
+                return self._finish(
+                    trace_id,
+                    workflow,
+                    AnalysisOutcome.ERROR,
+                    TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=[str(exc)]),
+                )
+            if not isinstance(select_parsed, SqlPlannerResponse):
+                return self._finish(
+                    trace_id,
+                    workflow,
+                    AnalysisOutcome.ERROR,
+                    TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=["invalid_agent_ii_select"]),
+                )
+
+            select_payload = build_agent_ii_plan_payload(
+                select_parsed,
+                sql_attempt=sql_attempt,
+                usage_tokens=int(select_raw.get("usage_tokens", 0) or 0),
+            )
+            select_event_id = self.audit.log_agent_ii_plan(
+                trace_id=trace_id,
+                actor_id=acl.actor_id,
+                payload=select_payload,
+            )
+            workflow.steps.append(
+                WorkflowStep(
+                    step_id=str(uuid4()),
+                    trace_id=trace_id,
+                    analysis_id=workflow.active_analysis_id or trace_id,
+                    step_type=WorkflowStepType.SELECT_TABLES,
+                    sql_attempt=sql_attempt,
+                    summary=plan_sql_workflow_summary(select_payload),
+                    feedback_ref=select_event_id,
+                )
+            )
+
+            if select_parsed.action == "clarify" and not brief.exploration_mode:
+                workflow.clarify_round += 1
+                workflow.steps.append(
+                    WorkflowStep(
+                        step_id=str(uuid4()),
+                        trace_id=trace_id,
+                        analysis_id=workflow.active_analysis_id or trace_id,
+                        step_type=WorkflowStepType.CLARIFY,
+                        sql_attempt=sql_attempt,
+                        summary=(
+                            select_parsed.clarification_request.get("reason", "clarify")
+                            if select_parsed.clarification_request
+                            else "clarify"
+                        ),
+                    )
+                )
+                if workflow.clarify_round > self.cfg.pipeline.max_clarify_rounds:
+                    if brief.user_knowledge_level == "unknown":
+                        brief.exploration_mode = True
+                    else:
+                        raise ClarifyRoundsExceededError("Max clarification rounds exceeded")
+                else:
+                    needs_clarification = ClarificationRequest.model_validate(
+                        select_parsed.clarification_request
+                    )
+                    workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+                    return PipelineResult(
+                        trace_id=trace_id,
+                        analysis_id=workflow.active_analysis_id or trace_id,
+                        outcome=AnalysisOutcome.NEEDS_CLARIFICATION.value,
+                        technical_summary=TechnicalSummary(
+                            outcome=AnalysisOutcome.NEEDS_CLARIFICATION.value
+                        ),
+                        workflow_steps=workflow.steps,
+                        needs_clarification=needs_clarification,
+                    )
+
+            if select_parsed.action == "impossible":
+                return self._finish(
+                    trace_id,
+                    workflow,
+                    AnalysisOutcome.IMPOSSIBLE,
+                    TechnicalSummary(
+                        outcome=AnalysisOutcome.IMPOSSIBLE.value,
+                        caveats=[select_parsed.reason or ""],
+                    ),
+                )
+
+            selected_tables = list(select_parsed.selected_tables or [])
+            selected_dbs = list(select_parsed.selected_target_dbs or [])
+            if select_parsed.action in {"plan_sql", "probe_sql"} and not selected_tables:
+                selected_tables = list(select_parsed.schema_tables_used or [])
+            if not selected_tables:
+                # Fail soft: fall back to retrieval candidates / STRANS
+                selected_tables = [
+                    (ref.split(":")[-1] if ":" in ref else ref)
+                    for ref in (candidate_tables or ["STRANS"])
+                ][:6]
+                selected_dbs = ["db2"] * len(selected_tables)
+
+            inbox["table_samples"] = load_table_samples(
+                selected_tables,
+                allowed_tables=permissions.allowed_tables,
+                target_dbs=selected_dbs or None,
+            )
+
+            budget.record("II")
             workflow.progress_step = WorkflowStepType.PLAN_SQL.value
             self._emit_progress(workflow, on_progress)
 
             ii_result = self.agent_invoker.invoke(
                 "II",
                 {
-                    "brief": brief.model_dump(),
+                    **ii_payload_base,
                     "inbox": inbox,
-                    "attempt": sql_attempt,
-                    "schema_context": schema_context,
-                    "retrieval_context": retrieval_context,
-                    "permissions": permissions.model_dump(mode="json"),
                 },
                 {"mode": "plan_sql"},
             )

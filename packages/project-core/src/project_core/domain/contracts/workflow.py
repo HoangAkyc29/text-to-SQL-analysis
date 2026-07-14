@@ -31,6 +31,7 @@ class AnalysisOutcome(StrEnum):
 
 class WorkflowStepType(StrEnum):
     INGRESS_BRIEF = "ingress_brief"
+    SELECT_TABLES = "select_tables"
     PLAN_SQL = "plan_sql"
     CLARIFY = "clarify"
     POLICY_REJECT = "policy_reject"

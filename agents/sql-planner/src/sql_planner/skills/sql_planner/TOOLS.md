@@ -4,8 +4,9 @@
 
 Prefix MCP: `sql_*` (executed by pipeline, not Agent II directly).
 
-| Tool | Mục đích |
+| Tool / step | Mục đích |
 |------|----------|
+| **select_tables → static `table_samples`** | Phase 1: II chọn bảng; pipeline **lookup JSON** đã chuẩn bị (5 rows/table) vào `inbox.table_samples` — **không** query DB |
 | `validate_sql` | Kiểm tra cú pháp + bảng allowlist (Agent III cũng dùng policy) |
 | `explain_sql` | Ước lượng plan — dùng khi nghi join nặng |
 | `execute_readonly` | Chạy SELECT — **pipeline** gọi sau khi III approve |

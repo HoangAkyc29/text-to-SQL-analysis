@@ -1,11 +1,29 @@
-# Plan SQL — primary decide path
+# Plan SQL — primary decide path (after select_tables)
+
+Pipeline calls you twice per SQL attempt:
+
+1. `mode=select_tables` → list tables only (see `select_tables_guide.md`).
+2. `mode=plan_sql` → this guide, with **`inbox.table_samples`** already attached.
 
 ## Input payload
 
 ```json
 {
   "brief": { "...AnalysisBrief..." },
-  "inbox": { "policy_feedback": {}, "data_feedback": {}, "probe_mode": false },
+  "inbox": {
+    "policy_feedback": {},
+    "data_feedback": {},
+    "probe_mode": false,
+    "table_samples": [
+      {
+        "table": "STRANS",
+        "data_source": "db2",
+        "columns": ["STK_ID", "TRANS_NUM", "SKU_ID", "AMOUNT"],
+        "rows": [{"STK_ID": "10001", "TRANS_NUM": "...", "SKU_ID": "...", "AMOUNT": 0}],
+        "row_count": 5
+      }
+    ]
+  },
   "attempt": 1,
   "schema_context": { "tables": [], "domain_definitions_excerpt": "...", "logical_tables": [] },
   "retrieval_context": {
@@ -19,7 +37,16 @@
 }
 ```
 
+## Using `table_samples`
+
+- Samples illustrate **grain, column presence, and typical non-null values** for selected tables.
+- Use them to avoid wrong joins / wrong filter columns.
+- **Do not** hard-copy sample cell values into WHERE clauses unless the brief explicitly asks for those identifiers.
+- Entries may include `error: sample_missing` — still plan from schema/RAG without inventing columns.
+
 ## Output: `plan_sql`
+
+Do **not** emit `action: "select_tables"` in this phase.
 
 ```json
 {

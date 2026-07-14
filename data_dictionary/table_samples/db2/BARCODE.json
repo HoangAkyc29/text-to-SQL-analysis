@@ -1,0 +1,67 @@
+{
+  "table": "BARCODE",
+  "data_source": "db2",
+  "columns": [
+    "BARCODE",
+    "SKU_ID",
+    "TYPE",
+    "DESCRIPT",
+    "UNIT_SYMB",
+    "UNITCONV",
+    "ISDEFAULT"
+  ],
+  "rows": [
+    {
+      "BARCODE": "0010300843191",
+      "SKU_ID": "290612727200",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "GOI",
+      "UNITCONV": "1",
+      "ISDEFAULT": false
+    },
+    {
+      "BARCODE": "0010044500411",
+      "SKU_ID": "290002075000",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "GOI",
+      "UNITCONV": "1",
+      "ISDEFAULT": true
+    },
+    {
+      "BARCODE": "0001700012214",
+      "SKU_ID": "290112681000",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "HOP",
+      "UNITCONV": "1",
+      "ISDEFAULT": false
+    },
+    {
+      "BARCODE": "0011210697003",
+      "SKU_ID": "290000803100",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "HU",
+      "UNITCONV": "1",
+      "ISDEFAULT": true
+    },
+    {
+      "BARCODE": "0011747620581",
+      "SKU_ID": "290001865400",
+      "TYPE": "01",
+      "DESCRIPT": "",
+      "UNIT_SYMB": "GOI",
+      "UNITCONV": "1",
+      "ISDEFAULT": true
+    }
+  ],
+  "selection": {
+    "candidate_pool": 20,
+    "score": "minimize_null_zero_or_whitespace_cells",
+    "picked": "random_5_from_best_tier",
+    "source_table": "BARCODE",
+    "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
+  }
+}

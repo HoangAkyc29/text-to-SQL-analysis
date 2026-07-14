@@ -29,6 +29,7 @@ class SqlPlannerService(SupermarketAgentService):
         attempt = int(payload_in.get("attempt") or meta.get("attempt") or 1)
         schema_context = payload_in.get("schema_context") or meta.get("schema_context") or {}
         retrieval_context = payload_in.get("retrieval_context") or meta.get("retrieval_context") or []
+        mode = str(meta.get("mode") or payload_in.get("mode") or "plan_sql")
 
         permissions = self.resolve_permissions(payload_in, meta)
         if permissions is None or not self.context_policy.can_invoke_tool(
@@ -55,10 +56,13 @@ class SqlPlannerService(SupermarketAgentService):
             brief = apply_data_feedback(brief, inbox["data_feedback"])
 
         if os.getenv("ALLOW_LLM_STUB") == "1":
+            if mode == "select_tables":
+                return self._stub_select_tables(ctx, brief, schema_context)
             return self._stub_plan(ctx, brief, inbox, attempt, schema_context)
 
+        guide = "select_tables_guide" if mode == "select_tables" else "plan_sql_guide"
         extra = None
-        if inbox.get("probe_mode") or inbox.get("data_feedback"):
+        if mode != "select_tables" and (inbox.get("probe_mode") or inbox.get("data_feedback")):
             probe = self.skill.guide("probe_feedback_guide") if self.skill else ""
             if probe.strip():
                 extra = probe
@@ -67,7 +71,7 @@ class SqlPlannerService(SupermarketAgentService):
         result = client.chat(
             profile_name=agent_profile("sql_planner"),
             messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide="plan_sql_guide", extra=extra)},
+                {"role": "system", "content": self.llm_system_prompt(guide=guide, extra=extra)},
                 {
                     "role": "user",
                     "content": json.dumps(
@@ -77,6 +81,7 @@ class SqlPlannerService(SupermarketAgentService):
                             "attempt": attempt,
                             "schema_context": schema_context,
                             "retrieval_context": retrieval_context,
+                            "mode": mode,
                         },
                         ensure_ascii=False,
                     ),
@@ -87,8 +92,53 @@ class SqlPlannerService(SupermarketAgentService):
         try:
             payload = parse_llm_json(result)
         except LLMProviderError:
+            if mode == "select_tables":
+                return self._stub_select_tables(ctx, brief, schema_context)
             return self._stub_plan(ctx, brief, inbox, attempt, schema_context)
         return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
+
+    def _stub_select_tables(
+        self,
+        ctx: DecisionContext,
+        brief: AnalysisBrief,
+        schema_context: dict,
+    ):
+        filters = brief.filters or {}
+        intent = (brief.intent or "").lower()
+        tables: list[str] = []
+        if filters.get("product_code") or filters.get("sku") or any(
+            k in intent for k in ("sku", "mã hàng", "san pham", "quà", "qua tang", "gift")
+        ):
+            tables.extend(["SKU_DEF", "STRANS"])
+        if any(k in intent for k in ("bill", "hóa đơn", "hoa don", "transhdr")):
+            tables.append("TRANSHDR")
+        if "vip" in intent or "thẻ" in intent or "the " in intent:
+            tables.extend(["CSCARD", "PMTRANS"])
+        if any(k in intent for k in ("tồn", "ton kho", "inventory", "onhand")):
+            tables.append("STK_DTL")
+        if not tables:
+            tables = ["STRANS"]
+        # Preserve order, cap 6
+        ordered: list[str] = []
+        for t in tables:
+            if t not in ordered:
+                ordered.append(t)
+        ordered = ordered[:6]
+        logical = schema_context.get("logical_tables") or []
+        if logical:
+            allowed = {str(x).upper() for x in logical}
+            filtered = [t for t in ordered if t.upper() in allowed]
+            if filtered:
+                ordered = filtered
+        return self.json_response(
+            ctx,
+            {
+                "action": "select_tables",
+                "selected_tables": ordered,
+                "selected_target_dbs": ["db2"] * len(ordered),
+                "reasoning": "stub select_tables from brief cues",
+            },
+        )
 
     def _stub_plan(
         self,

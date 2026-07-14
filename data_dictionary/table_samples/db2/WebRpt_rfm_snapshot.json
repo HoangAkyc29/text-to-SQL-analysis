@@ -1,0 +1,85 @@
+{
+  "table": "WebRpt_rfm_snapshot",
+  "data_source": "db2",
+  "columns": [
+    "snapshot_date",
+    "card_id",
+    "cust_id",
+    "card_type",
+    "recency_days",
+    "frequency",
+    "monetary",
+    "rfm_segment",
+    "rfm_score",
+    "refreshed_at"
+  ],
+  "rows": [
+    {
+      "snapshot_date": "2026-04-01",
+      "card_id": "A10000007335",
+      "cust_id": "239010007813",
+      "card_type": "01",
+      "recency_days": 17,
+      "frequency": 2,
+      "monetary": "1867070.00",
+      "rfm_segment": "Others",
+      "rfm_score": 3,
+      "refreshed_at": "2026-04-01T11:50:25.717000"
+    },
+    {
+      "snapshot_date": "2026-04-01",
+      "card_id": "A10000006455",
+      "cust_id": "239010005025",
+      "card_type": "01",
+      "recency_days": 27,
+      "frequency": 4,
+      "monetary": "1819400.00",
+      "rfm_segment": "Loyal",
+      "rfm_score": 4,
+      "refreshed_at": "2026-04-01T11:50:25.717000"
+    },
+    {
+      "snapshot_date": "2026-04-01",
+      "card_id": "A10000006499",
+      "cust_id": "239010005281",
+      "card_type": "01",
+      "recency_days": 34,
+      "frequency": 5,
+      "monetary": "2180676.00",
+      "rfm_segment": "Others",
+      "rfm_score": 3,
+      "refreshed_at": "2026-04-01T11:50:25.717000"
+    },
+    {
+      "snapshot_date": "2026-04-01",
+      "card_id": "A10000006899",
+      "cust_id": "239020000603",
+      "card_type": "01",
+      "recency_days": 2,
+      "frequency": 10,
+      "monetary": "1792689.00",
+      "rfm_segment": "Loyal",
+      "rfm_score": 4,
+      "refreshed_at": "2026-04-01T11:50:25.717000"
+    },
+    {
+      "snapshot_date": "2026-04-01",
+      "card_id": "A10000006846",
+      "cust_id": "239020000504",
+      "card_type": "01",
+      "recency_days": 74,
+      "frequency": 1,
+      "monetary": "493400.00",
+      "rfm_segment": "Others",
+      "rfm_score": 2,
+      "refreshed_at": "2026-04-01T11:50:25.717000"
+    }
+  ],
+  "selection": {
+    "candidate_pool": 20,
+    "score": "minimize_null_zero_or_whitespace_cells",
+    "picked": "random_5_from_best_tier",
+    "source_table": "WebRpt_rfm_snapshot",
+    "values": "strip_strings_force_id_code_as_str_tcvn3_to_unicode"
+  }
+}

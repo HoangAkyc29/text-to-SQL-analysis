@@ -30,7 +30,11 @@ def test_pipeline_success_happy_path(pipeline_factory, workflow_state, hq_permis
         permissions=hq_permissions,
     )
     assert result.outcome == AnalysisOutcome.SUCCESS.value
-    assert invoker.agents_called() == ["II", "III", "IV"]
+    assert invoker.agents_called() == ["II", "II", "III", "IV"]
+    assert invoker.calls[0]["metadata"].get("mode") == "select_tables"
+    assert invoker.calls[1]["metadata"].get("mode") == "plan_sql"
+    assert invoker.calls[1]["payload"]["inbox"].get("table_samples")
+    assert any(s.step_type == WorkflowStepType.SELECT_TABLES for s in result.workflow_steps)
 
 
 def test_pipeline_needs_clarification(pipeline_factory, workflow_state, hq_permissions):
@@ -78,7 +82,10 @@ def test_pipeline_risk_reject_then_retry(pipeline_factory, workflow_state, hq_pe
     )
     assert result.outcome == AnalysisOutcome.SUCCESS.value
     assert invoker.calls[0]["agent"] == "II"
-    assert invoker.calls[1]["agent"] == "III"
+    assert invoker.calls[0]["metadata"].get("mode") == "select_tables"
+    assert invoker.calls[1]["agent"] == "II"
+    assert invoker.calls[1]["metadata"].get("mode") == "plan_sql"
+    assert invoker.calls[2]["agent"] == "III"
 
 
 def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_permissions):
@@ -102,8 +109,13 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
     )
     assert result.outcome == AnalysisOutcome.SUCCESS.value
     ii_calls = [c for c in invoker.calls if c["agent"] == "II"]
-    assert len(ii_calls) == 2
-    assert "data_feedback" in str(ii_calls[1]["payload"].get("inbox", {})) or ii_calls[1]["payload"].get("attempt") == 2
+    assert len(ii_calls) == 4  # select+plan per attempt
+    plan_calls = [c for c in ii_calls if c["metadata"].get("mode") == "plan_sql"]
+    assert len(plan_calls) == 2
+    for pc in plan_calls:
+        samples = pc["payload"].get("inbox", {}).get("table_samples")
+        assert samples, "table_samples must be attached before every plan_sql (incl. IV retry)"
+    assert "data_feedback" in str(plan_calls[1]["payload"].get("inbox", {})) or plan_calls[1]["payload"].get("attempt") == 2
 
 
 def test_pipeline_policy_blocked_exhausted(pipeline_factory, workflow_state, hq_permissions):
