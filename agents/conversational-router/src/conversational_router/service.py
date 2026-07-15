@@ -87,9 +87,12 @@ class ConversationalRouterService(SupermarketAgentService):
         try:
             return parse_llm_json(result)
         except LLMProviderError as exc:
-            logger.warning("router LLM JSON parse failed: %s; content=%r", exc, completion_text(result)[:200])
-            if fallback_text.strip():
-                return self._ingress_heuristic(fallback_text, external_sources or [])
+            logger.error(
+                "Agent I absolute failure (LLM JSON parse): %s; content=%r",
+                exc,
+                completion_text(result)[:200],
+            )
+            # Never degrade to ingress heuristic while ALLOW_LLM_STUB=0.
             raise
 
     def _ingress(self, ctx: DecisionContext):

@@ -28,6 +28,4 @@ Agent III hiện validate in-process; MCP dùng khi mở rộng explain plan.
 
 ## Domain red flags
 
-- `SUM(AMOUNT)` trên PMTRANS không lọc `TRANS_CODE='221'` cho bill payment metrics
-- Loyalty points từ `CRDTRANS` thiếu `TRANS_CODE IN ('811','812')`
-- Full table scan master (`SKU_DEF` without `TOP` or filter)
+Check consistency against `schema_context.domain_definitions_excerpt` and column facts — e.g. aggregations missing required document-type filters, wrong fact table for the metric, unscoped master scans. **Do not** hardcode specific `TRANS_CODE` values in this file.

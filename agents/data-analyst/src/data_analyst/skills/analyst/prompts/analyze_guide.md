@@ -32,7 +32,7 @@
     "diagnosis": "solvable | needs_probe | impossible | needs_user_clarify",
     "suggested_intent_fix": "wider filters or probe SKU",
     "probe_requests": [
-      {"table": "SKU_DEF", "purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 SKU_ID, SKU_CODE FROM SKU_DEF WHERE ..."}
+      {"table": "SKU_DEF", "purpose": "sku_lookup"}
     ],
     "expected_vs_observed": [
       {"aspect": "row_count", "expected": "rows for SKU 123456", "observed": "0 main, 3 probe"}
@@ -42,7 +42,7 @@
 ```
 
 Required fields: `issue`, `summary`, `diagnosis` (one of four literals).
-`probe_requests[].table` is required. `expected_vs_observed` is always an array.
+`probe_requests[].table` is required. Leave `suggested_sql` empty — Agent II writes probe SQL. `expected_vs_observed` is always an array.
 
 ## Identifier mismatch
 
@@ -54,7 +54,7 @@ When `main_rows == 0` but product probe returns rows:
 
 When all queries are probes and at least one probe returned rows:
 - Issue = `probe_success_needs_fact`
-- Ask II for a `role: main` fact query (STRANS + TRANSHDR join).
+- Ask II for a `role: main` fact query on the correct grain/tables from dictionary (not another probe-only plan).
 
 ## Exploration clarify
 

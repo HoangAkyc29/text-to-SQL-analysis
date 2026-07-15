@@ -68,12 +68,21 @@ def receptionist_answers(clarification: dict[str, Any], analysis_id: str) -> dic
                 "Đúng rồi, đó là mã hàng tôi đưa — 0030344, 0030348, 0030355. "
                 "Tôi không biết mã đó là 6 số hay 8 số trong máy, chỉ lấy trên phiếu quà."
             )
+            # Prefer padded internal SKU when offered — gift PLUs are often 7 digits on the slip.
             for o in options:
+                oid = (o.get("id") or "").lower()
                 lbl = (o.get("label") or "").lower()
-                if "item" in lbl or "plu" in lbl or "mã" in lbl or "sku" in lbl:
+                if "sku_pad" in oid or "pad" in oid or "8 số" in lbl or "0 đầu" in lbl or "0 dau" in lbl:
                     opt_id = o["id"]
                     other_text = None
                     break
+            else:
+                for o in options:
+                    lbl = (o.get("label") or "").lower()
+                    if "item" in lbl or "plu" in lbl or "mã" in lbl or "sku" in lbl:
+                        opt_id = o["id"]
+                        other_text = None
+                        break
         elif any(k in prompt for k in ("ngày", "ngay", "thời gian", "thoi gian", "date")):
             for o in options:
                 lbl = (o.get("label") or "").lower()

@@ -15,9 +15,11 @@ pytestmark = pytest.mark.unit
 
 
 def test_product_resolver_generates_probes():
+    """Stub/test helper still builds LIKE predicates; not wired into prod agent inbox."""
     resolved = resolve_product_code("123456")
     assert resolved.probe_sql
     assert any("SKU_DEF" in q for q in resolved.probe_sql)
+    assert any("LOWER(" in q and "LIKE" in q for q in resolved.probe_sql)
 
 
 def test_apply_data_feedback_sets_exploration():

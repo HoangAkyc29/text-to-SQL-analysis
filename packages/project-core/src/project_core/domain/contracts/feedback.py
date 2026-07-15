@@ -27,7 +27,9 @@ class MissingForBrief(BaseModel):
 class ProbeRequest(BaseModel):
     table: str
     purpose: str
-    suggested_sql: str
+    # Optional ONLY for legacy/stub paths. Production IV must leave this empty —
+    # Agent II writes probe SQL itself (no recipe injection).
+    suggested_sql: str = ""
     priority: int = 1
 
 

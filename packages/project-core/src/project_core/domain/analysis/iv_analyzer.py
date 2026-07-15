@@ -339,22 +339,10 @@ def _identifier_mismatch_feedback(
 def _empty_feedback(brief: AnalysisBrief, product_code: Any) -> dict[str, Any]:
     probes = []
     if product_code:
+        # Table + purpose only — never inject SQL for Agent II to copy.
         probes = [
-            ProbeRequest(
-                table="SKU_DEF",
-                purpose="sku_lookup",
-                suggested_sql=(
-                    f"SELECT TOP 5 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF "
-                    f"WHERE SKU_CODE LIKE '%{product_code}%'"
-                ),
-            ),
-            ProbeRequest(
-                table="BARCODE",
-                purpose="barcode_lookup",
-                suggested_sql=(
-                    f"SELECT TOP 5 BARCODE, SKU_ID FROM BARCODE WHERE BARCODE LIKE '%{product_code}%'"
-                ),
-            ),
+            ProbeRequest(table="SKU_DEF", purpose="sku_lookup"),
+            ProbeRequest(table="BARCODE", purpose="barcode_lookup"),
         ]
     return {
         "action": "data_feedback",

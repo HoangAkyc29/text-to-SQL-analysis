@@ -1,0 +1,31 @@
+---
+description: Never hardcode domain SQL recipes into agents; keep reasoning in LLM + RAG
+alwaysApply: true
+---
+
+# No domain SQL recipes in agent path
+
+## Absolute bans (this repo)
+
+1. **Do not** put retail/domain SQL recipes into agent skill prompts (`agents/*/skills/**`), system guides, or TOOLS.md — e.g. `TRANS_CODE='113'`, gift/bill 600k SQL, pad-SKU recipes, ready-made `SELECT … WHERE …`.
+2. **Do not** inject ready-made SQL into Agent II/III/IV inboxes: no `suggested_sql`, no `sql_predicate`, no pre-built `probe_sql` in `schema_context` / `data_feedback` for production LLM runs.
+3. **Do not** write Cursor/developer self-notes into agent prompts (e.g. “never expect pipeline to hand you SQL”). That guidance is for the coding agent only — put it in `.cursor/rules/`, not in `skills/`.
+4. **Do not** “fix” prod by copying trial cases (specific SKUs, dates, bill thresholds as SQL) into skills or pipeline helpers.
+
+## Where domain knowledge / grounding belongs
+
+- `data_dictionary/` (tables, columns, domain_definitions)
+- **`data_dictionary/table_samples/{db1|db2}/*.json`** — static 5-row samples; pipeline loads them into `inbox.table_samples` after `select_tables` so Agent II `plan_sql` can see real grain, columns, and value shapes (**do use this path; do not replace it with hardcoded SQL**)
+- RAG / case studies (Mongo), parameterized by the LLM
+- Brief fields from Agent I (e.g. `filters.min_bill_value` from user speech) — values, not SQL
+
+## What is allowed
+
+- **Meta format rules** without business recipes, e.g. text filters use `LOWER(col) LIKE '%' + LOWER('<literal>') + '%'` with placeholders — no concrete product codes.
+- **Topology/policy**: db1/db2, no `db2.dbo.` prefix, allowlist tables, readonly SELECT.
+- **`ALLOW_LLM_STUB=1` / unit-test stubs** may contain deterministic SQL, but must stay behind the stub gate and must not be copied into skill prompts or prod hint injection.
+
+## If unsure
+
+Prefer: dictionary + **`inbox.table_samples`** + RAG; agent writes SQL.  
+Never: paste a working trial query into a skill or `suggested_sql`.

@@ -18,6 +18,21 @@ from project_core.infra.resilience import CircuitBreaker
 logger = logging.getLogger(__name__)
 
 
+def _jsonable_fallback(value: Any) -> Any:
+    """Convert numpy/pandas scalars and other odd types for AgentRequest payloads."""
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            return item()
+        except Exception:  # noqa: BLE001
+            pass
+    return str(value)
+
+
+def dumps_agent_payload(payload: dict[str, Any]) -> str:
+    return json.dumps(to_jsonable_python(payload, fallback=_jsonable_fallback))
+
+
 class HttpAgentInvoker(AgentInvoker):
     def __init__(
         self,
@@ -62,7 +77,7 @@ class HttpAgentInvoker(AgentInvoker):
         req = AgentRequest(
             session_id=metadata.get("session_id", "system"),
             actor_id=metadata.get("actor_id", "system"),
-            message=json.dumps(to_jsonable_python(payload)),
+            message=dumps_agent_payload(payload),
             metadata=metadata,
         )
         headers = {**internal_auth_headers()}

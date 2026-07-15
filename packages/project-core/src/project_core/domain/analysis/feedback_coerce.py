@@ -51,8 +51,8 @@ def coerce_data_feedback(raw: dict[str, Any]) -> DataFeedback:
             pr["table"] = _PURPOSE_TABLE.get(purpose, "SKU_DEF")
         if not pr.get("purpose"):
             pr["purpose"] = "lookup"
-        if not pr.get("suggested_sql"):
-            pr["suggested_sql"] = f"SELECT TOP 100 * FROM {pr['table']}"
+        # Never invent SQL recipes for Agent II — empty suggested_sql means II must write probes.
+        pr.setdefault("suggested_sql", "")
         fixed_probes.append(pr)
     data["probe_requests"] = fixed_probes
 

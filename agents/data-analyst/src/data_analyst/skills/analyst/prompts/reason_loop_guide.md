@@ -53,7 +53,7 @@ Emit `kind=excel` when `output_format` contains `excel`.
     "summary": "Vietnamese explanation",
     "suggested_intent_fix": "what Agent II should change",
     "probe_requests": [
-      {"table": "SKU_DEF", "purpose": "sku_lookup", "suggested_sql": "SELECT TOP 100 SKU_ID, SKU_CODE FROM SKU_DEF WHERE ..."}
+      {"table": "SKU_DEF", "purpose": "sku_lookup"}
     ],
     "expected_vs_observed": [
       {"aspect": "row_count", "expected": "sales rows for SKU", "observed": "0 main, 3 probe"}
@@ -64,7 +64,7 @@ Emit `kind=excel` when `output_format` contains `excel`.
 
 Use `data_feedback` when the data mismatches the intent and Agent II must re-plan SQL (you cannot write SQL).
 `diagnosis` must be exactly one of: `solvable`, `needs_probe`, `impossible`, `needs_user_clarify`.
-`probe_requests[].table` is **required** (`SKU_DEF`, `BARCODE`, `STRANS`, `TRANSHDR`, …).
+`probe_requests[].table` is **required**. Leave `suggested_sql` empty — Agent II writes probe SQL.
 `expected_vs_observed` must be an **array** of objects with `aspect`, `expected`, `observed`.
 
 ```json

@@ -15,3 +15,13 @@ Respect `brief.filters`, `time_range`, role store restrictions, and `retrieval_c
 `retrieval_context` may be **hierarchical** (`phase: hierarchical` with `columns`, `tables`, `case_studies`) — use column-first reasoning before picking tables.
 
 Language: `reasoning` field may be Vietnamese or English; SQL identifiers stay as in schema.
+
+## Text filter rule (mandatory)
+
+For **every textual / code equality** that would have been `col = 'value'` or `col IN (...)`:
+
+- Use **case-insensitive substring** instead of absolute match.
+- Pattern: `LOWER(col) LIKE '%' + LOWER('value') + '%'` (both sides LOWER).
+- Multi-value: OR several LIKE predicates (do not use absolute `IN` for codes/identifiers).
+
+Do **not** apply LIKE/LOWER to numeric comparisons (`AMOUNT >= …`), date ranges, or booleans — only string/code/id text filters.

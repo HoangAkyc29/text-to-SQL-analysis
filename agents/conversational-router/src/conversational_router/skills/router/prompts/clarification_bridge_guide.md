@@ -39,8 +39,8 @@ Decide whether the user's **transcript** already answers the MCQ from Agent II, 
 | Question theme | Transcript signals |
 |----------------|-------------------|
 | VIP definition | "thẻ E", "prefix E", "tier VIP", "không chắc" → exploration |
-| TRANS_CODE | mentions `113`, `221`, `811` |
-| Points rule | `/50000`, "chia 50000", "1 điểm 50k" |
+| Document / TRANS_CODE | User names a document code or code meaning from transcript |
+| Points rule | spoken points conversion formulas in transcript |
 | Time range | explicit months/quarters in transcript |
 
 Map `selected_option_id` to an option `id` from `request.questions[].options` when possible; otherwise `other_text`.

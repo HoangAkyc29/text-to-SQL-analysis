@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -15,10 +16,15 @@ from project_core.domain.contracts.feedback import DataFeedback
 from project_core.domain.product.resolver import resolve_product_code
 from project_core.domain.sql.shard_resolver import build_db1_union_sql
 from project_core.domain.errors.codes import LLMProviderError
-from project_core.llm.json_parse import parse_llm_json
+from project_core.llm.json_parse import completion_text, parse_llm_json
 from project_core.llm.openrouter_client import OpenRouterClient
 from project_core.models.loader import agent_profile
 from project_core.service.supermarket_agent import SupermarketAgentService
+
+logger = logging.getLogger(__name__)
+
+# Operational policy: LLM failure must never degrade to heuristic stub SQL.
+AGENT_LLM_ABSOLUTE_FAILURE = "AGENT_LLM_ABSOLUTE_FAILURE"
 
 
 class SqlPlannerService(SupermarketAgentService):
@@ -55,6 +61,8 @@ class SqlPlannerService(SupermarketAgentService):
         if inbox.get("data_feedback"):
             brief = apply_data_feedback(brief, inbox["data_feedback"])
 
+        # Test harness only. Production/ops must keep ALLOW_LLM_STUB=0.
+        # Stub in a live agent path is never a valid degradation — see absolute failure below.
         if os.getenv("ALLOW_LLM_STUB") == "1":
             if mode == "select_tables":
                 return self._stub_select_tables(ctx, brief, schema_context)
@@ -68,33 +76,46 @@ class SqlPlannerService(SupermarketAgentService):
                 extra = probe
 
         client = OpenRouterClient()
-        result = client.chat(
-            profile_name=agent_profile("sql_planner"),
-            messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide=guide, extra=extra)},
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "brief": brief.model_dump(),
-                            "inbox": inbox,
-                            "attempt": attempt,
-                            "schema_context": schema_context,
-                            "retrieval_context": retrieval_context,
-                            "mode": mode,
-                        },
-                        ensure_ascii=False,
-                    ),
-                },
-            ],
-            response_format={"type": "json_object"},
-        )
+        result = None
         try:
+            result = client.chat(
+                profile_name=agent_profile("sql_planner"),
+                messages=[
+                    {"role": "system", "content": self.llm_system_prompt(guide=guide, extra=extra)},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "brief": brief.model_dump(),
+                                "inbox": inbox,
+                                "attempt": attempt,
+                                "schema_context": schema_context,
+                                "retrieval_context": retrieval_context,
+                                "mode": mode,
+                            },
+                            ensure_ascii=False,
+                        ),
+                    },
+                ],
+                response_format={"type": "json_object"},
+            )
             payload = parse_llm_json(result)
-        except LLMProviderError:
-            if mode == "select_tables":
-                return self._stub_select_tables(ctx, brief, schema_context)
-            return self._stub_plan(ctx, brief, inbox, attempt, schema_context)
+        except LLMProviderError as exc:
+            snippet = completion_text(result)[:300] if result is not None else ""
+            logger.error(
+                "Agent II absolute failure mode=%s: %s content=%r",
+                mode,
+                exc,
+                snippet,
+            )
+            return self.json_response(
+                ctx,
+                {
+                    "action": "impossible",
+                    "reason": AGENT_LLM_ABSOLUTE_FAILURE,
+                    "reasoning": f"LLM {mode} failed — stub fallback forbidden: {exc}",
+                },
+            )
         return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
 
     def _stub_select_tables(
@@ -211,7 +232,7 @@ class SqlPlannerService(SupermarketAgentService):
             predicate = best.sql_predicate if best else f"SKU_ID = '{product_code}'"
             sql.append(
                 f"SELECT TOP 50000 SKU_ID, SUM(AMOUNT) AS total_amount FROM STRANS "
-                f"WHERE TRANS_CODE = '113' AND {predicate} GROUP BY SKU_ID"
+                f"WHERE LOWER(TRANS_CODE) LIKE '%' + LOWER('113') + '%' AND {predicate} GROUP BY SKU_ID"
             )
             query_meta.append({"role": "main", "purpose": "product_revenue"})
             target_dbs.append("db2")
@@ -220,11 +241,11 @@ class SqlPlannerService(SupermarketAgentService):
                 (
                     "SELECT TOP 50000 FORMAT(s.TRAN_DATE,'yyyy-MM') AS month, "
                     "SUM(s.AMOUNT) AS monthly_amount FROM STRANS s "
-                    "WHERE s.TRANS_CODE = '113' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
+                    "WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
                 ),
                 (
                     "SELECT TOP 50000 s.STK_ID, SUM(s.AMOUNT) AS store_amount FROM STRANS s "
-                    "WHERE s.TRANS_CODE = '113' GROUP BY s.STK_ID"
+                    "WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%' GROUP BY s.STK_ID"
                 ),
                 (
                     "SELECT TOP 100 SKU_ID, SKU_CODE, BARCODE FROM SKU_DEF"
@@ -241,11 +262,11 @@ class SqlPlannerService(SupermarketAgentService):
                 (
                     f"SELECT TOP 50000 c.CARD_ID, SUM(p.AMOUNT) AS total_amount "
                     f"FROM CSCARD c JOIN PMTRANS p ON p.CARD_ID = c.CARD_ID "
-                    f"WHERE p.TRANS_CODE = '221' GROUP BY c.CARD_ID"
+                    f"WHERE LOWER(p.TRANS_CODE) LIKE '%' + LOWER('221') + '%' GROUP BY c.CARD_ID"
                 ),
                 (
                     "SELECT TOP 50000 FORMAT(s.TRAN_DATE,'yyyy-MM') AS month, SUM(s.AMOUNT) AS monthly_amount "
-                    "FROM STRANS s WHERE s.TRANS_CODE = '113' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
+                    "FROM STRANS s WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
                 ),
             ]
             query_meta = [{"role": "main"}, {"role": "main"}]
@@ -258,7 +279,7 @@ class SqlPlannerService(SupermarketAgentService):
                 sql = [
                     (
                         "SELECT TOP 50000 s.TRANS_NUM, s.SKU_ID, s.AMOUNT, s.QTY "
-                        "FROM STRANS s WHERE s.TRANS_CODE = '113'"
+                        "FROM STRANS s WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%'"
                     )
                 ]
                 query_meta = [{"role": "main", "purpose": "line_level"}]
@@ -298,11 +319,15 @@ class SqlPlannerService(SupermarketAgentService):
             return None
         if not fb.probe_requests:
             return None
-        sql = [p.suggested_sql for p in fb.probe_requests[:3]]
+        # Stub harness only: copy SQL if IV/tests explicitly provided it.
+        # Production LLM path never relies on this — empty suggested_sql → no stub probe plan.
+        sql = [p.suggested_sql for p in fb.probe_requests[:3] if (p.suggested_sql or "").strip()]
+        if not sql:
+            return None
         return {
             "action": "probe_sql",
             "sql_queries": sql,
-            "query_meta": [{"role": "probe", "purpose": p.purpose} for p in fb.probe_requests[:3]],
+            "query_meta": [{"role": "probe", "purpose": p.purpose} for p in fb.probe_requests[:3] if (p.suggested_sql or "").strip()],
             "target_dbs": ["db2"] * len(sql),
             "reasoning": "IV-requested probe SQL",
         }
@@ -321,20 +346,20 @@ class SqlPlannerService(SupermarketAgentService):
                 sql.append(
                     "SELECT TOP 50000 c.CARD_ID, SUM(p.AMOUNT) AS total_amount "
                     "FROM CSCARD c JOIN PMTRANS p ON p.CARD_ID = c.CARD_ID "
-                    "WHERE p.TRANS_CODE = '221' GROUP BY c.CARD_ID"
+                    "WHERE LOWER(p.TRANS_CODE) LIKE '%' + LOWER('221') + '%' GROUP BY c.CARD_ID"
                 )
                 query_meta.append({"role": "main", "purpose": "vip_revenue", "subtask_id": subtask.id})
             elif "trend" in lower or "tháng" in lower or "month" in lower:
                 sql.append(
                     "SELECT TOP 50000 FORMAT(s.TRAN_DATE,'yyyy-MM') AS month, "
                     "SUM(s.AMOUNT) AS monthly_amount FROM STRANS s "
-                    "WHERE s.TRANS_CODE = '113' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
+                    "WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%' GROUP BY FORMAT(s.TRAN_DATE,'yyyy-MM')"
                 )
                 query_meta.append({"role": "main", "purpose": "monthly_trend", "subtask_id": subtask.id})
             else:
                 sql.append(
                     "SELECT TOP 50000 s.STK_ID, SUM(s.AMOUNT) AS store_amount FROM STRANS s "
-                    "WHERE s.TRANS_CODE = '113' GROUP BY s.STK_ID"
+                    "WHERE LOWER(s.TRANS_CODE) LIKE '%' + LOWER('113') + '%' GROUP BY s.STK_ID"
                 )
                 query_meta.append({"role": "main", "purpose": "revenue", "subtask_id": subtask.id})
             target_dbs.append("db2")

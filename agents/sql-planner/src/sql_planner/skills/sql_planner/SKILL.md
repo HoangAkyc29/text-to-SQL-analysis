@@ -34,6 +34,7 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 - Chỉ bảng trong `schema_context.tables` / role allowlist.
 - Store manager: mọi query phải lọc `STK_ID` (pipeline inject nếu thiếu).
 - `TRANS_CODE` / mã chứng từ: xem `domain_definitions` + column facts; không giả định một mã duy nhất cho mọi query trên `STRANS`.
+- **Filter chữ/mã:** không `=`; dùng substring + không phân biệt hoa thường — `LOWER(col) LIKE '%' + LOWER('value') + '%'` (xem `plan_sql_guide` / `system_base`).
 
 ## Đọc thêm
 

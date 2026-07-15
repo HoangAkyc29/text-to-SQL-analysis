@@ -89,6 +89,14 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 - Apply `STK_ID IN (...)` when `brief.filters.STK_ID` or store scope is already in the brief (pipeline/role may also inject).
 - Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, column facts, and **case studies** — not from hardcoded recipes in this file.
 
+## Text filters — substring + case-insensitive (mandatory)
+
+For every **textual / code** predicate that would have been absolute equality:
+
+- Use substring match and case-insensitivity: `LOWER(<column>) LIKE '%' + LOWER('<literal>') + '%'`.
+- Multi-value → OR of such predicates (not absolute `IN` for codes/identifiers).
+- Exceptions: numeric comparisons, date ranges, booleans.
+
 ## Output: `clarify`
 
 ```json
@@ -145,7 +153,7 @@ Read `inbox.policy_feedback` carefully — it now includes:
 - `rejected_sql`: the SQL that failed (learn from it, do not repeat)
 - `hints`: Vietnamese guidance — **use hints to fix reasoning, do not paste hints as SQL**
 
-Read `schema_context.product_resolution_hints` when present — pick a strategy and probe before fact query.
+Read `schema_context.product_resolution_hints` when present — raw product codes from the brief (`user_input`).
 
 Read `schema_context.shard_plan` — `needs_db2` / `needs_db1` / `shards` / `cutoff` for date routing.
 

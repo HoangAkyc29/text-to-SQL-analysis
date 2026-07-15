@@ -121,12 +121,13 @@ class RiskReviewerService(SupermarketAgentService):
         )
         try:
             payload = parse_llm_json(result)
-        except LLMProviderError:
-            # Policy already passed — don't block pipeline on malformed LLM JSON
+        except LLMProviderError as exc:
+            # Never silent-approve on LLM failure — absolute agent failure.
             payload = {
-                "verdict": "approve",
-                "concerns": ["llm_json_parse_failed"],
-                "risk_feedback": None,
+                "verdict": "reject",
+                "concerns": ["AGENT_LLM_ABSOLUTE_FAILURE", str(exc)[:200]],
+                "risk_feedback": {"issue": "AGENT_LLM_ABSOLUTE_FAILURE"},
+                "needs_explain": False,
             }
         payload.setdefault("schema_context_summary", {
             "table_count": len(schema_context.get("tables") or []),

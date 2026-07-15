@@ -30,8 +30,8 @@
 When `verdict` is `reject`:
 ```json
 "risk_feedback": {
-  "issue": "wrong_trans_code_for_metric",
-  "suggestion": "Use TRANS_CODE='113' on STRANS for retail revenue"
+  "issue": "wrong_fact_or_code_for_metric",
+  "suggestion": "Align fact table and document codes with schema_context.domain_definitions_excerpt / column facts — do not invent codes"
 }
 ```
 
@@ -43,13 +43,10 @@ When `verdict` is `reject`:
 ## Reject criteria
 
 - Policy blocked.
-- Wrong fact table for metric (points on STRANS without card join).
+- Wrong fact table for metric (e.g. loyalty points taken from the wrong grain/table).
 - Unbounded cross join pattern.
 - Exporting sensitive columns without business need.
 
-## Vietnamese retail context
+## Domain codes & metrics
 
-- Revenue retail: `STRANS` + `TRANS_CODE='113'`
-- Payment at POS: `PMTRANS` + `TRANS_CODE='221'`
-- Loyalty points: `CRDTRANS` / `CRDTRANS_ARC` + `811`/`812`
-- Inventory: `STK_DTL`, not sales tables
+**Do not** hardcode retail document codes or join recipes here. Read `schema_context.domain_definitions_excerpt`, table/column facts, and retrieval context. Reject when SQL contradicts those sources.
