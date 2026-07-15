@@ -33,7 +33,8 @@ Mỗi query trong plan phải có `target_dbs[i]` tương ứng.
 | Điểm thẻ | `CRDTRANS` / `CRDTRANS_ARC` (+ công thức nghiệp vụ từ case study / column facts nếu retrieve được) |
 | Master SKU | `SKU_DEF`, `BARCODE`, `PLU` |
 | Tồn kho | `STK_DTL`, `INV_HDR` |
-| Lịch sử shard db1 | `STRANS_YYYYMM`, `PMTRANS_YYYYMM` |
+| Lịch sử shard db1 | `STRANS_YYYYMM`, `PMTRANS_YYYYMM` — chỉ khi `needs_db1`; suffix động tới `archive_newest_ym` |
+| Fact gần / live db2 | `STRANS`, `PMTRANS`, `TRANSHDR` — **không** hậu tố tháng |
 
 ## Product lookup
 

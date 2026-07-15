@@ -11,8 +11,8 @@ Ví dụ hôm nay **22/06/2026**:
 
 | Logical | Physical | Shards | Mô tả |
 |---------|----------|--------|-------|
-| `STRANS` | `STRANS_{YYYYMM}` | 29 | Chi tiết dòng bán lịch sử |
-| `PMTRANS` | `PMTRANS_{YYYYMM}` | 28 | Thanh toán bill lịch sử |
+| `STRANS` | `STRANS_{YYYYMM}` | động (`from`→archive_newest_ym) | Chi tiết dòng bán lịch sử |
+| `PMTRANS` | `PMTRANS_{YYYYMM}` | động | Thanh toán bill lịch sử |
 | `CRDTRANS_ARC` | `CRDTRANS_ARC` | 1 | Giao dịch thẻ/điểm archive |
 | `TRANSHDR_ARC` | `TRANSHDR_ARC` | 1 | Header bill archive |
 
@@ -20,10 +20,10 @@ Schema: `../tables/db1/<TênBảng>.md` + `shards.yaml` + `../domain_definitions
 
 ## Chọn physical table
 
-1. Xác nhận khoảng thời gian **nằm hoàn toàn trước cutoff** — nếu không, dùng db2.
+1. Xác nhận khoảng thời gian **nằm hoàn toàn trước cutoff** — nếu không, dùng **db2 bare names** (`STRANS`, không `STRANS_YYYYMM`).
 2. Lọc `TRAN_DATE` theo brief.
-3. Suffix `YYYYMM` → vd. `STRANS_202503`.
-4. Nhiều tháng: `UNION ALL` các shard.
+3. Suffix `YYYYMM` chỉ trên db1; danh sách month expand động từ `shard_range.from` → `archive_newest_ym` (tháng trước cutoff).
+4. Nhiều tháng: `UNION ALL` các shard trong `shard_plan.shards`.
 
 ## Quan hệ
 

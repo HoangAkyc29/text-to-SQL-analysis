@@ -14,8 +14,8 @@ Lập kế hoạch truy vấn readonly trên SQL Server supermarket (db1 archive
 
 ## Data topology
 
-- **db2**: master (SKU_DEF, BARCODE, CSCARD, …) + giao dịch gần đây (`TRAN_DATE >= cutoff`)
-- **db1**: shard lịch sử `STRANS_YYYYMM`, `PMTRANS_YYYYMM` (`TRAN_DATE < cutoff`)
+- **db2**: master (SKU_DEF, BARCODE, CSCARD, …) + giao dịch gần đây (`TRAN_DATE >= cutoff`) — tên bảng **không** hậu tố `_YYYYMM` (`STRANS`, `PMTRANS`, `TRANSHDR`)
+- **db1**: shard lịch sử `STRANS_YYYYMM`, `PMTRANS_YYYYMM` chỉ khi `TRAN_DATE < cutoff`; hậu tố mới nhất = tháng trước cutoff (động theo as_of). `TRANSHDR_ARC` / `CRDTRANS_ARC` bare name.
 - **Không** join cross-database trên SQL — mỗi query chạy trên một `target_db`; merge ở Agent IV.
 
 Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`).

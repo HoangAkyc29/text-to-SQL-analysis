@@ -203,6 +203,9 @@ class SupermarketAnalysisPipeline:
             product_hints = product_resolution_hints(brief)
             if product_hints:
                 schema_context = {**schema_context, "product_resolution_hints": product_hints}
+            from project_core.domain.sql.shard_resolver import table_naming_context
+
+            schema_context = {**schema_context, "table_naming": table_naming_context()}
             retrieval_context: Any = retrieval_payload
             if isinstance(retrieval_payload, list):
                 retrieval_context = [getattr(c, "text", str(c)) for c in retrieval_payload]

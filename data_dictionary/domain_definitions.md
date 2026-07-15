@@ -7,17 +7,20 @@ Thuật ngữ và mã nghiệp vụ dùng chung (suy luận từ dữ liệu m�
 **Ngưỡng rolling** (tính khi chạy query):
 
 ```
-cutoff = ngày 1 của tháng trước (so với GETDATE())
+cutoff = ngày 1 của tháng trước (so với GETDATE() / as_of)
+archive_newest_ym = tháng trước cutoff (YYYYMM) — hậu tố shard mới nhất được phép trên db1
 ```
 
-| | db1 (lịch sử) | db2 (live) |
-|---|---------------|------------|
+| | db1 (lịch sử) | db2 (live + gần) |
+|---|---------------|------------------|
 | Giao dịch | `TRAN_DATE < cutoff` | `TRAN_DATE >= cutoff` |
-| Ví dụ 22/06/2026 | trước 01/05/2026 | từ 01/05/2026 đến nay |
+| Tên bảng fact | `STRANS_YYYYMM` / `PMTRANS_YYYYMM` (suffix động tới `archive_newest_ym`) | **Bare name only** — `STRANS`, `PMTRANS`, `TRANSHDR`, `CRDTRANS` — **không** `_YYYYMM` |
+| Ví dụ 15/07/2026 | cutoff=`2026-06-01`; shard mới nhất `…_202605` | từ 01/06/2026; bảng `STRANS` (không `STRANS_202607`) |
 | Ý nghĩa | Archive shard theo tháng | ~2 tháng gần nhất + master |
 
-- **Master** (SKU, khách, NCC, giá, thẻ, …): chỉ **db2**.
+- **Master** (SKU, khách, NCC, giá, thẻ, …): chỉ **db2**, bare names.
 - Brief trải cutoff: `UNION ALL` db2 + db1 shards — merge ở analyst.
+- `CRDTRANS_ARC` / `TRANSHDR_ARC` trên db1 cũng **không** có hậu tố tháng.
 
 ## TRANS_CODE — loại chứng từ
 
@@ -68,7 +71,9 @@ cutoff = ngày 1 của tháng trước (so với GETDATE())
 
 ## db1 shard
 
-- `STRANS_{YYYYMM}`, `PMTRANS_{YYYYMM}`: chọn physical table theo tháng của `TRAN_DATE` (chỉ khi `TRAN_DATE < cutoff`)
+- `STRANS_{YYYYMM}`, `PMTRANS_{YYYYMM}`: chỉ khi `TRAN_DATE < cutoff`; hậu tố mới nhất = `archive_newest_ym` (tháng trước cutoff), expand động lúc runtime — không hard-freeze danh sách tháng trong YAML.
+- Trên **db2** cùng logical fact: dùng `STRANS` / `PMTRANS` **không** hậu tố.
+- `TRANSHDR_ARC` / `CRDTRANS_ARC`: bare name trên db1.
 
 ## Mã hàng / barcode / PLU
 

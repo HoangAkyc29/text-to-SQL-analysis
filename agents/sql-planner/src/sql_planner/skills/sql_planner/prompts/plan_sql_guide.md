@@ -81,13 +81,15 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 ## Rules (topology / policy only)
 
 - `len(sql_queries)` == `len(target_dbs)` == `len(query_meta)` (≤ 6).
-- Default fact queries on **db2**; use **db1** shards only when `time_range` needs history before cutoff.
-- Master lookups (SKU, barcode, card) → **db2**.
+- Default fact queries on **db2** with **bare** names (`STRANS`, `PMTRANS`, `TRANSHDR`). **Do not** write `STRANS_YYYYMM` when `target_db=db2` or when `shard_plan.needs_db2` covers the range and `needs_db1` is false.
+- Use **db1** monthly shards (`STRANS_YYYYMM` / `PMTRANS_YYYYMM`) **only** when `shard_plan.needs_db1` — prefer exactly `shard_plan.shards`; never invent a month past `shard_plan.archive_newest_ym` / `table_naming.archive_newest_ym`.
+- Master lookups (SKU, barcode, card) → **db2** bare names.
 - **Never** prefix tables with `db1.dbo.` or `db2.dbo.` — `target_db` selects the connection; use bare table names (`STRANS`, `TRANSHDR`, …).
-- Only reference tables listed in `schema_context.logical_tables` / data_dictionary. Do **not** invent table names (e.g. `rankedSales`, `productSkus`); use `WITH` CTEs or subqueries instead.
+- Only reference tables listed in `schema_context.logical_tables` / data_dictionary / expanded `db1_shards`. Do **not** invent table names (e.g. `rankedSales`, `productSkus`); use `WITH` CTEs or subqueries instead.
 - Use `FORMAT(TRAN_DATE,'yyyy-MM')` for monthly grain when brief asks month grain.
 - Apply `STK_ID IN (...)` when `brief.filters.STK_ID` or store scope is already in the brief (pipeline/role may also inject).
 - Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, column facts, and **case studies** — not from hardcoded recipes in this file.
+- Read `schema_context.table_naming` (as_of, cutoff, db2 bare vs db1 suffix rules).
 
 ## Text filters — substring + case-insensitive (mandatory)
 
@@ -155,7 +157,8 @@ Read `inbox.policy_feedback` carefully — it now includes:
 
 Read `schema_context.product_resolution_hints` when present — raw product codes from the brief (`user_input`).
 
-Read `schema_context.shard_plan` — `needs_db2` / `needs_db1` / `shards` / `cutoff` for date routing.
+Read `schema_context.shard_plan` — `needs_db2` / `needs_db1` / `shards` / `cutoff` / `archive_newest_ym` for date routing.
+Read `schema_context.table_naming` — db2 = bare names; db1 monthly suffix rolls with as_of.
 
 ### Policy violation cheat-sheet
 

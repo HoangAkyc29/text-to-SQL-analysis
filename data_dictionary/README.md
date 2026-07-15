@@ -14,12 +14,13 @@ Tài liệu schema cho SQL planner (Agent II) và risk reviewer (Agent III). Ngu
 Tính theo **ngày chạy query**:
 
 - `cutoff` = **ngày 1 của tháng trước** (so với hôm nay).
-- Ví dụ hôm nay **22/06/2026** → `cutoff = 2026-05-01`.
+- `archive_newest_ym` = **tháng trước cutoff** — hậu tố shard db1 mới nhất (expand runtime trong `shard_resolver`, không freeze trong YAML).
+- Ví dụ hôm nay **15/07/2026** → `cutoff = 2026-06-01`, `archive_newest_ym = 202605`.
 
-| DB | Phạm vi giao dịch |
-|----|-------------------|
-| **db2** | `TRAN_DATE >= cutoff` — khoảng **~2 tháng**: trọn tháng trước + phần đã qua của tháng hiện tại |
-| **db1** | `TRAN_DATE < cutoff` — **lịch sử** từ tháng trước đó nữa trở về quá khứ (vd. trước 01/05/2026) |
+| DB | Phạm vi giao dịch | Tên bảng fact |
+|----|-------------------|---------------|
+| **db2** | `TRAN_DATE >= cutoff` (~2 tháng gần) | **Bare names** — `STRANS`, `PMTRANS`, `TRANSHDR` (không `_YYYYMM`) |
+| **db1** | `TRAN_DATE < cutoff` | `STRANS_YYYYMM` / `PMTRANS_YYYYMM` tới `archive_newest_ym` |
 
 **db2** còn chứa toàn bộ **master** (SKU, khách, NCC, giá, …) và **báo cáo** (`WebRpt_*`) — không phụ thuộc cutoff.
 

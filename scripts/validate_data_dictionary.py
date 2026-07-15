@@ -104,9 +104,10 @@ def main() -> None:
     }
 
     shards = yaml.safe_load(SHARDS_YAML.read_text(encoding="utf-8"))
-    shard_tables: dict[str, list[str]] = {
-        k: v.get("physical_tables", []) for k, v in shards.get("logical_tables", {}).items()
-    }
+    sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
+    from project_core.domain.sql.shard_resolver import physical_shard_map
+
+    shard_tables: dict[str, list[str]] = physical_shard_map(shards)
 
     conn1 = None
     conn2 = None

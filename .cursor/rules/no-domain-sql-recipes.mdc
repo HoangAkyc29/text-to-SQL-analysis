@@ -16,8 +16,14 @@ alwaysApply: true
 
 - `data_dictionary/` (tables, columns, domain_definitions)
 - **`data_dictionary/table_samples/{db1|db2}/*.json`** — static 5-row samples; pipeline loads them into `inbox.table_samples` after `select_tables` so Agent II `plan_sql` can see real grain, columns, and value shapes (**do use this path; do not replace it with hardcoded SQL**)
+- **db1 monthly shards** — expand at runtime from `shard_range.from` → `archive_newest_ym` (month before rolling cutoff). Do **not** freeze `to` / full `physical_tables` lists for `STRANS`/`PMTRANS` in YAML
 - RAG / case studies (Mongo), parameterized by the LLM
 - Brief fields from Agent I (e.g. `filters.min_bill_value` from user speech) — values, not SQL
+
+## Topology naming (Agent II)
+
+- **db2** recent/live facts: bare names only (`STRANS`, `PMTRANS`, `TRANSHDR`) — never `_YYYYMM`
+- **db1** history: `STRANS_YYYYMM` / `PMTRANS_YYYYMM` only when `shard_plan.needs_db1`; prefer `shard_plan.shards`
 
 ## What is allowed
 

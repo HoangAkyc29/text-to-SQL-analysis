@@ -35,7 +35,15 @@ class SchemaCatalog:
         shard_physical: dict[str, list[str]] | None = None,
     ) -> None:
         self._tables = tables or {}
-        self._shard_physical = shard_physical or {}
+        # If set, freeze allowlist (tests). Otherwise expand from shards.yaml + rolling cutoff.
+        self._shard_physical_override = shard_physical
+
+    def _shard_physical(self) -> dict[str, list[str]]:
+        if self._shard_physical_override is not None:
+            return self._shard_physical_override
+        from project_core.domain.sql.shard_resolver import physical_shard_map
+
+        return physical_shard_map()
 
     @classmethod
     def from_dictionary_dir(cls, directory: Path | None = None) -> SchemaCatalog:
@@ -78,18 +86,16 @@ class SchemaCatalog:
                 )
 
         shard_physical = cls._load_shard_physical(base / "db1" / "shards.yaml")
+        # None override → runtime expand via shard_resolver (rolling cutoff).
+        # Pass empty dict only when yaml missing so callers still get consistent type.
         return cls(tables, shard_physical=shard_physical)
 
     @staticmethod
-    def _load_shard_physical(path: Path) -> dict[str, list[str]]:
+    def _load_shard_physical(path: Path) -> dict[str, list[str]] | None:
         if not path.exists():
             return {}
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        out: dict[str, list[str]] = {}
-        for logical, meta in (data.get("logical_tables") or {}).items():
-            if isinstance(meta, dict):
-                out[str(logical)] = [str(t) for t in meta.get("physical_tables") or []]
-        return out
+        # Prefer dynamic expansion; returning None tells __init__ to use physical_shard_map().
+        return None
 
     @staticmethod
     def _parse_frontmatter(text: str) -> dict[str, object]:
@@ -132,7 +138,7 @@ class SchemaCatalog:
         names: set[str] = set()
         for meta in self._tables.values():
             names.add(meta.name.lower())
-        for logical, physicals in self._shard_physical.items():
+        for logical, physicals in self._shard_physical().items():
             names.add(logical.lower())
             names.update(p.lower() for p in physicals)
         return names
@@ -153,7 +159,7 @@ class SchemaCatalog:
         for meta in self._tables.values():
             if meta.name.lower() in role_set:
                 allowed.add(meta.name.lower())
-        for logical, physicals in self._shard_physical.items():
+        for logical, physicals in self._shard_physical().items():
             if logical.lower() in role_set:
                 allowed.add(logical.lower())
                 allowed.update(p.lower() for p in physicals)
@@ -195,13 +201,19 @@ class SchemaCatalog:
                 }
             )
 
+        from project_core.domain.sql.shard_resolver import archive_newest_ym, table_naming_context
+
         shards_out: dict[str, object] = {}
-        for logical, physicals in self._shard_physical.items():
+        for logical, physicals in self._shard_physical().items():
             if logical.lower() in allowed:
+                monthly = any(
+                    len(p.rsplit("_", 1)[-1]) == 6 and p.rsplit("_", 1)[-1].isdigit() for p in physicals
+                )
                 shards_out[logical] = {
-                    "physical_pattern": f"{logical}_{{YYYYMM}}",
+                    "physical_pattern": f"{logical}_{{YYYYMM}}" if monthly else logical,
                     "physical_tables": physicals,
                     "shard_key_column": "TRAN_DATE",
+                    "archive_newest_ym": archive_newest_ym() if monthly else None,
                 }
 
         domain_path = ROOT / "data_dictionary" / "domain_definitions.md"
@@ -214,6 +226,7 @@ class SchemaCatalog:
             "db1_shards": shards_out,
             "domain_definitions_excerpt": domain_excerpt,
             "data_sources": {"db1": "history archive", "db2": "live + master + recent"},
+            "table_naming": table_naming_context(),
         }
 
     def snapshot(self) -> dict[str, list[dict[str, str]]]:
