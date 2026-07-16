@@ -198,12 +198,18 @@ class FeedbackLoop:
         if not self.retriever:
             return {}
         include_negative = agent == "II"
-        filters = {"actor_id": actor_id, "include_negative": include_negative}
-        top_k = 8
+        filters: dict[str, Any] = {"actor_id": actor_id, "include_negative": include_negative}
+        top_k = 20
         if hasattr(self.retriever, "retrieve_hierarchical"):
-            from project_core.domain.retrieval.query_builder import build_retrieval_query
+            from project_core.domain.retrieval.query_builder import (
+                build_retrieval_facets,
+                build_retrieval_query,
+            )
 
+            facets = build_retrieval_facets(brief)
             enriched = build_retrieval_query(query, brief)
-            result = self.retriever.retrieve_hierarchical(enriched, top_k=top_k, filters=filters)
+            result = self.retriever.retrieve_hierarchical(
+                enriched, top_k=top_k, filters=filters, facets=facets or None
+            )
             return result.to_payload()
         return self.retriever.retrieve(query, top_k=5, filters=filters)

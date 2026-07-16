@@ -20,6 +20,7 @@
     "output_format": ["table"],
     "exploration_mode": false,
     "user_knowledge_level": "expert",
+    "retrieval_facets": ["string — independent constraint sentences"],
     "external_sources": []
   },
   "satisfaction_signal": null
@@ -28,6 +29,7 @@
 
 - `brief` is **required** when `route` is `analysis`; otherwise `null`.
 - If attachments contain tabular hints (columns, sample rows in excerpt), mention them in `intent`.
+- When `route` is `analysis`, fill `retrieval_facets` (4–8 short sentences): one independent constraint each — time range, subject/filter, business attribute, metric, threshold/constraint, ranking/limit. Do **not** paste raw long digit codes into facets when a type description suffices (e.g. prefer “lọc theo mã hàng trên master sản phẩm” over listing every SKU digit string).
 - Keywords mapping:
   - doanh thu / bán hàng / revenue → `metrics: ["revenue"]`
   - VIP / thẻ / loyalty → filters may need `card_prefix` or `loyalty_tier`; if ambiguous set `exploration_mode: true`
@@ -61,7 +63,12 @@
     "time_range": {"start": null, "end": null, "grain": "month"},
     "output_format": ["table"],
     "exploration_mode": true,
-    "user_knowledge_level": "expert"
+    "user_knowledge_level": "expert",
+    "retrieval_facets": [
+      "So sánh theo khoảng thời gian tháng",
+      "Phân tích doanh thu thẻ VIP / loyalty",
+      "Chia theo cửa hàng"
+    ]
   }
 }
 ```

@@ -91,6 +91,12 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 - Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, column facts, and **case studies** — not from hardcoded recipes in this file.
 - Read `schema_context.table_naming` (as_of, cutoff, db2 bare vs db1 suffix rules).
 
+## CTE / column hygiene (mandatory)
+
+- Use only columns listed in `schema_context` / `inbox.table_samples` for the tables you query.
+- Outer `ORDER BY` / `STRING_AGG … WITHIN GROUP (ORDER BY col)` / outer `SELECT` on a CTE alias require `col` in that CTE’s SELECT list.
+- Prefer **multiple simple queries** (e.g. qty aggregate; bills ≥ threshold; top-N bill list) with clear `query_meta[].purpose` over one monolithic CTE.
+
 ## Text filters — substring + case-insensitive (mandatory)
 
 For every **textual / code** predicate that would have been absolute equality:
@@ -155,6 +161,12 @@ Read `inbox.policy_feedback` carefully — it now includes:
 - `rejected_sql`: the SQL that failed (learn from it, do not repeat)
 - `hints`: Vietnamese guidance — **use hints to fix reasoning, do not paste hints as SQL**
 
+Read `inbox.db_error_feedback` when present (SQL ran then engine failed):
+- `message`: SQL Server / ODBC error text (e.g. `Invalid column name 'TRAN_TIME'`)
+- `rejected_sql`: the failing statement
+- `target_db`, `query_index`
+- `hints`: meta fix guidance — **apply the fix in new SQL; do not invent domain recipes**
+
 Read `schema_context.product_resolution_hints` when present — raw product codes from the brief (`user_input`).
 
 Read `schema_context.shard_plan` — `needs_db2` / `needs_db1` / `shards` / `cutoff` / `archive_newest_ym` for date routing.
@@ -167,6 +179,14 @@ Read `schema_context.table_naming` — db2 = bare names; db1 monthly suffix roll
 | `logical_db_prefix_forbidden` | Remove `db1.`/`db2.` prefix; set `target_dbs` instead |
 | `table_not_in_dictionary:X` | X is invented — use real table or CTE alias only inside WITH |
 | `forbidden_pattern` | Single SELECT, no trailing `;` |
+
+### DB error cheat-sheet
+
+| message contains | Fix |
+|------------------|-----|
+| `Invalid column name` | Project the column in the CTE/SELECT that owns the alias; or pick a real column from schema/samples |
+| `Invalid object name` | Bare dictionary name; no invented `_YYYYMM` on db2 |
+| syntax / STRING_AGG | Simplify; ensure ORDER BY cols exist on the aggregated source |
 
 - Read `inbox.data_feedback` — adjust grain, widen time, add probes (see `probe_feedback_guide.md`).
 - Do not repeat identical SQL.

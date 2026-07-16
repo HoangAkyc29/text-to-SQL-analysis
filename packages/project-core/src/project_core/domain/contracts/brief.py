@@ -26,6 +26,7 @@ class AnalysisBrief(BaseModel):
     exploration_mode: bool = False
     user_knowledge_level: Literal["expert", "unknown"] = "expert"
     probe_hints: list[str] = Field(default_factory=list)
+    retrieval_facets: list[str] = Field(default_factory=list)
     external_sources: list[ExternalSource] = Field(default_factory=list)
     plan: AnalysisPlan | None = None
 

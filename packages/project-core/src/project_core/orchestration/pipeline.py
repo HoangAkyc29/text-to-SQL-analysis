@@ -46,7 +46,11 @@ from project_core.domain.errors.codes import ClarifyRoundsExceededError, Contrac
 from project_core.domain.budget import AgentInvoker, SqlGatewayClient, SupermarketBudgetGuard, TraceBudget
 from project_core.domain.sql.policy_engine import PolicyEngine
 from project_core.domain.sql.shard_resolver import suggest_query_plan
-from project_core.domain.sql.planner_context import policy_feedback_hints, product_resolution_hints
+from project_core.domain.sql.planner_context import (
+    db_error_feedback_hints,
+    policy_feedback_hints,
+    product_resolution_hints,
+)
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
 from project_core.domain.schema.table_samples import load_table_samples
@@ -163,8 +167,28 @@ class SupermarketAnalysisPipeline:
             candidate_tables: list[str] = []
             column_priority: list[str] = []
             if self.feedback_loop is not None:
+                from project_core.domain.audit.schema_retrieve import build_schema_retrieve_payload
+                from project_core.domain.retrieval.hierarchical_result import HierarchicalRetrievalResult
+
                 retrieval_payload = self.feedback_loop.retrieve_context(
                     "II", brief.intent, permissions.actor_id, brief=brief
+                )
+                retrieval_miss = HierarchicalRetrievalResult.is_empty_payload(retrieval_payload)
+                if retrieval_miss:
+                    logger.warning(
+                        "schema RAG miss actor_id=%s intent=%r — falling back to full allowlist schema_context",
+                        permissions.actor_id,
+                        (brief.intent or "")[:120],
+                    )
+                self.audit.log_schema_retrieve(
+                    trace_id=trace_id,
+                    actor_id=permissions.actor_id,
+                    payload=build_schema_retrieve_payload(
+                        actor_id=permissions.actor_id,
+                        sql_attempt=sql_attempt,
+                        retrieval_payload=retrieval_payload if isinstance(retrieval_payload, dict) else None,
+                        miss=retrieval_miss,
+                    ),
                 )
                 if isinstance(retrieval_payload, dict):
                     candidate_tables = list(retrieval_payload.get("candidate_tables") or [])
@@ -624,7 +648,7 @@ class SupermarketAnalysisPipeline:
                     )
                     continue
                 if exec_result.get("error") in {"db_error", "db_unavailable"}:
-                    err_msg = str(exec_result.get("message") or exec_result.get("error"))[:200]
+                    err_msg = str(exec_result.get("message") or exec_result.get("error"))[:500]
                     self.audit.log_sql_execute(
                         trace_id=trace_id,
                         actor_id=acl.actor_id,
@@ -633,6 +657,7 @@ class SupermarketAnalysisPipeline:
                         target_db=tdb,
                         row_count=0,
                         outcome=exec_result.get("error", "db_error"),
+                        error_message=err_msg,
                     )
                     workflow.steps.append(
                         WorkflowStep(
@@ -642,9 +667,18 @@ class SupermarketAnalysisPipeline:
                             step_type=WorkflowStepType.ERROR,
                             sql_attempt=sql_attempt,
                             query_index=idx,
-                            summary=f"{exec_result.get('error')}:target_db={tdb}:{err_msg}",
+                            summary=f"{exec_result.get('error')}:target_db={tdb}:{err_msg[:200]}",
                         )
                     )
+                    # Feed engine error to Agent II on next attempt (parallel to policy_feedback).
+                    inbox["db_error_feedback"] = {
+                        "error": exec_result.get("error", "db_error"),
+                        "message": err_msg,
+                        "query_index": idx,
+                        "target_db": tdb,
+                        "rejected_sql": sanitized[:800],
+                        "hints": db_error_feedback_hints(err_msg),
+                    }
                     continue
                 rows = exec_result.get("rows") or []
                 self.audit.log_sql_execute(
@@ -692,6 +726,9 @@ class SupermarketAnalysisPipeline:
                 if terminal is not None:
                     return self._finish(trace_id, workflow, terminal[0], terminal[1])
                 continue
+
+            inbox.pop("db_error_feedback", None)
+            inbox.pop("policy_feedback", None)
 
             row_counts = {qf.query_index: qf.row_count for qf in query_files}
             pre_iv = _synthesize_pre_iv_feedback(
@@ -1098,6 +1135,24 @@ def _terminal_on_no_queries(
             TechnicalSummary(
                 outcome=AnalysisOutcome.POLICY_BLOCKED.value,
                 caveats=["SQL không đúng cấu trúc SELECT thuần — kiểm tra lại plan_sql output."],
+            ),
+        )
+    last_db_err = next(
+        (
+            s.summary
+            for s in reversed(workflow.steps)
+            if s.step_type == WorkflowStepType.ERROR
+            and s.sql_attempt == sql_attempt
+            and ("db_error" in s.summary or "db_unavailable" in s.summary)
+        ),
+        None,
+    )
+    if last_db_err:
+        return (
+            AnalysisOutcome.ERROR,
+            TechnicalSummary(
+                outcome=AnalysisOutcome.ERROR.value,
+                caveats=[last_db_err[:300]],
             ),
         )
     return (

@@ -105,21 +105,63 @@ class ColumnSemanticCatalog:
         if not meta:
             return ""
         names = ", ".join(meta.display_names) or semantic_key
-        table_refs = ", ".join(str(t.get("ref")) for t in meta.tables[:12])
+        physical = []
+        for t in meta.tables:
+            col = t.get("column")
+            if col and str(col) not in physical:
+                physical.append(str(col))
+        table_refs = self._sorted_table_refs([str(t.get("ref")) for t in meta.tables if t.get("ref")])
         facts = "; ".join(meta.facts[:6])
+        title = ""
         business = ""
-        if meta.body and "## Ý nghĩa nghiệp vụ" in meta.body:
-            section = meta.body.split("## Ý nghĩa nghiệp vụ", 1)[-1]
-            business = section.split("\n##", 1)[0].strip().replace("\n", " ")[:600]
+        if meta.body:
+            for line in meta.body.splitlines():
+                s = line.strip()
+                if s.startswith("# ") and not title:
+                    title = s[2:].strip()
+                    break
+            if "## Ý nghĩa nghiệp vụ" in meta.body:
+                section = meta.body.split("## Ý nghĩa nghiệp vụ", 1)[-1]
+                business = section.split("\n##", 1)[0].strip().replace("\n", " ")[:600]
+        sk_tokens = semantic_key.replace("__", " ").replace("_", " ")
+        keyword_parts = list(dict.fromkeys([*meta.display_names, *physical, sk_tokens]))
         parts = [
             f"column {semantic_key} ({names}): kind={meta.kind}.",
-            f"Tables: {table_refs}.",
+            f"Tables: {', '.join(table_refs)}.",
         ]
+        if physical:
+            parts.append(f"Physical: {', '.join(physical)}.")
+        if title:
+            parts.append(f"Title: {title}.")
         if business:
             parts.append(f"Business: {business}")
         if facts:
             parts.append(f"Facts: {facts}")
+        if meta.join_with:
+            parts.append("Joins: " + ", ".join(meta.join_with[:8]))
+        if meta.related_semantic_keys:
+            parts.append("Related: " + ", ".join(meta.related_semantic_keys[:8]))
+        if keyword_parts:
+            parts.append("Keywords: " + ", ".join(str(k) for k in keyword_parts[:24]))
         return " ".join(parts)
+
+    @staticmethod
+    def _sorted_table_refs(refs: list[str]) -> list[str]:
+        def key(ref: str) -> tuple[int, int, int, str]:
+            r = ref.lower()
+            stem = r.split(":")[-1]
+            db2 = 0 if r.startswith("db2:") else 1
+            noise = 1 if ("_tmp" in stem or stem == "suspend" or "webrpt" in stem) else 0
+            arc = 1 if "_arc" in stem else 0
+            return (db2, noise, arc, r)
+
+        # preserve first-seen casing from input while sorting unique lower keys
+        seen: dict[str, str] = {}
+        for ref in refs:
+            low = ref.lower()
+            if low not in seen:
+                seen[low] = ref
+        return [seen[k] for k in sorted(seen.keys(), key=key)]
 
     def table_refs(self) -> set[str]:
         refs: set[str] = set()

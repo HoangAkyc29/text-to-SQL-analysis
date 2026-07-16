@@ -22,6 +22,7 @@ Agent I **không** gọi MCP trực tiếp. Output JSON được pipeline và ch
 | `time_range` | `start`, `end`, `grain` (`day`/`month`/`quarter`) |
 | `output_format` | `table`, `chart`, `excel` |
 | `exploration_mode` | `true` khi user không chắc định nghĩa (VIP, mã hàng, …) |
+| `retrieval_facets` | 4–8 câu độc lập (thời gian, lọc, metric, ngưỡng, xếp hạng) cho schema RAG |
 
 ## Domain hints (không query DB)
 

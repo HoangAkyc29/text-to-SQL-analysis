@@ -27,3 +27,10 @@ For **every textual / code equality** that would have been `col = 'value'` or `c
 - Multi-value: OR several LIKE predicates (do not use absolute `IN` for codes/identifiers).
 
 Do **not** apply LIKE/LOWER to numeric comparisons (`AMOUNT >= …`), date ranges, or booleans — only string/code/id text filters.
+
+## CTE / column hygiene (mandatory)
+
+- Only reference columns that appear in `schema_context` tables or `inbox.table_samples[].columns`.
+- If you wrap a table in a CTE/`WITH`, every column used **outside** that CTE (`SELECT`, `ORDER BY`, `STRING_AGG … WITHIN GROUP (ORDER BY …)`, join keys) **must** be in that CTE’s `SELECT` list.
+- Prefer several small `sql_queries` (separate purposes in `query_meta`) over one deep CTE + window + `STRING_AGG`.
+- On retry, read `inbox.db_error_feedback` (`message`, `rejected_sql`, `hints`) and fix the engine error — do not repeat the same SQL.

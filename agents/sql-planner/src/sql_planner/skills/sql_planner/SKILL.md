@@ -23,7 +23,7 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 ## Inputs từ pipeline
 
 - `brief` — `AnalysisBrief` (+ `plan.subtasks` nếu decomposed)
-- `inbox` — `policy_feedback`, `data_feedback`, `probe_mode`, `table_samples` (sau phase select_tables)
+- `inbox` — `policy_feedback`, `db_error_feedback`, `data_feedback`, `probe_mode`, `table_samples` (sau phase select_tables)
 - `schema_context` — allowed tables, column hints, domain excerpt, `shard_plan`, `product_resolution_hints`
 - `retrieval_context` — hierarchical columns/tables/case studies
 - `attempt` — số lần retry (1-based)

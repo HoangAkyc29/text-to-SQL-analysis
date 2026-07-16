@@ -26,6 +26,22 @@ Probe SQL should be **small** (`TOP 100`–`1000`), read-only, aimed at resolvin
 | `grain` | Drop aggregation — line-level `STRANS` sample |
 | `needs_sql_retry` | Adjust filters per `suggested_intent_fix` |
 
+## `inbox.db_error_feedback` (execute failed)
+
+When present, SQL passed policy/review but the engine rejected it:
+
+```json
+{
+  "error": "db_error",
+  "message": "Invalid column name 'TRAN_TIME'.",
+  "rejected_sql": "WITH …",
+  "target_db": "db2",
+  "hints": ["…"]
+}
+```
+
+Fix the **engine** issue (missing CTE columns, bad object name, syntax). Prefer splitting into simpler queries. Do **not** invent domain SQL recipes from hints.
+
 ## Exploration mode
 
 When `brief.exploration_mode` or `user_knowledge_level: unknown`:

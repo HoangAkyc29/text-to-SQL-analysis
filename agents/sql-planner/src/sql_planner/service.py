@@ -46,17 +46,21 @@ class SqlPlannerService(SupermarketAgentService):
                 {"action": "impossible", "reason": "tool_not_granted:validate_sql"},
             )
 
-        if not retrieval_context and getattr(self, "retriever", None):
-            if hasattr(self.retriever, "retrieve_hierarchical"):
-                from project_core.domain.retrieval.query_builder import build_retrieval_query
+        if getattr(self, "retriever", None):
+            from project_core.domain.retrieval.hierarchical_result import HierarchicalRetrievalResult
 
-                result = self.retriever.retrieve_hierarchical(
-                    build_retrieval_query(brief.intent, brief), top_k=8
-                )
-                retrieval_context = result.to_payload()
-            else:
-                chunks = self.retrieve(brief.intent, top_k=5)
-                retrieval_context = [c.text for c in chunks]
+            need_retrieve = HierarchicalRetrievalResult.is_empty_payload(retrieval_context)
+            if need_retrieve:
+                if hasattr(self.retriever, "retrieve_hierarchical"):
+                    from project_core.domain.retrieval.query_builder import build_retrieval_query
+
+                    result = self.retriever.retrieve_hierarchical(
+                        build_retrieval_query(brief.intent, brief), top_k=8
+                    )
+                    retrieval_context = result.to_payload()
+                else:
+                    chunks = self.retrieve(brief.intent, top_k=5)
+                    retrieval_context = [c.text for c in chunks]
 
         if inbox.get("data_feedback"):
             brief = apply_data_feedback(brief, inbox["data_feedback"])
@@ -70,7 +74,11 @@ class SqlPlannerService(SupermarketAgentService):
 
         guide = "select_tables_guide" if mode == "select_tables" else "plan_sql_guide"
         extra = None
-        if mode != "select_tables" and (inbox.get("probe_mode") or inbox.get("data_feedback")):
+        if mode != "select_tables" and (
+            inbox.get("probe_mode")
+            or inbox.get("data_feedback")
+            or inbox.get("db_error_feedback")
+        ):
             probe = self.skill.guide("probe_feedback_guide") if self.skill else ""
             if probe.strip():
                 extra = probe

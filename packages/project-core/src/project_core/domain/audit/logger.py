@@ -25,7 +25,7 @@ class AuditLogger:
             "at": utc_now().isoformat(),
         }
         self._events.append(event)
-        if event_type.startswith("sql_") or event_type == "agent_ii_plan":
+        if event_type.startswith("sql_") or event_type in {"agent_ii_plan", "schema_retrieve"}:
             self._append_sql_file(event)
 
     def log_agent_ii_plan(
@@ -44,6 +44,22 @@ class AuditLogger:
         )
         return event_id
 
+    def log_schema_retrieve(
+        self,
+        *,
+        trace_id: str,
+        actor_id: str,
+        payload: dict[str, Any],
+    ) -> str:
+        """Log schema RAG facets + ranked column/table hits (persisted to audit.jsonl)."""
+        event_id = str(uuid4())
+        self.log(
+            "schema_retrieve",
+            trace_id=trace_id,
+            payload={"event_id": event_id, "actor_id": actor_id, **payload},
+        )
+        return event_id
+
     def log_sql_execute(
         self,
         *,
@@ -55,20 +71,24 @@ class AuditLogger:
         row_count: int,
         outcome: str,
         violations: list[str] | None = None,
+        error_message: str | None = None,
     ) -> None:
+        payload: dict[str, Any] = {
+            "actor_id": actor_id,
+            "role": role,
+            "sql": sql,
+            "sql_hash": hashlib.sha256(sql.encode()).hexdigest()[:16],
+            "target_db": target_db,
+            "row_count": row_count,
+            "outcome": outcome,
+            "violations": violations or [],
+        }
+        if error_message:
+            payload["error_message"] = error_message[:500]
         self.log(
             "sql_execute",
             trace_id=trace_id,
-            payload={
-                "actor_id": actor_id,
-                "role": role,
-                "sql": sql,
-                "sql_hash": hashlib.sha256(sql.encode()).hexdigest()[:16],
-                "target_db": target_db,
-                "row_count": row_count,
-                "outcome": outcome,
-                "violations": violations or [],
-            },
+            payload=payload,
         )
 
     def log_sql_explain(

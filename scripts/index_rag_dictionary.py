@@ -19,7 +19,7 @@ from project_core.llm.embedding_client import EmbeddingClient  # noqa: E402
 
 
 def _join_hints_from_md(catalog: SchemaCatalog, table_key: str) -> list[str]:
-    meta = catalog.table(table_key.split(":")[-1] if ":" in table_key else table_key)
+    meta = catalog.table(table_key)
     if not meta or not meta.schema_file:
         return []
     path = ROOT / "data_dictionary" / meta.schema_file
@@ -33,10 +33,19 @@ def _join_hints_from_md(catalog: SchemaCatalog, table_key: str) -> list[str]:
 
 
 def _table_embed_text(catalog: SchemaCatalog, col_catalog: ColumnSemanticCatalog, table_key: str, desc: str) -> str:
-    meta = catalog.table(table_key.split(":")[-1] if ":" in table_key else table_key)
+    _ = col_catalog  # reserved for future column-semantic enrichment on table docs
+    meta = catalog.table(table_key)
     col_names: list[str] = []
     if meta:
-        col_names = [c.name for c in meta.columns[:24]]
+        all_names = [c.name for c in meta.columns]
+        col_names = all_names[:24]
+        # Ensure high-signal POS fields appear even when they sit late in the MD order
+        priority = ("SKU_ID", "SKU", "QTY", "AMOUNT", "TRANS_CODE", "TRANS_NUM", "STK_ID", "CARD_ID")
+        seen = set(col_names)
+        for name in priority:
+            if name in all_names and name not in seen:
+                col_names.append(name)
+                seen.add(name)
     join_hints = _join_hints_from_md(catalog, table_key)
     parts = [f"table {table_key}: {desc}", f"Columns: {', '.join(col_names)}"]
     if join_hints:
@@ -60,13 +69,14 @@ def main() -> int:
         desc = meta.get("description", "")
         text = _table_embed_text(catalog, col_catalog, table_key, desc)
         vec = embedder.embed([text])[0]
-        tmeta = catalog.table(table_key.split(":")[-1] if ":" in table_key else table_key)
+        tmeta = catalog.table(table_key)
         col_names = [c.name for c in (tmeta.columns if tmeta else [])[:30]]
         coll.insert_one(
             {
                 "chunk_group": "table",
                 "chunk_id": table_key.lower(),
                 "table": table_key,
+                "scope": "global",
                 "text": text,
                 "embedding": vec,
                 "metadata": meta,
@@ -89,6 +99,7 @@ def main() -> int:
                 "chunk_group": "column",
                 "chunk_id": key,
                 "semantic_key": key,
+                "scope": "global",
                 "display_names": sem.display_names,
                 "kind": sem.kind,
                 "tables": sem.tables,
