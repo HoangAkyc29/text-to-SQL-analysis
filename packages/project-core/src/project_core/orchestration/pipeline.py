@@ -54,6 +54,7 @@ from project_core.domain.sql.planner_context import (
 )
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
+from project_core.domain.schema.output_semantics import build_output_semantics
 from project_core.domain.schema.table_samples import load_table_samples
 from project_core.domain.workflow.steps import has_step_type
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
@@ -821,6 +822,14 @@ class SupermarketAnalysisPipeline:
                     brief=brief,
                 )
 
+            output_semantics = build_output_semantics(
+                approved_sql=approved_sql,
+                query_files=query_files,
+                catalog=self.catalog,
+                column_catalog=self.column_catalog,
+                target_dbs=target_dbs,
+                default_target_db=default_db,
+            )
             iv_raw = self.agent_invoker.invoke(
                 "IV",
                 {
@@ -835,6 +844,8 @@ class SupermarketAnalysisPipeline:
                     "analysis_plan": brief.plan.model_dump() if brief.plan else None,
                     "execution_plan": [s.model_dump() for s in execution_steps],
                     "domain_rules_excerpt": domain_excerpt,
+                    "output_table_semantics": output_semantics.get("output_table_semantics") or [],
+                    "output_column_semantics": output_semantics.get("output_column_semantics") or [],
                     "permissions": permissions.model_dump(mode="json"),
                 },
                 {"mode": "analyze"},

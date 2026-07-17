@@ -71,11 +71,51 @@ def main() -> int:
         "path": dataset_path,
         "out": output_dir,
     }
-    safe_builtins = {"len": len, "str": str, "int": int, "float": float, "range": range, "min": min, "max": max}
+    # Keep this allowlist narrow (no import/open/eval) but include the constructors
+    # and helpers that pandas analysis scripts routinely need. Missing `list` /
+    # `sum` / `sorted` / `enumerate` caused Agent IV reason_loop steps to fail
+    # with NameError while still burning the step budget.
+    safe_builtins = {
+        "abs": abs,
+        "all": all,
+        "any": any,
+        "bool": bool,
+        "dict": dict,
+        "enumerate": enumerate,
+        "Exception": Exception,
+        "False": False,
+        "float": float,
+        "getattr": getattr,
+        "hasattr": hasattr,
+        "int": int,
+        "isinstance": isinstance,
+        "len": len,
+        "list": list,
+        "max": max,
+        "min": min,
+        "None": None,
+        "print": print,
+        "range": range,
+        "repr": repr,
+        "reversed": reversed,
+        "round": round,
+        "set": set,
+        "sorted": sorted,
+        "str": str,
+        "sum": sum,
+        "True": True,
+        "tuple": tuple,
+        "type": type,
+        "zip": zip,
+        "ValueError": ValueError,
+        "TypeError": TypeError,
+        "KeyError": KeyError,
+        "IndexError": IndexError,
+    }
     try:
         exec(script, {"__builtins__": safe_builtins}, local_vars)  # noqa: S102
     except Exception as exc:  # noqa: BLE001
-        print(json.dumps({"error": "script_failed", "detail": str(exc)[:500]}))
+        print(json.dumps({"status": "error", "error": "script_failed", "detail": str(exc)[:500]}))
         return 1
     artifacts = [str(p) for p in output_dir.iterdir() if p.is_file()]
     print(json.dumps({"status": "ok", "artifacts": artifacts}))

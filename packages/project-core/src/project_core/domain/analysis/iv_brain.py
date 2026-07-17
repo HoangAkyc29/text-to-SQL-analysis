@@ -243,6 +243,8 @@ def run_analysis_brain(
     llm: "OpenRouterClient",
     profile_name: str,
     system_prompt: str,
+    output_table_semantics: list[dict[str, Any]] | None = None,
+    output_column_semantics: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run the bounded LLM reasoning loop and return an AnalystResponse payload."""
     sandbox = _sandbox()
@@ -291,12 +293,17 @@ def run_analysis_brain(
         for c in (recipe_candidates or [])
     ]
 
+    table_sem = list(output_table_semantics or [])
+    column_sem = list(output_column_semantics or [])
+
     terminal: dict[str, Any] | None = None
     while steps_run < max_steps:
         state = {
             "brief": brief.model_dump(),
             "domain_rules_excerpt": domain_rules_excerpt or "",
             "datasets": dataset_profiles,
+            "output_table_semantics": table_sem,
+            "output_column_semantics": column_sem,
             "recipe_candidates": recipe_summaries,
             "output_format": brief.output_format,
             "chart_spec": brief.chart_spec,
@@ -352,13 +359,31 @@ def run_analysis_brain(
         step.setdefault("step_id", f"iv-step-{steps_run + 1}")
         result = runner.run(step, [p for p in paths if p], out_dir)
         steps_run += 1
-        status = result.get("status", "error")
+        status = str(result.get("status") or ("error" if result.get("error") else "ok"))
+        new_arts = result.get("artifacts") or ([result["path"]] if result.get("path") else [])
+        # Script/recipe reported ok but wrote nothing — treat as soft failure so the
+        # planner can see the miss and retry with an explicit to_csv / export.
+        if status == "ok" and result.get("kind") in {"script", "recipe"} and not new_arts:
+            status = "error"
+            result = {
+                **result,
+                "status": "error",
+                "error": "no_files_written",
+                "detail": "script finished without writing files under `out`; write CSV/Excel/PNG",
+            }
+        err = result.get("error")
+        detail = result.get("detail")
+        err_msg = str(err) if err else None
+        if detail and err_msg:
+            err_msg = f"{err_msg}: {detail}"
+        elif detail and not err_msg:
+            err_msg = str(detail)
         trace_entry = {
             "step_id": step.get("step_id"),
             "kind": result.get("kind"),
             "status": status,
             "thought": decision.get("thought"),
-            "error": result.get("error"),
+            "error": err_msg,
         }
         steps_trace.append(trace_entry)
         observations.append(
@@ -366,19 +391,18 @@ def run_analysis_brain(
                 "step_id": step.get("step_id"),
                 "kind": result.get("kind"),
                 "status": status,
-                "artifacts": result.get("artifacts") or ([result["path"]] if result.get("path") else []),
-                "error": result.get("error"),
+                "artifacts": new_arts if status == "ok" else [],
+                "error": err_msg,
             }
         )
         if status == "ok":
-            new_arts = result.get("artifacts") or ([result["path"]] if result.get("path") else [])
             artifacts.extend(new_arts)
             if result.get("kind") == "chart":
                 chart_artifacts.extend(new_arts)
             elif result.get("kind") == "excel":
                 excel_artifacts.extend(new_arts)
         else:
-            caveats.append(f"{result.get('kind')}:{result.get('error')}")
+            caveats.append(f"{result.get('kind')}:{err_msg or 'error'}")
     else:
         caveats.append("budget_exceeded")
 

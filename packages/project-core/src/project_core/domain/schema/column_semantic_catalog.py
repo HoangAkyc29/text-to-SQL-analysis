@@ -39,7 +39,11 @@ class ColumnSemanticCatalog:
             fm = cls._parse_frontmatter(text)
             key = str(fm.get("semantic_key") or path.stem).lower()
             body = text.split("---", 2)[-1].strip() if text.startswith("---") else text
-            rel = path.relative_to(ROOT / "data_dictionary").as_posix()
+            dd_root = base.parent if base.name.lower() == "columns" else base
+            try:
+                rel = path.relative_to(dd_root).as_posix()
+            except ValueError:
+                rel = path.name
             columns[key] = ColumnSemanticMeta(
                 semantic_key=key,
                 display_names=[str(x) for x in (fm.get("display_names") or [])],

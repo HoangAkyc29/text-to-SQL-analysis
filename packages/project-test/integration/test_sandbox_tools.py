@@ -52,6 +52,23 @@ def test_sandbox_run_analysis_script(sample_parquet, tmp_path, monkeypatch):
     assert (out_dir / "summary.txt").exists()
 
 
+def test_sandbox_run_analysis_script_common_builtins(sample_parquet, monkeypatch):
+    from python_sandbox.tools_impl import run_analysis_script
+
+    artifacts_root = sample_parquet.parent.parent
+    monkeypatch.setenv("ARTIFACTS_DIR", str(artifacts_root))
+    out_dir = artifacts_root / "trace" / "builtins_out"
+    script = (
+        "df=pd.read_parquet(path)\n"
+        "cols=list(df.columns)\n"
+        "n=sum(range(len(df)+1))\n"
+        "pd.DataFrame({'cols': cols, 'n': [n]*len(cols)}).to_csv(out / 'b.csv', index=False)\n"
+    )
+    result = run_analysis_script(str(sample_parquet), script, str(out_dir))
+    assert result["status"] == "ok"
+    assert (out_dir / "b.csv").exists()
+
+
 def test_sandbox_missing_file_returns_error():
     from python_sandbox.tools_impl import load_dataset
 

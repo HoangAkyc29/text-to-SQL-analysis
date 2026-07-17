@@ -11,6 +11,9 @@ Pipeline truyền:
 - `analysis_plan`, `execution_plan`, `recipe_candidates`
 - `analysis_tools` (promoted recipes)
 - `domain_rules_excerpt`
+- `output_table_semantics`, `output_column_semantics` (diễn nghĩa dictionary chỉ cho table/cột có trong SQL output — không full schema)
+
+LLM brain (`reason_loop_guide`): dùng `output_*_semantics` để hiểu metric/grain; tôn trọng `unresolved` / `aggregated`.
 
 ## Actions
 

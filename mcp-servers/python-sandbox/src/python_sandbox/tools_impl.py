@@ -135,14 +135,21 @@ def run_analysis_script(
         detail = proc.stderr.strip() or proc.stdout.strip()
         try:
             payload = json.loads(proc.stdout.strip() or "{}")
-            return payload if "error" in payload else {"error": "script_failed", "detail": detail[:500]}
+            if "error" in payload:
+                payload.setdefault("status", "error")
+                return payload
+            return {"status": "error", "error": "script_failed", "detail": detail[:500]}
         except json.JSONDecodeError:
-            return {"error": "script_failed", "detail": detail[:500]}
+            return {"status": "error", "error": "script_failed", "detail": detail[:500]}
     try:
-        return json.loads(proc.stdout.strip() or "{}")
+        payload = json.loads(proc.stdout.strip() or "{}")
     except json.JSONDecodeError:
-        artifacts = [str(p) for p in out.glob("*")]
+        artifacts = [str(p) for p in out.glob("*") if p.is_file()]
         return {"status": "ok", "artifacts": artifacts}
+    if not isinstance(payload, dict):
+        return {"status": "error", "error": "invalid_runner_payload"}
+    payload.setdefault("status", "ok" if "error" not in payload else "error")
+    return payload
 
 
 def export_excel(path: str, output_path: str) -> dict[str, Any]:

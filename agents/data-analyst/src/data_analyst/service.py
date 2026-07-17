@@ -62,6 +62,12 @@ class DataAnalystService(SupermarketAgentService):
         analysis_plan = payload_in.get("analysis_plan") or meta.get("analysis_plan")
         execution_plan = payload_in.get("execution_plan") or meta.get("execution_plan")
         domain_rules_excerpt = payload_in.get("domain_rules_excerpt") or meta.get("domain_rules_excerpt") or ""
+        output_table_semantics = (
+            payload_in.get("output_table_semantics") or meta.get("output_table_semantics") or []
+        )
+        output_column_semantics = (
+            payload_in.get("output_column_semantics") or meta.get("output_column_semantics") or []
+        )
 
         cfg = load_project_config()
         if self._should_use_brain(cfg):
@@ -74,10 +80,26 @@ class DataAnalystService(SupermarketAgentService):
                 query_meta=query_meta,
                 recipe_candidates=recipe_candidates,
                 domain_rules_excerpt=domain_rules_excerpt,
+                output_table_semantics=output_table_semantics,
+                output_column_semantics=output_column_semantics,
                 permissions=permissions,
             )
             if brain_payload is not None:
-                return self.json_response(ctx, brain_payload)
+                # If the LLM loop burned sandbox steps but produced no files,
+                # fall back to the deterministic analyzer so the user still gets
+                # a usable export when SQL data is already present.
+                action = str(brain_payload.get("action") or "")
+                arts = brain_payload.get("artifact_paths") or []
+                steps = int(brain_payload.get("sandbox_steps") or 0)
+                if action in {"complete", "partial"} and steps > 0 and not arts:
+                    logger.warning(
+                        "Agent IV brain returned %s with %s sandbox steps but no artifacts; "
+                        "falling back to analyze_datasets",
+                        action,
+                        steps,
+                    )
+                else:
+                    return self.json_response(ctx, brain_payload)
 
         payload = analyze_datasets(
             brief=brief,
@@ -112,6 +134,8 @@ class DataAnalystService(SupermarketAgentService):
         query_meta: list[dict[str, Any]],
         recipe_candidates: list[dict[str, Any]],
         domain_rules_excerpt: str,
+        output_table_semantics: list[dict[str, Any]],
+        output_column_semantics: list[dict[str, Any]],
         permissions: Any,
     ) -> dict[str, Any] | None:
         """Run the Agent IV reasoning loop; return None to trigger fallback."""
@@ -129,6 +153,8 @@ class DataAnalystService(SupermarketAgentService):
                 query_meta=query_meta,
                 recipe_candidates=recipe_candidates,
                 domain_rules_excerpt=domain_rules_excerpt,
+                output_table_semantics=output_table_semantics,
+                output_column_semantics=output_column_semantics,
                 permissions=permissions,
                 context_policy=self.context_policy,
                 llm=OpenRouterClient(),
