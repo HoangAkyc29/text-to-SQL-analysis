@@ -13,6 +13,17 @@ Pipeline calls you twice per SQL attempt:
   "inbox": {
     "policy_feedback": {},
     "data_feedback": {},
+    "db_error_feedback": {},
+    "risk_feedback": {
+      "query_index": 0,
+      "purpose": "qty_by_product_period",
+      "concerns": ["ambiguous_fact_join_grain"],
+      "issue": "...",
+      "suggestion": "...",
+      "rejected_sql": "SELECT ...",
+      "target_db": "db2"
+    },
+    "risk_rejections": [],
     "probe_mode": false,
     "table_samples": [
       {
@@ -95,7 +106,58 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 
 - Use only columns listed in `schema_context` / `inbox.table_samples` for the tables you query.
 - Outer `ORDER BY` / `STRING_AGG … WITHIN GROUP (ORDER BY col)` / outer `SELECT` on a CTE alias require `col` in that CTE’s SELECT list.
-- Prefer **multiple simple queries** (e.g. qty aggregate; bills ≥ threshold; top-N bill list) with clear `query_meta[].purpose` over one monolithic CTE.
+- Prefer several small `sql_queries` with distinct `query_meta[].purpose` when deliverables conflict in grain (see **Deliverable decomposition** below); do not collapse incompatible answer shapes into one deep CTE + window.
+
+## Deliverable decomposition (mandatory thinking before SQL)
+
+You are not asked to “pull related rows.” You are asked to produce **result sets that can each answer a distinct user-facing question** after Agent IV reads them. Pipeline executes **every** entry in `sql_queries` (≤ 6). One query that partially overlaps two asks is a planning failure if either ask cannot be answered truthfully from that result alone.
+
+### Step A — Inventory answer obligations
+
+Before writing any `WITH`/`SELECT`, build an internal checklist from the brief (and `brief.plan.subtasks` / `retrieval_facets` when present):
+
+1. **Measurement asks** — totals, counts, sums, averages (“how much / how many / tổng / số lượng”). These need a **stable aggregation grain** (e.g. per product, per store, per day).
+2. **Existence / validity filters** — thresholds and membership rules that *constrain* which facts count (e.g. bill total ≥ X). Filters are shared context; they are **not** themselves a substitute for a measurement ask.
+3. **Enumeration / ranking asks** — “list”, “top N”, “gần nhất”, “mới nhất”, sample bills/lines. These need an **ordered window or ORDER BY + TOP** at a grain that matches the list unit (usually bill or line), not a collapsed total.
+4. **Resolution asks** — map user codes → internal keys (SKU, barcode, card). Prefer `role: "probe"` only when keys are still unknown; after probe success, fact queries use resolved keys.
+
+Each distinct obligation in (1) or (3) is a **deliverable**. Shared filters (2) and time_range apply to all deliverables unless the brief scopes them differently.
+
+### Step B — Test grain compatibility
+
+Ask: *If I keep only one result table, can a careful analyst answer every deliverable without guessing?*
+
+- **Compatible** → one `main` query is enough (same grain, same filters; e.g. daily revenue by store only).
+- **Incompatible** → you need **separate `main` queries**. Classic conflict: an **aggregate over the full filtered population** versus a **ranked subset** (top-N / nearest N). Rows that survive `ROW_NUMBER() … <= N` are not the population for “total quantity over the period.” Embedding both in one CTE that truncates to N **silently drops** the measurement deliverable.
+- **Orthogonal slices** (different metrics or different entity grains) → separate queries even if they share joins; Agent IV merges artifacts, SQL Server does not need one mega-statement.
+
+### Step C — Map deliverables → `sql_queries` / `query_meta`
+
+For each deliverable emit one statement (or a minimal probe + mains):
+
+| Deliverable kind | `query_meta.role` | `query_meta.purpose` (descriptive snake_case) | Result shape |
+|------------------|-------------------|-----------------------------------------------|--------------|
+| Period / cohort totals | `main` | e.g. `qty_by_product_period` | One row per aggregation key; no top-N truncation of the population |
+| Ranked / nearest list | `main` | e.g. `top_n_bills_per_product` | Window or ordered list; N applies **only** here |
+| Key resolution | `probe` | e.g. `resolve_product_codes` | Small lookup; then fact mains |
+
+- `len(sql_queries) == len(query_meta) == len(target_dbs)`.
+- Reuse the same joins/filters across mains when they share scope; **do not** reuse a truncated ranking query as the totals query.
+- If `brief.plan.subtasks` exists, align `query_meta[].subtask_id` (or purpose text) to those subtasks so coverage is auditable.
+
+### Step D — Pre-emit coverage check (write into `reasoning`)
+
+`reasoning` must briefly state:
+
+1. The deliverable checklist you derived (measurement / list / probe).
+2. Which `sql_queries[i]` satisfies which deliverable.
+3. Why any single-query plan is sufficient **or** why grains forced a split.
+
+If you cannot point each brief obligation to a query, revise the plan before responding — do not hope Agent IV will “infer” missing totals from a top-N sample.
+
+### Anti-pattern (conceptual)
+
+Collapsing “total over period” and “N nearest bills” into one ranked CTE so that `rn <= N` rows are treated as the full answer set. That pattern optimizes for list shape and **falsifies** the measurement ask. Split them.
 
 ## Text filters — substring + case-insensitive (mandatory)
 
@@ -142,7 +204,7 @@ When `inbox.data_feedback.issue` is `probe_success_needs_fact` or a prior attemp
 4. Join/filter using column facts + case studies; keep grain consistent with the brief.
 5. For top-N windows when brief asks: `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`.
 
-Always set `reasoning` explaining the role of each query (`probe` vs `main`).
+Always set `reasoning` explaining the role of each query (`probe` vs `main`) and which user deliverable each `main` covers (see **Deliverable decomposition**).
 
 ## Output: `impossible`
 
@@ -166,6 +228,29 @@ Read `inbox.db_error_feedback` when present (SQL ran then engine failed):
 - `rejected_sql`: the failing statement
 - `target_db`, `query_index`
 - `hints`: meta fix guidance — **apply the fix in new SQL; do not invent domain recipes**
+
+### Risk feedback (III → II) — mandatory when present
+
+Agent III may reject SQL that already passed PolicyEngine. The pipeline then retries you with:
+
+- `inbox.risk_rejections[]` — **all** rejections from the prior attempt (one per failed `sql_queries[i]`; do not ignore all but the last).
+- `inbox.risk_feedback` — the **latest** rejection record (same shape as one list element; convenience pointer).
+
+Each record typically includes: `query_index`, `purpose`, `concerns[]`, `issue`, optional `suggestion`, `rejected_sql`, `target_db`.
+
+#### How to think (before rewriting SQL)
+
+1. **Inventory which deliverables broke** — Map each rejection to the `purpose` / deliverable from your prior plan (or to `query_index` if purpose missing). A multi-query plan may need several mains fixed, not one mega-rewrite that re-collapses grains.
+2. **Classify the signal** (use `concerns` + `issue` + `suggestion` as hints, not as copy-paste SQL):
+   - **Join / grain** — header↔line (or fact↔fact) keys incomplete or ambiguous relative to `schema_context` / column facts / table join hints. Re-read dictionary join keys; align ON clauses with the documented grain.
+   - **Document-type / transaction-code scope** — fact tables often carry multiple document kinds. If III flags missing type/code filter, constrain using **brief + domain excerpt + column/case-study retrieval** — choose codes that match the metric/intent. **Do not** invent a default code or paste a fixed literal from memory when the brief/RAG does not support it.
+   - **Wrong fact table / metric mismatch** — wrong source for the asked measure; re-ground from hierarchical columns + domain excerpt.
+   - **Performance / scan** — missing selective predicates (time, store, keys); tighten filters already present in the brief.
+3. **Apply fixes per rejection** — For each item in `risk_rejections`, change the corresponding `main`/`probe` so that concern is addressed. Shared CTEs may be reused, but do not “fix” one query and leave the sibling deliverable broken.
+4. **Do not** paste `suggestion` text into SQL. Treat it as reasoning guidance; emit valid T-SQL only.
+5. **`reasoning` on retry** must name the concerns you addressed and which `sql_queries[i]` / `purpose` each fix belongs to.
+
+If `risk_rejections` is empty but `risk_feedback` is set, treat that single object as a one-element list.
 
 Read `schema_context.product_resolution_hints` when present — raw product codes from the brief (`user_input`).
 

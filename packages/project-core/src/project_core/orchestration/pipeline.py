@@ -15,6 +15,7 @@ from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
 from project_core.domain.analysis.recipe_matcher import rank_candidates
+from project_core.domain.feedback.risk_rejection import append_risk_rejection, build_risk_rejection_record
 from project_core.domain.audit.agent_ii_plan import build_agent_ii_plan_payload, plan_sql_workflow_summary
 from project_core.domain.audit.logger import AuditLogger
 from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
@@ -550,6 +551,7 @@ class SupermarketAnalysisPipeline:
                     if iii_parsed.verdict == "approve":
                         approved = True
                         break
+                    # Keep latest raw feedback for III's own risk_attempt loop / explain.
                     inbox["risk_feedback"] = iii_parsed.risk_feedback
                     if not explain_attached and (
                         iii_parsed.needs_explain
@@ -579,13 +581,26 @@ class SupermarketAnalysisPipeline:
                             )
 
                 if not approved:
+                    meta = query_meta[idx] if idx < len(query_meta) else {}
+                    purpose = None
+                    if isinstance(meta, dict):
+                        purpose = meta.get("purpose")
+                    record = build_risk_rejection_record(
+                        query_index=idx,
+                        target_db=tdb,
+                        sql=sanitized,
+                        concerns=list(iii_parsed.concerns or []),
+                        risk_feedback=iii_parsed.risk_feedback
+                        if isinstance(iii_parsed.risk_feedback, dict)
+                        else None,
+                        purpose=str(purpose) if purpose else None,
+                    )
+                    append_risk_rejection(inbox, record)
                     risk_summary = "risk_reject"
-                    if iii_parsed.concerns:
-                        risk_summary = f"risk_reject;flags={','.join(iii_parsed.concerns[:3])}"
-                    elif iii_parsed.risk_feedback:
-                        issue = str(iii_parsed.risk_feedback.get("issue", ""))[:80]
-                        if issue:
-                            risk_summary = f"risk_reject;issue={issue}"
+                    if record.get("concerns"):
+                        risk_summary = f"risk_reject;flags={','.join(record['concerns'][:3])}"
+                    elif record.get("issue"):
+                        risk_summary = f"risk_reject;issue={str(record['issue'])[:80]}"
                     workflow.steps.append(
                         WorkflowStep(
                             step_id=str(uuid4()),
@@ -729,6 +744,8 @@ class SupermarketAnalysisPipeline:
 
             inbox.pop("db_error_feedback", None)
             inbox.pop("policy_feedback", None)
+            inbox.pop("risk_feedback", None)
+            inbox.pop("risk_rejections", None)
 
             row_counts = {qf.query_index: qf.row_count for qf in query_files}
             pre_iv = _synthesize_pre_iv_feedback(

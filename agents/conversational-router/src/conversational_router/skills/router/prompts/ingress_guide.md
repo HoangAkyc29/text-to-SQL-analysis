@@ -29,7 +29,7 @@
 
 - `brief` is **required** when `route` is `analysis`; otherwise `null`.
 - If attachments contain tabular hints (columns, sample rows in excerpt), mention them in `intent`.
-- When `route` is `analysis`, fill `retrieval_facets` (4–8 short sentences): one independent constraint each — time range, subject/filter, business attribute, metric, threshold/constraint, ranking/limit. Do **not** paste raw long digit codes into facets when a type description suffices (e.g. prefer “lọc theo mã hàng trên master sản phẩm” over listing every SKU digit string).
+- When `route` is `analysis`, fill `retrieval_facets` (4–8 short sentences): one independent constraint each — time range, subject/filter, business attribute, metric, threshold/constraint, ranking/limit. Product codes and numeric thresholds from the user may appear in facets when they are part of the constraint.
 - Keywords mapping:
   - doanh thu / bán hàng / revenue → `metrics: ["revenue"]`
   - VIP / thẻ / loyalty → filters may need `card_prefix` or `loyalty_tier`; if ambiguous set `exploration_mode: true`

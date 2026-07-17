@@ -116,7 +116,7 @@ def test_hybrid_keyword_boosts_display_name():
     assert score > 0.0
 
 
-def test_build_retrieval_query_omits_raw_sku():
+def test_build_retrieval_query_keeps_intent_digits_adds_filter_types():
     brief = AnalysisBrief(
         intent="gift bill quantity product 0030344",
         filters={"product_code": ["0030344", "0030348"], "min_bill_value": 600000},
@@ -124,25 +124,26 @@ def test_build_retrieval_query_omits_raw_sku():
         metrics=["qty"],
     )
     q = build_retrieval_query(brief.intent, brief)
-    assert "0030344" not in q
-    assert "600000" not in q
+    assert "0030344" in q
     assert "product_code" in q
     assert "min_bill_value" in q
     assert "date_range" in q
+    # Filter values are type tokens only — raw amount not dumped from filters.
+    assert "600000" not in q
 
 
-def test_sanitize_and_fallback_facets():
-    assert "0030344" not in sanitize_retrieval_text("mã 0030344 và 600000")
+def test_sanitize_keeps_digits_and_agent_facets():
+    assert "0030344" in sanitize_retrieval_text("mã 0030344 và 600000")
+    assert "600000" in sanitize_retrieval_text("mã 0030344 và 600000")
     brief = AnalysisBrief(
         intent="x",
+        retrieval_facets=["Lọc theo mã sản phẩm 0030344, 0030348"],
         filters={"product_code": ["0030344"], "min_bill_value": 600000},
         time_range={"start": "2026-07-01", "end": "2026-07-06"},
         metrics=["quantity"],
     )
     facets = build_retrieval_facets(brief)
-    assert facets
-    assert all("0030344" not in f for f in facets)
-    assert any("mã hàng" in f.lower() or "sku" in f.lower() for f in facets)
+    assert facets == ["Lọc theo mã sản phẩm 0030344, 0030348"]
 
 
 def test_fuse_facet_scores_prefers_strong_match():

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from project_core.domain.contracts.brief import AnalysisBrief
@@ -15,14 +14,12 @@ _FILTER_TYPE_TOKENS = (
     "STK_ID",
 )
 
-_DIGIT_RUN = re.compile(r"\d{5,}")
 _MAX_FACETS = 8
 
 
 def sanitize_retrieval_text(text: str) -> str:
-    """Strip long digit runs (SKU/PLU/amounts) before embedding."""
-    cleaned = _DIGIT_RUN.sub(" ", text or "")
-    return " ".join(cleaned.split())
+    """Normalize whitespace only — keep digit codes/amounts for embedding."""
+    return " ".join((text or "").split())
 
 
 def build_retrieval_query(intent: str, brief: AnalysisBrief | dict[str, Any] | None = None) -> str:

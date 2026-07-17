@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 
@@ -16,7 +17,13 @@ class ScriptedAgentInvoker:
         self.calls: list[dict[str, Any]] = []
 
     def invoke(self, agent: str, payload: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
-        self.calls.append({"agent": agent, "payload": payload, "metadata": metadata})
+        self.calls.append(
+            {
+                "agent": agent,
+                "payload": copy.deepcopy(payload),
+                "metadata": dict(metadata or {}),
+            }
+        )
         queue = self.scripts.get(agent, [])
         mode = str((metadata or {}).get("mode") or "")
 

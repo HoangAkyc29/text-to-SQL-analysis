@@ -68,10 +68,41 @@ def test_pipeline_risk_reject_then_retry(pipeline_factory, workflow_state, hq_pe
     invoker = ScriptedAgentInvoker(
         {
             "II": [
-                {"action": "plan_sql", "sql_queries": ["SELECT bad_col FROM STRANS"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
+                {
+                    "action": "plan_sql",
+                    "sql_queries": [
+                        "SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRAN_DATE >= '2026-07-01'"
+                    ],
+                    "query_meta": [{"role": "main", "purpose": "qty_agg"}],
+                },
+                {
+                    "action": "plan_sql",
+                    "sql_queries": [
+                        "SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"
+                    ],
+                    "query_meta": [{"role": "main", "purpose": "qty_agg"}],
+                },
             ],
-            "III": [{"verdict": "reject", "risk_feedback": {"issue": "scan"}}, {"verdict": "approve"}],
+            # max_risk_retries=2 → two rejects exhaust III loop, then II sql_attempt 2.
+            "III": [
+                {
+                    "verdict": "reject",
+                    "concerns": ["ambiguous_fact_join_grain"],
+                    "risk_feedback": {
+                        "issue": "join_grain",
+                        "suggestion": "Align join keys with schema",
+                    },
+                },
+                {
+                    "verdict": "reject",
+                    "concerns": ["ambiguous_fact_join_grain"],
+                    "risk_feedback": {
+                        "issue": "join_grain",
+                        "suggestion": "Align join keys with schema",
+                    },
+                },
+                {"verdict": "approve"},
+            ],
             "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
         }
     )
@@ -81,12 +112,92 @@ def test_pipeline_risk_reject_then_retry(pipeline_factory, workflow_state, hq_pe
         permissions=hq_permissions,
     )
     assert result.outcome == AnalysisOutcome.SUCCESS.value
-    assert invoker.calls[0]["agent"] == "II"
-    assert invoker.calls[0]["metadata"].get("mode") == "select_tables"
-    assert invoker.calls[1]["agent"] == "II"
-    assert invoker.calls[1]["metadata"].get("mode") == "plan_sql"
-    assert invoker.calls[2]["agent"] == "III"
+    plan_calls = [
+        c
+        for c in invoker.calls
+        if c["agent"] == "II" and c["metadata"].get("mode") == "plan_sql"
+    ]
+    assert len(plan_calls) >= 2
+    retry_inbox = plan_calls[1]["payload"].get("inbox") or {}
+    assert retry_inbox.get("risk_feedback", {}).get("issue") == "join_grain"
+    rejections = retry_inbox.get("risk_rejections") or []
+    assert len(rejections) >= 1
+    assert rejections[0]["issue"] == "join_grain"
+    assert rejections[0]["purpose"] == "qty_agg"
+    assert "rejected_sql" in rejections[0]
+    assert any(s.step_type == WorkflowStepType.RISK_REJECT for s in result.workflow_steps)
 
+
+def test_pipeline_risk_reject_accumulates_multi_query(pipeline_factory, workflow_state, hq_permissions):
+    invoker = ScriptedAgentInvoker(
+        {
+            "II": [
+                {
+                    "action": "plan_sql",
+                    "sql_queries": [
+                        "SELECT TOP 10 SKU_ID FROM STRANS WHERE TRAN_DATE >= '2026-07-01'",
+                        "SELECT TOP 10 TRANS_NUM FROM TRANSHDR WHERE TRAN_DATE >= '2026-07-01'",
+                    ],
+                    "query_meta": [
+                        {"role": "main", "purpose": "qty_agg"},
+                        {"role": "main", "purpose": "top_n_bills"},
+                    ],
+                    "target_dbs": ["db2", "db2"],
+                },
+                {
+                    "action": "plan_sql",
+                    "sql_queries": [
+                        "SELECT TOP 10 SKU_ID FROM STRANS WHERE TRANS_CODE = '113'"
+                    ],
+                    "query_meta": [{"role": "main", "purpose": "qty_agg"}],
+                },
+            ],
+            # Each query: 2 rejects (max_risk_retries) → 4 rejects, then approve on attempt 2.
+            "III": [
+                {
+                    "verdict": "reject",
+                    "concerns": ["a"],
+                    "risk_feedback": {"issue": "issue_q0"},
+                },
+                {
+                    "verdict": "reject",
+                    "concerns": ["a"],
+                    "risk_feedback": {"issue": "issue_q0"},
+                },
+                {
+                    "verdict": "reject",
+                    "concerns": ["b"],
+                    "risk_feedback": {"issue": "issue_q1"},
+                },
+                {
+                    "verdict": "reject",
+                    "concerns": ["b"],
+                    "risk_feedback": {"issue": "issue_q1"},
+                },
+                {"verdict": "approve"},
+            ],
+            "IV": [{"action": "complete", "headline_metrics": {}, "artifact_paths": []}],
+        }
+    )
+    result = pipeline_factory(invoker, StubSqlGateway()).run(
+        brief=AnalysisBrief(intent="sales two deliverables"),
+        workflow=workflow_state,
+        permissions=hq_permissions,
+    )
+    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    plan_calls = [
+        c
+        for c in invoker.calls
+        if c["agent"] == "II" and c["metadata"].get("mode") == "plan_sql"
+    ]
+    retry_inbox = plan_calls[1]["payload"].get("inbox") or {}
+    rejections = retry_inbox.get("risk_rejections") or []
+    assert len(rejections) == 2
+    assert rejections[0]["purpose"] == "qty_agg"
+    assert rejections[0]["issue"] == "issue_q0"
+    assert rejections[1]["purpose"] == "top_n_bills"
+    assert rejections[1]["issue"] == "issue_q1"
+    assert retry_inbox["risk_feedback"]["issue"] == "issue_q1"
 
 def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(

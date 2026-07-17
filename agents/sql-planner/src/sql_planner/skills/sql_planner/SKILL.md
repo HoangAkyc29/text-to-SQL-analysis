@@ -7,7 +7,7 @@ Lập kế hoạch truy vấn readonly trên SQL Server supermarket (db1 archive
 | `action` | Khi nào |
 |----------|---------|
 | `select_tables` | Phase 1 — chỉ liệt kê logical tables (≤6); không SQL |
-| `plan_sql` | Phase 2 — đủ samples trong `inbox.table_samples`; emit 1–6 câu `SELECT` |
+| `plan_sql` | Phase 2 — đủ samples trong `inbox.table_samples`; emit 1–6 câu `SELECT` (mỗi deliverable/grain một `main` khi cần) |
 | `probe_sql` | IV/data_feedback yêu cầu probe nhỏ (lookup SKU, grain, …) |
 | `clarify` | Thiếu định nghĩa nghiệp vụ (VIP, mã hàng, time grain) |
 | `impossible` | Yêu cầu vi phạm policy hoặc không có bảng trong dictionary |
@@ -23,7 +23,7 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 ## Inputs từ pipeline
 
 - `brief` — `AnalysisBrief` (+ `plan.subtasks` nếu decomposed)
-- `inbox` — `policy_feedback`, `db_error_feedback`, `data_feedback`, `probe_mode`, `table_samples` (sau phase select_tables)
+- `inbox` — `policy_feedback`, `db_error_feedback`, `data_feedback`, `risk_feedback` / `risk_rejections` (sau III reject), `probe_mode`, `table_samples` (sau phase select_tables)
 - `schema_context` — allowed tables, column hints, domain excerpt, `shard_plan`, `product_resolution_hints`
 - `retrieval_context` — hierarchical columns/tables/case studies
 - `attempt` — số lần retry (1-based)

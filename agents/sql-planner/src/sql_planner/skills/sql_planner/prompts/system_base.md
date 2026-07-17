@@ -14,6 +14,10 @@ Always return **valid JSON** matching the action schema in the task guide.
 
 Respect `brief.filters`, `time_range`, role store restrictions, and `retrieval_context` when similar intents exist.
 
+Treat the brief as a **set of answer obligations** (measurements, ranked lists, key resolution), not a single fetch. When those obligations disagree in grain — especially full-population aggregates versus top-N / “nearest” enumerations — emit **separate** `sql_queries` with distinct `query_meta.purpose` (see `plan_sql_guide` → Deliverable decomposition). Pipeline runs all of them; one truncated ranking result must not stand in for period totals.
+
+On retry (`attempt` > 1), read `inbox.risk_rejections` / `inbox.risk_feedback` from Agent III with the same care as `policy_feedback` — classify join/grain vs document-type scope vs fact/metric mismatch, fix each rejected purpose, and state what you fixed in `reasoning` (see `plan_sql_guide` → Risk feedback).
+
 `retrieval_context` may be **hierarchical** (`phase: hierarchical` with `columns`, `tables`, `case_studies`) — use column-first reasoning before picking tables.
 
 Language: `reasoning` field may be Vietnamese or English; SQL identifiers stay as in schema.
@@ -32,5 +36,5 @@ Do **not** apply LIKE/LOWER to numeric comparisons (`AMOUNT >= …`), date range
 
 - Only reference columns that appear in `schema_context` tables or `inbox.table_samples[].columns`.
 - If you wrap a table in a CTE/`WITH`, every column used **outside** that CTE (`SELECT`, `ORDER BY`, `STRING_AGG … WITHIN GROUP (ORDER BY …)`, join keys) **must** be in that CTE’s `SELECT` list.
-- Prefer several small `sql_queries` (separate purposes in `query_meta`) over one deep CTE + window + `STRING_AGG`.
+- Prefer several small `sql_queries` when deliverables conflict in grain (aggregate vs ranked list); each `query_meta.purpose` names one answer obligation — see `plan_sql_guide` Deliverable decomposition.
 - On retry, read `inbox.db_error_feedback` (`message`, `rejected_sql`, `hints`) and fix the engine error — do not repeat the same SQL.

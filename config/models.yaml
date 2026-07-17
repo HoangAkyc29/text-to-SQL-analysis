@@ -35,7 +35,7 @@ profiles:
     provider: openrouter
     model_id: google/gemini-2.5-flash
     params:
-      max_tokens: 8192
+      max_tokens: 24576
       temperature: 0.3
   openrouter_vision:
     provider: openrouter
