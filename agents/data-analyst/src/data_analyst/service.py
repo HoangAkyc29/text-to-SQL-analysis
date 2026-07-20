@@ -85,15 +85,15 @@ class DataAnalystService(SupermarketAgentService):
                 permissions=permissions,
             )
             if brain_payload is not None:
-                # If the LLM loop burned sandbox steps but produced no files,
-                # fall back to the deterministic analyzer so the user still gets
-                # a usable export when SQL data is already present.
+                # If the LLM loop returns complete/partial without files,
+                # fall back to deterministic analysis so users still get exports
+                # when SQL data is already present (including planner_failed@step0).
                 action = str(brain_payload.get("action") or "")
                 arts = brain_payload.get("artifact_paths") or []
                 steps = int(brain_payload.get("sandbox_steps") or 0)
-                if action in {"complete", "partial"} and steps > 0 and not arts:
+                if action in {"complete", "partial"} and not arts:
                     logger.warning(
-                        "Agent IV brain returned %s with %s sandbox steps but no artifacts; "
+                        "Agent IV brain returned %s with %s sandbox steps and no artifacts; "
                         "falling back to analyze_datasets",
                         action,
                         steps,

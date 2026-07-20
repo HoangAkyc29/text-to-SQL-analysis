@@ -31,14 +31,17 @@ class AnalysisOutcome(StrEnum):
 
 class WorkflowStepType(StrEnum):
     INGRESS_BRIEF = "ingress_brief"
+    SCHEMA_RETRIEVE = "schema_retrieve"
     SELECT_TABLES = "select_tables"
     PLAN_SQL = "plan_sql"
     CLARIFY = "clarify"
     POLICY_REJECT = "policy_reject"
+    RISK_REVIEW = "risk_review"
     RISK_REJECT = "risk_reject"
     EXECUTE = "execute"
     DATA_FEEDBACK = "data_feedback"
     SANDBOX = "sandbox"
+    AGENT_IV = "agent_iv"
     SYNTHESIZE = "synthesize"
     CANCEL = "cancel"
     ERROR = "error"
@@ -54,6 +57,8 @@ class WorkflowStep(BaseModel):
     query_index: int | None = None
     risk_attempt: int | None = None
     at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime | None = None
+    duration_ms: int | None = None
     summary: str = ""
     feedback_ref: str | None = None
     outcome_fragment: str | None = None

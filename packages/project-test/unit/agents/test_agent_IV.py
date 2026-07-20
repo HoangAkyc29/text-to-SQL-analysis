@@ -75,3 +75,30 @@ def test_IV_denied_without_permissions(decision_ctx):
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["action"] == "data_feedback"
     assert payload["impossible_reason"] == "tool_not_granted:python-sandbox:run_analysis_script"
+
+
+def test_IV_falls_back_when_brain_partial_without_artifacts_step0(decision_ctx, monkeypatch):
+    from data_analyst import service as mod
+
+    monkeypatch.setattr(DataAnalystService, "_should_use_brain", staticmethod(lambda cfg: True))
+    monkeypatch.setattr(
+        DataAnalystService,
+        "_run_brain",
+        lambda self, **kwargs: {"action": "partial", "sandbox_steps": 0, "artifact_paths": []},
+    )
+    monkeypatch.setattr(
+        mod,
+        "analyze_datasets",
+        lambda **kwargs: {"action": "complete", "artifact_paths": ["out/fallback.csv"]},
+    )
+    ctx = decision_ctx(
+        goal=_goal(
+            {
+                "dataset_manifest": {"queries": [{"path": "/tmp/fake.parquet", "row_count": 3}]},
+                "result_profile": {"row_count": 3},
+            }
+        )
+    )
+    payload = json.loads(_svc().decide(ctx).content)
+    assert payload["action"] == "complete"
+    assert payload["artifact_paths"] == ["out/fallback.csv"]

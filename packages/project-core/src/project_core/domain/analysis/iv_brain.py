@@ -27,6 +27,10 @@ from project_core.domain.analysis.iv_analyzer import (
     _merge_external_paths,
     _probe_success_needs_fact_feedback,
 )
+from project_core.domain.analysis.iv_sufficiency import (
+    assess_sufficiency,
+    insufficiency_data_feedback,
+)
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.feedback.analysis_tool_registry import apply_params_to_script
@@ -120,7 +124,15 @@ class AnalysisPlanner:
             response_format={"type": "json_object"},
         )
         self.tokens += int(getattr(result, "usage_tokens", 0) or 0)
-        return json.loads(result.content)
+        content = str(getattr(result, "content", "") or "")
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning(
+                "IV planner returned invalid JSON content preview=%r",
+                content[:300],
+            )
+            raise
 
 
 class SandboxRunner:
@@ -333,6 +345,13 @@ def run_analysis_brain(
             if decision.get("suggest_clarify"):
                 payload["suggest_clarify"] = decision["suggest_clarify"]
             payload["steps_trace"] = steps_trace
+            # Keep any sandbox files already written so the pipeline can deliver
+            # partial results instead of discarding them on soft retries.
+            if artifacts:
+                payload["artifact_paths"] = list(artifacts)
+                payload["chart_artifacts"] = list(chart_artifacts)
+                payload["excel_artifacts"] = list(excel_artifacts)
+                payload["sandbox_steps"] = steps_run
             return payload
         if action == "suggest_clarify":
             return {
@@ -351,6 +370,41 @@ def run_analysis_brain(
                 "steps_trace": steps_trace,
             }
         if action in ("finalize", "complete", "partial"):
+            claimed = str(decision.get("status") or action)
+            if claimed not in ("complete", "partial"):
+                claimed = "complete" if action != "partial" else "partial"
+            check = assess_sufficiency(
+                brief,
+                row_count=int(profile.get("row_count", 0) or 0),
+                artifacts=artifacts,
+                chart_artifacts=chart_artifacts,
+                excel_artifacts=excel_artifacts,
+                headline_metrics={
+                    **headline_metrics,
+                    **(decision.get("headline_metrics") or {}),
+                },
+                claimed_status=claimed,
+            )
+            if check.force_feedback:
+                fb_payload = insufficiency_data_feedback(
+                    brief,
+                    check,
+                    row_count=int(profile.get("row_count", 0) or 0),
+                    artifacts=artifacts,
+                )
+                fb_payload["steps_trace"] = steps_trace
+                fb_payload["sandbox_steps"] = steps_run
+                if caveats:
+                    fb_payload["caveats"] = list(dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats]))[:8]
+                if chart_artifacts:
+                    fb_payload["chart_artifacts"] = list(chart_artifacts)
+                if excel_artifacts:
+                    fb_payload["excel_artifacts"] = list(excel_artifacts)
+                return fb_payload
+            if check.gaps:
+                # Format-only gaps: keep partial with caveats instead of fake complete.
+                decision = {**decision, "status": "partial"}
+                caveats.extend(check.gaps)
             terminal = decision
             break
 
@@ -406,7 +460,7 @@ def run_analysis_brain(
     else:
         caveats.append("budget_exceeded")
 
-    return _assemble_response(
+    assembled = _assemble_response(
         terminal=terminal,
         artifacts=artifacts,
         chart_artifacts=chart_artifacts,
@@ -417,6 +471,38 @@ def run_analysis_brain(
         steps_run=steps_run,
         planner_tokens=planner.tokens,
     )
+    # Post-loop gate: planner_failed / budget paths can still claim partial with no files.
+    post = assess_sufficiency(
+        brief,
+        row_count=int(profile.get("row_count", 0) or 0),
+        artifacts=artifacts,
+        chart_artifacts=chart_artifacts,
+        excel_artifacts=excel_artifacts,
+        headline_metrics=assembled.get("headline_metrics") or headline_metrics,
+        claimed_status=str(assembled.get("action") or "partial"),
+    )
+    if post.force_feedback:
+        fb_payload = insufficiency_data_feedback(
+            brief,
+            post,
+            row_count=int(profile.get("row_count", 0) or 0),
+            artifacts=artifacts,
+        )
+        fb_payload["steps_trace"] = steps_trace
+        fb_payload["sandbox_steps"] = steps_run
+        if caveats:
+            fb_payload["caveats"] = list(dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats]))[:8]
+        if planner.tokens:
+            fb_payload["usage_tokens"] = planner.tokens
+        return fb_payload
+    if post.gaps and assembled.get("action") == "complete":
+        assembled["action"] = "partial"
+        assembled["caveats"] = list(assembled.get("caveats") or []) + list(post.gaps)
+        assembled["coverage"] = {
+            "diagnosis": "partial",
+            "gaps": list(post.gaps)[:5],
+        }
+    return assembled
 
 
 def _assemble_response(

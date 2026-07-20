@@ -85,29 +85,61 @@ class SqlPlannerService(SupermarketAgentService):
 
         client = OpenRouterClient()
         result = None
+        last_exc: Exception | None = None
         try:
-            result = client.chat(
-                profile_name=agent_profile("sql_planner"),
-                messages=[
-                    {"role": "system", "content": self.llm_system_prompt(guide=guide, extra=extra)},
-                    {
-                        "role": "user",
-                        "content": json.dumps(
+            for parse_attempt in range(2):
+                try:
+                    result = client.chat(
+                        profile_name=agent_profile("sql_planner"),
+                        messages=[
+                            {"role": "system", "content": self.llm_system_prompt(guide=guide, extra=extra)},
                             {
-                                "brief": brief.model_dump(),
-                                "inbox": inbox,
-                                "attempt": attempt,
-                                "schema_context": schema_context,
-                                "retrieval_context": retrieval_context,
-                                "mode": mode,
+                                "role": "user",
+                                "content": json.dumps(
+                                    {
+                                        "brief": brief.model_dump(),
+                                        "inbox": inbox,
+                                        "attempt": attempt,
+                                        "schema_context": schema_context,
+                                        "retrieval_context": retrieval_context,
+                                        "mode": mode,
+                                        **(
+                                            {"_json_retry": True, "_hint": "Return a single complete JSON object only."}
+                                            if parse_attempt
+                                            else {}
+                                        ),
+                                    },
+                                    ensure_ascii=False,
+                                ),
                             },
-                            ensure_ascii=False,
-                        ),
-                    },
-                ],
-                response_format={"type": "json_object"},
-            )
-            payload = parse_llm_json(result)
+                        ],
+                        response_format={"type": "json_object"},
+                    )
+                    finish = None
+                    try:
+                        finish = ((result.raw.get("choices") or [{}])[0] or {}).get("finish_reason")
+                    except Exception:
+                        finish = None
+                    if finish and finish not in {"stop", "end_turn", None}:
+                        logger.warning(
+                            "Agent II mode=%s finish_reason=%s attempt=%s",
+                            mode,
+                            finish,
+                            parse_attempt,
+                        )
+                    payload = parse_llm_json(result)
+                    return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
+                except LLMProviderError as exc:
+                    last_exc = exc
+                    logger.warning(
+                        "Agent II JSON parse failed mode=%s parse_attempt=%s: %s",
+                        mode,
+                        parse_attempt,
+                        exc,
+                    )
+                    continue
+            assert last_exc is not None
+            raise last_exc
         except LLMProviderError as exc:
             snippet = completion_text(result)[:300] if result is not None else ""
             logger.error(
@@ -124,7 +156,6 @@ class SqlPlannerService(SupermarketAgentService):
                     "reasoning": f"LLM {mode} failed — stub fallback forbidden: {exc}",
                 },
             )
-        return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)
 
     def _stub_select_tables(
         self,

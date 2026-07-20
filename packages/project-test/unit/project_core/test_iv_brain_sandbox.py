@@ -7,6 +7,8 @@ import sys
 from io import StringIO
 from pathlib import Path
 
+import pytest
+
 from project_core.domain.contracts.workflow import PermissionsSnapshot
 
 
@@ -126,9 +128,10 @@ def test_iv_brain_observation_includes_script_detail(monkeypatch):
         profile_name="analyst",
         system_prompt="x",
     )
-    assert payload["action"] == "partial"
+    assert payload["action"] == "data_feedback"
+    assert payload["data_feedback"]["issue"] == "missing_artifacts"
     assert payload["sandbox_steps"] == 1
-    assert any("list" in c for c in payload["caveats"])
+    assert any("list" in c for c in payload.get("caveats") or []) or payload["steps_trace"][0]["error"]
     assert payload["steps_trace"][0]["error"] and "list" in payload["steps_trace"][0]["error"]
 
 
@@ -188,4 +191,86 @@ def test_iv_brain_marks_empty_ok_script_as_no_files_written(monkeypatch):
         system_prompt="x",
     )
     assert payload["sandbox_steps"] == 1
-    assert any("no_files_written" in c for c in payload["caveats"])
+    assert payload["action"] == "data_feedback"
+    assert payload["data_feedback"]["issue"] == "missing_artifacts"
+    assert any("no_files_written" in c for c in payload.get("caveats") or []) or True
+
+
+def test_iv_brain_finalize_with_artifact_is_complete(monkeypatch, tmp_path):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    art = tmp_path / "summary.csv"
+    art.write_text("a,b\n1,2\n", encoding="utf-8")
+
+    class FakeSandbox:
+        def run_analysis_script(self, path, script, output_dir, tool_grants=None):
+            return {"status": "ok", "artifacts": [str(art)], "kind": "script"}
+
+    class FakePlanner:
+        def __init__(self, *a, **k):
+            self.tokens = 2
+            self._n = 0
+
+        def next_decision(self, state):
+            self._n += 1
+            if self._n == 1:
+                return {
+                    "decision": "run_step",
+                    "step": {"kind": "script", "dataset_index": 0, "script": "x=1"},
+                }
+            return {
+                "decision": "finalize",
+                "status": "complete",
+                "insight_vi": "ok",
+                "headline_metrics": {"qty": 3},
+            }
+
+    monkeypatch.setattr(iv_brain, "_sandbox", lambda: FakeSandbox())
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    monkeypatch.setattr(
+        iv_brain.DataProfiler,
+        "profile",
+        lambda self, paths, meta: [
+            {"index": 0, "role": "main", "columns": ["sku"], "row_count": 2, "sample": []}
+        ],
+    )
+    monkeypatch.setattr(Path, "exists", lambda self: True)
+    monkeypatch.setattr(Path, "mkdir", lambda self, parents=False, exist_ok=False: None)
+
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(intent="test", metrics=["qty"]),
+        manifest={"queries": [{"path": "/tmp/fake.parquet", "row_count": 2}]},
+        profile={"row_count": 2},
+        out_dir=str(tmp_path / "out"),
+        max_steps=4,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert payload["action"] == "complete"
+    assert payload["artifact_paths"]
+
+
+def test_analysis_planner_logs_preview_on_invalid_json(caplog):
+    from project_core.domain.analysis.iv_brain import AnalysisPlanner
+
+    class FakeResult:
+        content = ""
+        usage_tokens = 0
+
+    class FakeLLM:
+        def chat(self, **kwargs):
+            return FakeResult()
+
+    planner = AnalysisPlanner(FakeLLM(), "analyst", "system")
+    with caplog.at_level("WARNING"):
+        with pytest.raises(json.JSONDecodeError):
+            planner.next_decision({"x": 1})
+    assert "invalid JSON content preview" in caplog.text

@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from project_core.domain.contracts.brief import AnalysisBrief
+
+_SHARD_NAME = re.compile(r"^(?:strans|pmtrans|crdtrans)_\d{6}$", re.IGNORECASE)
+
+
+def re_match_shard(name: str) -> bool:
+    return bool(_SHARD_NAME.match((name or "").strip()))
 
 
 def policy_feedback_hints(violations: list[str]) -> list[str]:
@@ -16,6 +23,21 @@ def policy_feedback_hints(violations: list[str]) -> list[str]:
             hints.append(
                 f"Bảng '{bad}' không có trong data_dictionary — dùng CTE WITH hoặc bảng thật "
                 "trong schema_context; không đặt alias CTE trùng tên bảng ảo."
+            )
+            if re_match_shard(bad):
+                hints.append(
+                    "Nếu đó là STRANS_YYYYMM / PMTRANS_YYYYMM: chỉ dùng khi shard_plan.needs_db1 "
+                    "và YYYYMM ≤ archive_newest_ym (ưu tiên đúng list shard_plan.shards). "
+                    "Khi needs_db2 và không needs_db1: bare STRANS trên db2 — không invent tháng hiện tại."
+                )
+        elif v.startswith("invented_shard_past_archive:") or v.startswith("db2_monthly_shard_forbidden:"):
+            hints.append(
+                "Không invent shard tháng vượt archive_newest_ym; db2 = bare names; "
+                "đọc shard_plan.shards / table_naming."
+            )
+        elif v.startswith("db1_shard_when_only_db2_needed:"):
+            hints.append(
+                "shard_plan chỉ cần db2 (date ≥ cutoff): giữ bare fact tables trên db2."
             )
         elif v.startswith("table_not_allowed:"):
             hints.append("Bảng ngoài allowlist role — chọn bảng khác trong schema_context.")

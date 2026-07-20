@@ -16,10 +16,20 @@ from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
 from project_core.domain.analysis.recipe_matcher import rank_candidates
 from project_core.domain.feedback.risk_rejection import append_risk_rejection, build_risk_rejection_record
+from project_core.domain.sql.topology_guard import (
+    is_soft_data_feedback_issue,
+    is_vacuous_topology_reject,
+    sanitize_risk_rejection,
+    topology_feedback_hints,
+    topology_sql_violations,
+)
 from project_core.domain.audit.agent_ii_plan import build_agent_ii_plan_payload, plan_sql_workflow_summary
 from project_core.domain.audit.logger import AuditLogger
+from project_core.domain.audit.timing import TimedSpan, summarize_step_timings
+from project_core.domain.time import utc_now
 from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
 from project_core.domain.analysis.iv_analyzer import _probe_success_needs_fact_feedback
+from project_core.domain.analysis.iv_sufficiency import candidate_score
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.brief.merge import apply_data_feedback, normalize_brief_filters
 from project_core.domain.contracts.agent_outputs import AnalystResponse, RiskReviewResponse, SqlPlannerResponse
@@ -114,6 +124,12 @@ class SupermarketAnalysisPipeline:
         out_dir = artifact_base / "out"
         raw_dir.mkdir(parents=True, exist_ok=True)
         out_dir.mkdir(parents=True, exist_ok=True)
+        pipeline_span = TimedSpan("pipeline")
+        self._pipeline_timing = {
+            "span": pipeline_span,
+            "actor_id": permissions.actor_id,
+            "trace_id": trace_id,
+        }
 
         policy = PolicyEngine(
             self.catalog,
@@ -141,7 +157,12 @@ class SupermarketAnalysisPipeline:
         if self.analysis_tool_registry is not None:
             promoted_tools = self.analysis_tool_registry.find_promoted()
 
-        for sql_attempt in range(1, self.cfg.pipeline.max_sql_retries + 1):
+        # Best partial across II↔III↔IV retries; used when the loop exhausts
+        # without a complete answer.
+        best_effort: dict[str, Any] | None = None
+        max_attempts = self.cfg.pipeline.max_sql_retries
+
+        for sql_attempt in range(1, max_attempts + 1):
             if cancel_token and cancel_token.cancelled:
                 mark_cancelled(workflow)
                 return self._finish(
@@ -172,9 +193,10 @@ class SupermarketAnalysisPipeline:
                 from project_core.domain.audit.schema_retrieve import build_schema_retrieve_payload
                 from project_core.domain.retrieval.hierarchical_result import HierarchicalRetrievalResult
 
-                retrieval_payload = self.feedback_loop.retrieve_context(
-                    "II", brief.intent, permissions.actor_id, brief=brief
-                )
+                with TimedSpan("schema_retrieve") as rag_span:
+                    retrieval_payload = self.feedback_loop.retrieve_context(
+                        "II", brief.intent, permissions.actor_id, brief=brief
+                    )
                 retrieval_miss = HierarchicalRetrievalResult.is_empty_payload(retrieval_payload)
                 if retrieval_miss:
                     logger.warning(
@@ -191,6 +213,15 @@ class SupermarketAnalysisPipeline:
                         retrieval_payload=retrieval_payload if isinstance(retrieval_payload, dict) else None,
                         miss=retrieval_miss,
                     ),
+                    duration_ms=rag_span.duration_ms,
+                )
+                self._append_timed_step(
+                    workflow,
+                    trace_id=trace_id,
+                    step_type=WorkflowStepType.SCHEMA_RETRIEVE,
+                    sql_attempt=sql_attempt,
+                    span=rag_span,
+                    summary=f"miss={retrieval_miss}",
                 )
                 if isinstance(retrieval_payload, dict):
                     candidate_tables = list(retrieval_payload.get("candidate_tables") or [])
@@ -251,11 +282,12 @@ class SupermarketAnalysisPipeline:
             }
 
             # Phase 1: select tables only (mandatory before plan_sql, including IV retries).
-            select_raw = self.agent_invoker.invoke(
-                "II",
-                ii_payload_base,
-                {"mode": "select_tables"},
-            )
+            with TimedSpan("select_tables") as select_span:
+                select_raw = self.agent_invoker.invoke(
+                    "II",
+                    ii_payload_base,
+                    {"mode": "select_tables"},
+                )
             budget.add_tokens(int(select_raw.get("usage_tokens", 0) or 0))
             try:
                 select_parsed = parse_agent_response("II", select_raw)
@@ -283,17 +315,16 @@ class SupermarketAnalysisPipeline:
                 trace_id=trace_id,
                 actor_id=acl.actor_id,
                 payload=select_payload,
+                duration_ms=select_span.duration_ms,
             )
-            workflow.steps.append(
-                WorkflowStep(
-                    step_id=str(uuid4()),
-                    trace_id=trace_id,
-                    analysis_id=workflow.active_analysis_id or trace_id,
-                    step_type=WorkflowStepType.SELECT_TABLES,
-                    sql_attempt=sql_attempt,
-                    summary=plan_sql_workflow_summary(select_payload),
-                    feedback_ref=select_event_id,
-                )
+            self._append_timed_step(
+                workflow,
+                trace_id=trace_id,
+                step_type=WorkflowStepType.SELECT_TABLES,
+                sql_attempt=sql_attempt,
+                span=select_span,
+                summary=plan_sql_workflow_summary(select_payload),
+                feedback_ref=select_event_id,
             )
 
             if select_parsed.action == "clarify" and not brief.exploration_mode:
@@ -322,6 +353,7 @@ class SupermarketAnalysisPipeline:
                         select_parsed.clarification_request
                     )
                     workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+                    self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)
                     return PipelineResult(
                         trace_id=trace_id,
                         analysis_id=workflow.active_analysis_id or trace_id,
@@ -368,14 +400,15 @@ class SupermarketAnalysisPipeline:
             workflow.progress_step = WorkflowStepType.PLAN_SQL.value
             self._emit_progress(workflow, on_progress)
 
-            ii_result = self.agent_invoker.invoke(
-                "II",
-                {
-                    **ii_payload_base,
-                    "inbox": inbox,
-                },
-                {"mode": "plan_sql"},
-            )
+            with TimedSpan("plan_sql") as plan_span:
+                ii_result = self.agent_invoker.invoke(
+                    "II",
+                    {
+                        **ii_payload_base,
+                        "inbox": inbox,
+                    },
+                    {"mode": "plan_sql"},
+                )
             ii_schema_tables_used: list[str] = []
             ii_semantic_keys_used: list[str] = []
             budget.add_tokens(int(ii_result.get("usage_tokens", 0) or 0))
@@ -408,17 +441,16 @@ class SupermarketAnalysisPipeline:
                 trace_id=trace_id,
                 actor_id=acl.actor_id,
                 payload=ii_plan_payload,
+                duration_ms=plan_span.duration_ms,
             )
-            workflow.steps.append(
-                WorkflowStep(
-                    step_id=str(uuid4()),
-                    trace_id=trace_id,
-                    analysis_id=workflow.active_analysis_id or trace_id,
-                    step_type=WorkflowStepType.PLAN_SQL,
-                    sql_attempt=sql_attempt,
-                    summary=plan_sql_workflow_summary(ii_plan_payload),
-                    feedback_ref=plan_event_id,
-                )
+            self._append_timed_step(
+                workflow,
+                trace_id=trace_id,
+                step_type=WorkflowStepType.PLAN_SQL,
+                sql_attempt=sql_attempt,
+                span=plan_span,
+                summary=plan_sql_workflow_summary(ii_plan_payload),
+                feedback_ref=plan_event_id,
             )
 
             if action == "clarify" and not brief.exploration_mode:
@@ -441,6 +473,7 @@ class SupermarketAnalysisPipeline:
                 else:
                     needs_clarification = ClarificationRequest.model_validate(ii_parsed.clarification_request)
                     workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+                    self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)
                     return PipelineResult(
                         trace_id=trace_id,
                         analysis_id=workflow.active_analysis_id or trace_id,
@@ -503,35 +536,66 @@ class SupermarketAnalysisPipeline:
                         query_index=idx,
                     )
                     inbox["policy_feedback"] = {
-                        "violations": verdict.violations,
+                        "violations": list(verdict.violations)
+                        + topology_sql_violations(sql, shard_plan=shard_plan, target_db=tdb),
                         "query_index": idx,
                         "rejected_sql": sql[:800],
-                        "hints": policy_feedback_hints(verdict.violations),
+                        "hints": policy_feedback_hints(verdict.violations)
+                        + topology_feedback_hints(
+                            topology_sql_violations(sql, shard_plan=shard_plan, target_db=tdb)
+                        ),
                     }
                     continue
 
                 sanitized = verdict.sanitized_sql or sql
+                # Extra topology gate even when PolicyEngine allowlisted the bare name path
+                # (e.g. invented _YYYYMM that somehow passed) — still surface hints on reject.
+                topo_extra = topology_sql_violations(sanitized, shard_plan=shard_plan, target_db=tdb)
+                if topo_extra and any(v.startswith("invented_shard") or v.startswith("db2_monthly") for v in topo_extra):
+                    # Prefer hard-stop invented future shards before burning III.
+                    if any(v.startswith("invented_shard_past_archive") or v.startswith("db2_monthly_shard_forbidden") for v in topo_extra):
+                        inbox["policy_feedback"] = {
+                            "violations": topo_extra,
+                            "query_index": idx,
+                            "rejected_sql": sanitized[:800],
+                            "hints": topology_feedback_hints(topo_extra),
+                        }
+                        workflow.steps.append(
+                            WorkflowStep(
+                                step_id=str(uuid4()),
+                                trace_id=trace_id,
+                                analysis_id=workflow.active_analysis_id or trace_id,
+                                step_type=WorkflowStepType.POLICY_REJECT,
+                                sql_attempt=sql_attempt,
+                                query_index=idx,
+                                summary=";".join(topo_extra[:3]),
+                            )
+                        )
+                        continue
+
                 approved = False
                 explain_attached = False
+                last_iii_verdict = "reject"
                 for risk_attempt in range(1, self.cfg.pipeline.max_risk_retries + 1):
                     budget.record("III")
-                    iii_raw = self.agent_invoker.invoke(
-                        "III",
-                        {
-                            "sql": sanitized,
-                            "intent_slice": brief.model_dump(),
-                            "risk_attempt": risk_attempt,
-                            "schema_context": schema_context,
-                            "allowed_tables": permissions.allowed_tables,
-                            "denied_columns": permissions.denied_columns,
-                            "store_ids": permissions.store_ids,
-                            "store_filter_required": permissions.store_filter_required,
-                            "explain_plan": inbox.get("explain_plan"),
-                            "risk_feedback": inbox.get("risk_feedback"),
-                            "permissions": permissions.model_dump(mode="json"),
-                        },
-                        {"mode": "review"},
-                    )
+                    with TimedSpan("risk_review") as iii_span:
+                        iii_raw = self.agent_invoker.invoke(
+                            "III",
+                            {
+                                "sql": sanitized,
+                                "intent_slice": brief.model_dump(),
+                                "risk_attempt": risk_attempt,
+                                "schema_context": schema_context,
+                                "allowed_tables": permissions.allowed_tables,
+                                "denied_columns": permissions.denied_columns,
+                                "store_ids": permissions.store_ids,
+                                "store_filter_required": permissions.store_filter_required,
+                                "explain_plan": inbox.get("explain_plan"),
+                                "risk_feedback": inbox.get("risk_feedback"),
+                                "permissions": permissions.model_dump(mode="json"),
+                            },
+                            {"mode": "review"},
+                        )
                     budget.add_tokens(int(iii_raw.get("usage_tokens", 0) or 0))
                     try:
                         iii_parsed = parse_agent_response("III", iii_raw)
@@ -549,6 +613,28 @@ class SupermarketAnalysisPipeline:
                             AnalysisOutcome.ERROR,
                             TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=["invalid_agent_iii"]),
                         )
+                    last_iii_verdict = str(iii_parsed.verdict or "reject")
+                    self.audit.log_agent_iii_review(
+                        trace_id=trace_id,
+                        actor_id=acl.actor_id,
+                        sql_attempt=sql_attempt,
+                        query_index=idx,
+                        risk_attempt=risk_attempt,
+                        verdict=last_iii_verdict,
+                        duration_ms=iii_span.duration_ms,
+                        usage_tokens=int(iii_raw.get("usage_tokens", 0) or 0),
+                        concerns=list(iii_parsed.concerns or []),
+                    )
+                    self._append_timed_step(
+                        workflow,
+                        trace_id=trace_id,
+                        step_type=WorkflowStepType.RISK_REVIEW,
+                        sql_attempt=sql_attempt,
+                        span=iii_span,
+                        summary=f"verdict={last_iii_verdict}",
+                        query_index=idx,
+                        risk_attempt=risk_attempt,
+                    )
                     if iii_parsed.verdict == "approve":
                         approved = True
                         break
@@ -559,7 +645,8 @@ class SupermarketAnalysisPipeline:
                         or _needs_explain_from_feedback(iii_parsed.risk_feedback)
                     ):
                         if self.context_policy.can_invoke_tool(permissions, "III", "explain_sql"):
-                            explain_result = self.sql_gateway.explain_sql(sanitized, acl, target_db=tdb)
+                            with TimedSpan("sql_explain") as explain_span:
+                                explain_result = self.sql_gateway.explain_sql(sanitized, acl, target_db=tdb)
                             inbox["explain_plan"] = explain_result
                             self.audit.log_sql_explain(
                                 trace_id=trace_id,
@@ -568,6 +655,7 @@ class SupermarketAnalysisPipeline:
                                 target_db=tdb,
                                 outcome=str(explain_result.get("status", "unknown")),
                                 violations=explain_result.get("violations"),
+                                duration_ms=explain_span.duration_ms,
                             )
                             explain_attached = True
                         else:
@@ -596,24 +684,44 @@ class SupermarketAnalysisPipeline:
                         else None,
                         purpose=str(purpose) if purpose else None,
                     )
-                    append_risk_rejection(inbox, record)
-                    risk_summary = "risk_reject"
-                    if record.get("concerns"):
-                        risk_summary = f"risk_reject;flags={','.join(record['concerns'][:3])}"
-                    elif record.get("issue"):
-                        risk_summary = f"risk_reject;issue={str(record['issue'])[:80]}"
-                    workflow.steps.append(
-                        WorkflowStep(
-                            step_id=str(uuid4()),
-                            trace_id=trace_id,
-                            analysis_id=workflow.active_analysis_id or trace_id,
-                            step_type=WorkflowStepType.RISK_REJECT,
-                            sql_attempt=sql_attempt,
-                            query_index=idx,
-                            summary=risk_summary,
-                        )
+                    record = sanitize_risk_rejection(
+                        record,
+                        shard_plan=shard_plan,
+                        allowed_tables=list(permissions.allowed_tables or []),
                     )
-                    continue
+                    if is_vacuous_topology_reject(record, shard_plan=shard_plan):
+                        # III only raised inverted cutoff / false allowlist claims — proceed.
+                        approved = True
+                        workflow.steps.append(
+                            WorkflowStep(
+                                step_id=str(uuid4()),
+                                trace_id=trace_id,
+                                analysis_id=workflow.active_analysis_id or trace_id,
+                                step_type=WorkflowStepType.RISK_REJECT,
+                                sql_attempt=sql_attempt,
+                                query_index=idx,
+                                summary="risk_topology_claims_ignored",
+                            )
+                        )
+                    else:
+                        append_risk_rejection(inbox, record)
+                        risk_summary = "risk_reject"
+                        if record.get("concerns"):
+                            risk_summary = f"risk_reject;flags={','.join(record['concerns'][:3])}"
+                        elif record.get("issue"):
+                            risk_summary = f"risk_reject;issue={str(record['issue'])[:80]}"
+                        workflow.steps.append(
+                            WorkflowStep(
+                                step_id=str(uuid4()),
+                                trace_id=trace_id,
+                                analysis_id=workflow.active_analysis_id or trace_id,
+                                step_type=WorkflowStepType.RISK_REJECT,
+                                sql_attempt=sql_attempt,
+                                query_index=idx,
+                                summary=risk_summary,
+                            )
+                        )
+                        continue
 
                 if not self.context_policy.can_invoke_tool(permissions, "II", "validate_sql"):
                     return self._finish(
@@ -639,7 +747,8 @@ class SupermarketAnalysisPipeline:
 
                 workflow.progress_step = WorkflowStepType.EXECUTE.value
                 self._emit_progress(workflow, on_progress)
-                exec_result = self.sql_gateway.execute_readonly(sanitized, acl, target_db=tdb)
+                with TimedSpan("sql_execute") as exec_span:
+                    exec_result = self.sql_gateway.execute_readonly(sanitized, acl, target_db=tdb)
                 if exec_result.get("error") == "policy_blocked":
                     self.audit.log_sql_execute(
                         trace_id=trace_id,
@@ -650,17 +759,18 @@ class SupermarketAnalysisPipeline:
                         row_count=0,
                         outcome="policy_blocked",
                         violations=exec_result.get("violations"),
+                        duration_ms=exec_span.duration_ms,
+                        query_index=idx,
+                        sql_attempt=sql_attempt,
                     )
-                    workflow.steps.append(
-                        WorkflowStep(
-                            step_id=str(uuid4()),
-                            trace_id=trace_id,
-                            analysis_id=workflow.active_analysis_id or trace_id,
-                            step_type=WorkflowStepType.POLICY_REJECT,
-                            sql_attempt=sql_attempt,
-                            query_index=idx,
-                            summary="gateway_policy_blocked",
-                        )
+                    self._append_timed_step(
+                        workflow,
+                        trace_id=trace_id,
+                        step_type=WorkflowStepType.POLICY_REJECT,
+                        sql_attempt=sql_attempt,
+                        span=exec_span,
+                        summary="gateway_policy_blocked",
+                        query_index=idx,
                     )
                     continue
                 if exec_result.get("error") in {"db_error", "db_unavailable"}:
@@ -674,17 +784,18 @@ class SupermarketAnalysisPipeline:
                         row_count=0,
                         outcome=exec_result.get("error", "db_error"),
                         error_message=err_msg,
+                        duration_ms=exec_span.duration_ms,
+                        query_index=idx,
+                        sql_attempt=sql_attempt,
                     )
-                    workflow.steps.append(
-                        WorkflowStep(
-                            step_id=str(uuid4()),
-                            trace_id=trace_id,
-                            analysis_id=workflow.active_analysis_id or trace_id,
-                            step_type=WorkflowStepType.ERROR,
-                            sql_attempt=sql_attempt,
-                            query_index=idx,
-                            summary=f"{exec_result.get('error')}:target_db={tdb}:{err_msg[:200]}",
-                        )
+                    self._append_timed_step(
+                        workflow,
+                        trace_id=trace_id,
+                        step_type=WorkflowStepType.ERROR,
+                        sql_attempt=sql_attempt,
+                        span=exec_span,
+                        summary=f"{exec_result.get('error')}:target_db={tdb}:{err_msg[:200]}",
+                        query_index=idx,
                     )
                     # Feed engine error to Agent II on next attempt (parallel to policy_feedback).
                     inbox["db_error_feedback"] = {
@@ -705,6 +816,9 @@ class SupermarketAnalysisPipeline:
                     target_db=tdb,
                     row_count=len(rows),
                     outcome="ok",
+                    duration_ms=exec_span.duration_ms,
+                    query_index=idx,
+                    sql_attempt=sql_attempt,
                 )
                 df = pd.DataFrame(rows)
                 path = raw_dir / f"query_{idx}.parquet"
@@ -721,16 +835,14 @@ class SupermarketAnalysisPipeline:
                     )
                 )
                 approved_sql.append(sanitized)
-                workflow.steps.append(
-                    WorkflowStep(
-                        step_id=str(uuid4()),
-                        trace_id=trace_id,
-                        analysis_id=workflow.active_analysis_id or trace_id,
-                        step_type=WorkflowStepType.EXECUTE,
-                        sql_attempt=sql_attempt,
-                        query_index=idx,
-                        summary=f"rows={len(df)};role={meta.get('role', 'main')}",
-                    )
+                self._append_timed_step(
+                    workflow,
+                    trace_id=trace_id,
+                    step_type=WorkflowStepType.EXECUTE,
+                    sql_attempt=sql_attempt,
+                    span=exec_span,
+                    summary=f"rows={len(df)};role={meta.get('role', 'main')};db={tdb}",
+                    query_index=idx,
                 )
 
             if not query_files:
@@ -830,26 +942,27 @@ class SupermarketAnalysisPipeline:
                 target_dbs=target_dbs,
                 default_target_db=default_db,
             )
-            iv_raw = self.agent_invoker.invoke(
-                "IV",
-                {
-                    "brief": brief.model_dump(),
-                    "dataset_manifest": dataset.model_dump(),
-                    "result_profile": merged_profile.model_dump(),
-                    "query_meta": query_meta,
-                    "out_dir": str(out_dir),
-                    "max_steps": self.cfg.pipeline.iv_max_steps,
-                    "analysis_tools": analysis_tools,
-                    "recipe_candidates": recipe_candidates,
-                    "analysis_plan": brief.plan.model_dump() if brief.plan else None,
-                    "execution_plan": [s.model_dump() for s in execution_steps],
-                    "domain_rules_excerpt": domain_excerpt,
-                    "output_table_semantics": output_semantics.get("output_table_semantics") or [],
-                    "output_column_semantics": output_semantics.get("output_column_semantics") or [],
-                    "permissions": permissions.model_dump(mode="json"),
-                },
-                {"mode": "analyze"},
-            )
+            with TimedSpan("agent_iv") as iv_span:
+                iv_raw = self.agent_invoker.invoke(
+                    "IV",
+                    {
+                        "brief": brief.model_dump(),
+                        "dataset_manifest": dataset.model_dump(),
+                        "result_profile": merged_profile.model_dump(),
+                        "query_meta": query_meta,
+                        "out_dir": str(out_dir),
+                        "max_steps": self.cfg.pipeline.iv_max_steps,
+                        "analysis_tools": analysis_tools,
+                        "recipe_candidates": recipe_candidates,
+                        "analysis_plan": brief.plan.model_dump() if brief.plan else None,
+                        "execution_plan": [s.model_dump() for s in execution_steps],
+                        "domain_rules_excerpt": domain_excerpt,
+                        "output_table_semantics": output_semantics.get("output_table_semantics") or [],
+                        "output_column_semantics": output_semantics.get("output_column_semantics") or [],
+                        "permissions": permissions.model_dump(mode="json"),
+                    },
+                    {"mode": "analyze"},
+                )
             budget.add_tokens(int(iv_raw.get("usage_tokens", 0) or 0))
             try:
                 iv_parsed = parse_agent_response("IV", iv_raw)
@@ -868,6 +981,22 @@ class SupermarketAnalysisPipeline:
                     TechnicalSummary(outcome=AnalysisOutcome.ERROR.value, caveats=["invalid_agent_iv"]),
                 )
             iv_action = iv_parsed.action
+            self.audit.log_agent_iv_analyze(
+                trace_id=trace_id,
+                actor_id=acl.actor_id,
+                sql_attempt=sql_attempt,
+                action=str(iv_action),
+                duration_ms=iv_span.duration_ms,
+                usage_tokens=int(iv_raw.get("usage_tokens", 0) or 0),
+            )
+            self._append_timed_step(
+                workflow,
+                trace_id=trace_id,
+                step_type=WorkflowStepType.AGENT_IV,
+                sql_attempt=sql_attempt,
+                span=iv_span,
+                summary=f"action={iv_action}",
+            )
 
             if iv_action == "data_feedback":
                 feedback_raw = iv_parsed.data_feedback or {}
@@ -915,6 +1044,7 @@ class SupermarketAnalysisPipeline:
                 if iv_parsed.suggest_clarify:
                     needs_clarification = ClarificationRequest.model_validate(iv_parsed.suggest_clarify)
                     workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+                    self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)
                     return PipelineResult(
                         trace_id=trace_id,
                         analysis_id=workflow.active_analysis_id or trace_id,
@@ -923,6 +1053,41 @@ class SupermarketAnalysisPipeline:
                         workflow_steps=workflow.steps,
                         needs_clarification=needs_clarification,
                     )
+                # Soft presentation/grain / insufficient deliverable: retry II↔III↔IV
+                # until the last attempt, then deliver the best partial.
+                arts = list(iv_parsed.artifact_paths or [])
+                row_total = sum(int(getattr(q, "row_count", 0) or 0) for q in query_files)
+                has_rows = row_total > 0
+                soft_solvable = (
+                    fb.needs_sql_retry
+                    and fb.diagnosis == "solvable"
+                    and is_soft_data_feedback_issue(fb.issue)
+                    and (has_rows or arts)
+                )
+                partial_summary = TechnicalSummary(
+                    outcome=AnalysisOutcome.PARTIAL.value,
+                    headline_metrics=iv_parsed.headline_metrics or {"row_count": row_total},
+                    artifact_urls=[str(out_dir / Path(p).name) for p in arts] if arts else arts,
+                    caveats=[fb.summary or fb.issue, *(iv_parsed.caveats or [])][:8],
+                    coverage=iv_parsed.coverage or {"diagnosis": "partial", "gaps": [fb.issue]},
+                )
+                if has_rows or arts:
+                    best_effort = _remember_best_effort(
+                        best_effort,
+                        action="partial",
+                        row_count=row_total,
+                        artifact_count=len(arts),
+                        summary=partial_summary,
+                        sql_attempt=sql_attempt,
+                        insight=bool(iv_parsed.insight_vi or iv_parsed.explanation_vi),
+                    )
+                if soft_solvable and sql_attempt >= max_attempts:
+                    caveats = list(partial_summary.caveats)
+                    caveats.append(
+                        f"Đã hết {max_attempts} vòng II↔III↔IV; trả kết quả tốt nhất kèm hạn chế."
+                    )
+                    partial_summary.caveats = caveats[:8]
+                    return self._finish(trace_id, workflow, AnalysisOutcome.PARTIAL, partial_summary)
                 if fb.diagnosis == "needs_probe" and fb.probe_requests:
                     inbox["probe_mode"] = True
                 if self.domain_rule_store and fb.confirmed_rules:
@@ -933,6 +1098,7 @@ class SupermarketAnalysisPipeline:
             if iv_action == "suggest_clarify":
                 needs_clarification = ClarificationRequest.model_validate(iv_parsed.clarification_request)
                 workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+                self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)
                 return PipelineResult(
                     trace_id=trace_id,
                     analysis_id=workflow.active_analysis_id or trace_id,
@@ -977,6 +1143,15 @@ class SupermarketAnalysisPipeline:
                     artifact_urls=[str(out_dir / Path(p).name) for p in artifact_paths],
                     caveats=iv_parsed.caveats,
                     coverage=coverage,
+                )
+                best_effort = _remember_best_effort(
+                    best_effort,
+                    action=iv_action,
+                    row_count=sum(int(getattr(q, "row_count", 0) or 0) for q in query_files),
+                    artifact_count=len(artifact_paths or []),
+                    summary=summary,
+                    sql_attempt=sql_attempt,
+                    insight=bool(iv_parsed.insight_vi or iv_parsed.explanation_vi),
                 )
                 if self.analysis_tool_registry:
                     for step_raw in iv_parsed.new_steps:
@@ -1027,6 +1202,22 @@ class SupermarketAnalysisPipeline:
                             self.analysis_tool_registry.promote(tool["tool_id"])
                 return self._finish(trace_id, workflow, outcome, summary)
 
+        if (
+            best_effort is not None
+            and getattr(self.cfg.pipeline, "best_effort_on_exhaust", True)
+            and best_effort.get("summary") is not None
+        ):
+            be_summary: TechnicalSummary = best_effort["summary"]
+            caveats = list(be_summary.caveats or [])
+            caveats.append(
+                f"Đã hết {max_attempts} vòng II↔III↔IV mà chưa hoàn chỉnh tuyệt đối; "
+                f"trả kết quả tốt nhất (attempt {best_effort.get('sql_attempt')})."
+            )
+            be_summary.caveats = caveats[:8]
+            if be_summary.outcome == AnalysisOutcome.SUCCESS.value:
+                be_summary.outcome = AnalysisOutcome.PARTIAL.value
+            return self._finish(trace_id, workflow, AnalysisOutcome.PARTIAL, be_summary)
+
         exhausted = _terminal_on_exhausted(workflow)
         if exhausted is not None:
             return self._finish(trace_id, workflow, exhausted[0], exhausted[1])
@@ -1046,6 +1237,71 @@ class SupermarketAnalysisPipeline:
         if on_progress is not None:
             on_progress(workflow)
 
+    def _append_timed_step(
+        self,
+        workflow: WorkflowState,
+        *,
+        trace_id: str,
+        step_type: WorkflowStepType,
+        sql_attempt: int,
+        span: TimedSpan,
+        summary: str = "",
+        query_index: int | None = None,
+        risk_attempt: int | None = None,
+        feedback_ref: str | None = None,
+        outcome_fragment: str | None = None,
+    ) -> WorkflowStep:
+        span.stop()
+        step = WorkflowStep(
+            step_id=str(uuid4()),
+            trace_id=trace_id,
+            analysis_id=workflow.active_analysis_id or trace_id,
+            step_type=step_type,
+            sql_attempt=sql_attempt,
+            query_index=query_index,
+            risk_attempt=risk_attempt,
+            started_at=span.started_at.replace(tzinfo=None) if span.started_at.tzinfo else span.started_at,
+            duration_ms=span.duration_ms,
+            at=(span.ended_at or utc_now()).replace(tzinfo=None)
+            if (span.ended_at or utc_now()).tzinfo
+            else (span.ended_at or utc_now()),
+            summary=summary,
+            feedback_ref=feedback_ref,
+            outcome_fragment=outcome_fragment,
+        )
+        workflow.steps.append(step)
+        logger.info(
+            "workflow_timing step=%s duration_ms=%s sql_attempt=%s query_index=%s summary=%s",
+            step_type.value,
+            span.duration_ms,
+            sql_attempt,
+            query_index,
+            summary[:120],
+        )
+        return step
+
+    def _log_pipeline_timing(self, workflow: WorkflowState, outcome: str) -> None:
+        meta = getattr(self, "_pipeline_timing", None) or {}
+        span: TimedSpan | None = meta.get("span")
+        if span is None:
+            return
+        # Clear before logging so clarify/_finish cannot double-emit.
+        self._pipeline_timing = None
+        span.stop()
+        self.audit.log_workflow_timing(
+            trace_id=str(meta.get("trace_id") or ""),
+            actor_id=str(meta.get("actor_id") or "unknown"),
+            outcome=outcome,
+            pipeline_duration_ms=span.duration_ms,
+            step_summary=summarize_step_timings(workflow.steps),
+        )
+        logger.info(
+            "workflow_timing pipeline_duration_ms=%s outcome=%s by_type=%s",
+            span.duration_ms,
+            outcome,
+            summarize_step_timings(workflow.steps).get("by_step_type"),
+        )
+
     def _finish(
         self,
         trace_id: str,
@@ -1057,6 +1313,7 @@ class SupermarketAnalysisPipeline:
         workflow.last_outcome = outcome.value
         workflow.last_completed_trace_id = trace_id
         workflow.progress_step = None
+        self._log_pipeline_timing(workflow, outcome.value)
         return PipelineResult(
             trace_id=trace_id,
             analysis_id=workflow.active_analysis_id or trace_id,
@@ -1187,6 +1444,34 @@ def _terminal_on_no_queries(
         AnalysisOutcome.POLICY_BLOCKED,
         TechnicalSummary(outcome=AnalysisOutcome.POLICY_BLOCKED.value),
     )
+
+
+def _remember_best_effort(
+    current: dict[str, Any] | None,
+    *,
+    action: str,
+    row_count: int,
+    artifact_count: int,
+    summary: TechnicalSummary,
+    sql_attempt: int,
+    insight: bool = False,
+) -> dict[str, Any]:
+    """Keep the highest-scoring attempt for best-effort delivery on exhaust."""
+    score = candidate_score(
+        action=action,
+        row_count=row_count,
+        artifact_count=artifact_count,
+        has_insight=insight,
+    )
+    candidate = {
+        "score": score,
+        "summary": summary,
+        "sql_attempt": sql_attempt,
+        "action": action,
+    }
+    if current is None or score > int(current.get("score") or 0):
+        return candidate
+    return current
 
 
 def _terminal_on_exhausted(workflow: WorkflowState) -> tuple[AnalysisOutcome, TechnicalSummary] | None:

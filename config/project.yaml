@@ -2,12 +2,14 @@ app_name: supermarket-analysis-agent
 
 pipeline:
   max_sql_queries_per_plan: 6
+  # Bounded II↔III↔IV loops; after this, return best partial + explanation.
   max_sql_retries: 3
   max_risk_retries: 2
   max_clarify_rounds: 3
-  max_sync_seconds: 600
+  max_sync_seconds: 1200
   iv_max_steps: 8
   iv_llm_enabled: true
+  best_effort_on_exhaust: true
   poll_enabled: true
   workflow_stale_ttl_seconds: 900
   workflow_steps_max: 200

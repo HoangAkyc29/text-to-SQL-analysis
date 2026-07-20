@@ -229,6 +229,42 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
     assert "data_feedback" in str(plan_calls[1]["payload"].get("inbox", {})) or plan_calls[1]["payload"].get("attempt") == 2
 
 
+def test_pipeline_best_effort_after_soft_feedback_exhaust(pipeline_factory, workflow_state, hq_permissions):
+    """After max_sql_retries soft data_feedback loops, return best partial + explanation."""
+    invoker = ScriptedAgentInvoker(
+        {
+            "II": [
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID FROM STRANS"]},
+            ]
+            * 3,
+            "III": [{"verdict": "approve"}] * 3,
+            "IV": [
+                {
+                    "action": "data_feedback",
+                    "data_feedback": {
+                        "needs_sql_retry": True,
+                        "issue": "grain",
+                        "summary": "wrong grain",
+                        "diagnosis": "solvable",
+                    },
+                    "artifact_paths": ["out/partial.csv"],
+                    "headline_metrics": {"rows": 1},
+                }
+            ]
+            * 3,
+        }
+    )
+    result = pipeline_factory(invoker, StubSqlGateway()).run(
+        brief=AnalysisBrief(intent="sales detail"),
+        workflow=workflow_state,
+        permissions=hq_permissions,
+    )
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
+    caveats = " ".join(result.technical_summary.caveats or [])
+    assert "vòng" in caveats or "attempt" in caveats.lower() or "tốt nhất" in caveats
+    assert result.technical_summary.artifact_urls
+
+
 def test_pipeline_policy_blocked_exhausted(pipeline_factory, workflow_state, hq_permissions):
     invoker = ScriptedAgentInvoker(
         {"II": [{"action": "plan_sql", "sql_queries": ["SELECT * FROM forbidden_planet"]}] * 3}

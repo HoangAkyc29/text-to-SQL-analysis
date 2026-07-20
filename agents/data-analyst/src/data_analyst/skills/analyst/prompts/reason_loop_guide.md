@@ -84,3 +84,4 @@ Use `data_feedback` when the data mismatches the intent and Agent II must re-pla
 - If you hit `remaining_steps == 1`, either run the single most valuable step or finalize.
 - Never claim zero sales on an `identifier_mismatch`; send `data_feedback` instead.
 - When probe datasets have rows but no main fact query ran, use `issue: probe_success_needs_fact`.
+- Do **not** `finalize` with `complete` unless you wrote deliverable files under `out` that answer the brief (`output_format`, metrics). If data cannot support the brief, use `data_feedback` (`missing_artifacts` / `insufficient_deliverable` / `grain`).

@@ -246,9 +246,11 @@ Each record typically includes: `query_index`, `purpose`, `concerns[]`, `issue`,
    - **Document-type / transaction-code scope** — fact tables often carry multiple document kinds. If III flags missing type/code filter, constrain using **brief + domain excerpt + column/case-study retrieval** — choose codes that match the metric/intent. **Do not** invent a default code or paste a fixed literal from memory when the brief/RAG does not support it.
    - **Wrong fact table / metric mismatch** — wrong source for the asked measure; re-ground from hierarchical columns + domain excerpt.
    - **Performance / scan** — missing selective predicates (time, store, keys); tighten filters already present in the brief.
+   - **Topology / DB routing** — **trust `schema_context.shard_plan` over III prose.** If `needs_db2` and not `needs_db1`, keep bare fact names on **db2**. Do **not** switch to db1 or invent `_YYYYMM` suffixes because a concern says “historical” or “outside db2”. Only use monthly shards when `needs_db1` and prefer exactly `shard_plan.shards` (≤ `archive_newest_ym`).
 3. **Apply fixes per rejection** — For each item in `risk_rejections`, change the corresponding `main`/`probe` so that concern is addressed. Shared CTEs may be reused, but do not “fix” one query and leave the sibling deliverable broken.
 4. **Do not** paste `suggestion` text into SQL. Treat it as reasoning guidance; emit valid T-SQL only.
 5. **`reasoning` on retry** must name the concerns you addressed and which `sql_queries[i]` / `purpose` each fix belongs to.
+6. **Ignore vacuous topology pressure** — If inbox suggestion restates that db2 bare names are correct for this `shard_plan`, do not “fix” by moving facts to db1.
 
 If `risk_rejections` is empty but `risk_feedback` is set, treat that single object as a one-element list.
 
