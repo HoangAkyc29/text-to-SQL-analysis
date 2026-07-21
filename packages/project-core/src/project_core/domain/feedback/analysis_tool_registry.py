@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from project_core.domain.analysis.recipe_matcher import rank_candidates
@@ -154,6 +155,34 @@ class AnalysisToolRegistry:
             )
         return out
 
+    def stage_op_chain(
+        self,
+        *,
+        name: str,
+        intent: str,
+        op_chain: list[dict[str, Any]],
+        trace_id: str,
+        datasets: list[dict[str, Any]] | None = None,
+        artifacts: list[str] | None = None,
+        metrics: dict[str, Any] | None = None,
+    ) -> str:
+        """Stage a catalog op-chain recipe (preferred over script recipes)."""
+        if self.find_similar_intent(intent):
+            return str(self.find_similar_intent(intent)["tool_id"])
+        record = build_tool_record(
+            name=name,
+            intent_pattern=intent,
+            script="",
+            input_schema={"datasets": datasets or [], "params": []},
+            output_schema={"artifacts": artifacts or [], "metrics": list((metrics or {}).keys())},
+            trace_id=trace_id,
+            steps=op_chain,
+        )
+        record["created_at"] = datetime.utcnow()
+        record = self._attach_embedding(record)
+        self.collection.update_one({"tool_id": record["tool_id"]}, {"$set": record}, upsert=True)
+        return record["tool_id"]
+
     def invoke_tool(
         self,
         tool_id: str,
@@ -165,7 +194,28 @@ class AnalysisToolRegistry:
         tool = self.collection.find_one({"tool_id": tool_id})
         if not tool:
             return {"error": "tool_not_found", "tool_id": tool_id}
-        steps = tool.get("steps") or []
+        steps = tool.get("op_chain") or tool.get("steps") or []
+        if steps and all(isinstance(s, dict) and s.get("op_id") for s in steps):
+            from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
+
+            ws = DatasetWorkingSet.from_manifest(
+                {"queries": [{"path": dataset_path, "ref": "q0"}]},
+                [{"role": "main"}],
+                work_dir=str(Path(output_dir) / "_ws"),
+            )
+            for step in steps:
+                args = dict(step.get("args") or {})
+                args.update(params or {})
+                if step.get("dataset") and "dataset" not in args:
+                    args["dataset"] = step["dataset"]
+                if "dataset" not in args:
+                    args["dataset"] = "q0"
+                if step.get("save_as"):
+                    args["save_as"] = step["save_as"]
+                res = execute_op(ws, str(step["op_id"]), args, out_dir=output_dir)
+                if res.status != "ok":
+                    return {"status": "error", "error": res.error, "op_id": step["op_id"]}
+            return {"status": "ok", "artifacts": list(ws.artifact_paths)}
         if steps:
             step = RecipeStep.model_validate(steps[0])
         else:

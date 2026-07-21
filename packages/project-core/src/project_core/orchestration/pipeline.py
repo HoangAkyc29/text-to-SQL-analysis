@@ -1154,25 +1154,35 @@ class SupermarketAnalysisPipeline:
                     insight=bool(iv_parsed.insight_vi or iv_parsed.explanation_vi),
                 )
                 if self.analysis_tool_registry:
-                    for step_raw in iv_parsed.new_steps:
-                        from project_core.domain.contracts.analysis_plan import RecipeStep
-
-                        step = RecipeStep.model_validate(step_raw)
-                        self.analysis_tool_registry.stage_step(
-                            step=step,
-                            intent=brief.intent,
-                            trace_id=trace_id,
-                        )
-                    if iv_parsed.analysis_script and not iv_parsed.new_steps:
-                        self.analysis_tool_registry.stage_from_run(
+                    op_chain = list(getattr(iv_parsed, "op_chain", None) or [])
+                    if not op_chain and iv_parsed.steps_trace:
+                        op_chain = [
+                            {"op_id": s.get("op_id"), "args": {}}
+                            for s in iv_parsed.steps_trace
+                            if isinstance(s, dict) and s.get("op_id") and s.get("status") == "ok"
+                        ]
+                    if op_chain:
+                        self.analysis_tool_registry.stage_op_chain(
                             name=f"analysis_{trace_id[:8]}",
                             intent=brief.intent,
-                            script=iv_parsed.analysis_script,
+                            op_chain=op_chain,
                             trace_id=trace_id,
                             datasets=[q.model_dump() for q in query_files],
                             artifacts=artifact_paths,
                             metrics=summary.headline_metrics,
                         )
+                    else:
+                        for step_raw in iv_parsed.new_steps:
+                            from project_core.domain.contracts.analysis_plan import RecipeStep
+
+                            step = RecipeStep.model_validate(step_raw)
+                            # Prefer op steps; skip legacy script-only when empty template
+                            if getattr(step, "script_template", None):
+                                self.analysis_tool_registry.stage_step(
+                                    step=step,
+                                    intent=brief.intent,
+                                    trace_id=trace_id,
+                                )
                 if self.feedback_loop is not None:
                     self.feedback_loop.on_pipeline_complete(
                         trace_id,

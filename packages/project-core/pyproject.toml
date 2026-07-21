@@ -11,6 +11,8 @@ dependencies = [
     "pyyaml",
     "pandas",
     "numpy",
+    "openpyxl>=3.1",
+    "matplotlib>=3.8",
     "requests",
     "python-dotenv",
     "sqlglot>=25",

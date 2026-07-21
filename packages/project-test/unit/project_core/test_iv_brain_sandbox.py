@@ -1,12 +1,11 @@
-"""Unit tests for Agent IV sandbox / reason_loop hardening."""
+"""Unit tests for Agent IV op-based brain (no sandbox scripts)."""
 
 from __future__ import annotations
 
 import json
-import sys
-from io import StringIO
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from project_core.domain.contracts.workflow import PermissionsSnapshot
@@ -17,196 +16,22 @@ def _perms() -> PermissionsSnapshot:
         actor_id="user-1",
         role="hq_analyst",
         allowed_tables=["STRANS"],
-        tool_grants=["tool:python-sandbox:run_analysis_script"],
+        tool_grants=["tool:*"],
     )
 
 
-def test_runner_child_allows_common_builtins(tmp_path, monkeypatch):
-    from python_sandbox import runner_child
-
-    artifacts = tmp_path / "artifacts"
-    artifacts.mkdir()
-    monkeypatch.setenv("ARTIFACTS_DIR", str(artifacts))
-    monkeypatch.setenv("ATTACHMENTS_DIR", str(tmp_path / "attachments"))
-
-    import pandas as pd
-
-    dataset = artifacts / "raw" / "q.parquet"
-    dataset.parent.mkdir(parents=True)
-    pd.DataFrame({"sku": ["a", "b"], "qty": [1, 2]}).to_parquet(dataset)
-
-    out = artifacts / "out" / "step"
-    out.mkdir(parents=True)
-    script = (
-        "df = pd.read_parquet(path)\n"
-        "cols = list(df.columns)\n"
-        "total = sum(df['qty'])\n"
-        "rows = [{'i': i, 'c': c} for i, c in enumerate(sorted(cols))]\n"
-        "pd.DataFrame(rows).to_csv(out / 'ok.csv', index=False)\n"
-        "pd.DataFrame([{'total': total}]).to_csv(out / 'tot.csv', index=False)\n"
-    )
-
-    old_stdin, old_argv, old_stdout = sys.stdin, sys.argv, sys.stdout
-    buf = StringIO()
-    try:
-        sys.stdin = StringIO(script)
-        sys.argv = ["runner_child.py", str(dataset), str(out)]
-        sys.stdout = buf
-        code = runner_child.main()
-    finally:
-        sys.stdin, sys.argv, sys.stdout = old_stdin, old_argv, old_stdout
-
-    assert code == 0
-    payload = json.loads(buf.getvalue().strip())
-    assert payload["status"] == "ok"
-    assert (out / "ok.csv").exists()
-    assert (out / "tot.csv").exists()
-
-
-def test_iv_brain_observation_includes_script_detail(monkeypatch):
+def test_iv_brain_run_op_exports(tmp_path, monkeypatch):
     from project_core.domain.access.context_policy import ContextPolicy
     from project_core.domain.analysis import iv_brain
     from project_core.domain.contracts.brief import AnalysisBrief
 
-    class FakeSandbox:
-        def run_analysis_script(self, path, script, output_dir, tool_grants=None):
-            return {"error": "script_failed", "detail": "name 'list' is not defined"}
-
-    class FakePlanner:
-        def __init__(self, *a, **k):
-            self.tokens = 3
-            self._n = 0
-
-        def next_decision(self, state):
-            self._n += 1
-            if self._n == 1:
-                return {
-                    "decision": "run_step",
-                    "thought": "aggregate",
-                    "step": {"kind": "script", "dataset_index": 0, "script": "x=list()"},
-                }
-            return {
-                "decision": "finalize",
-                "status": "partial",
-                "insight_vi": "partial because script failed",
-                "headline_metrics": {},
-                "caveats": [],
-            }
-
-    monkeypatch.setattr(iv_brain, "_sandbox", lambda: FakeSandbox())
-    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
-    monkeypatch.setattr(
-        iv_brain.DataProfiler,
-        "profile",
-        lambda self, paths, meta: [
-            {
-                "index": 0,
-                "role": "main",
-                "path": "/tmp/fake.parquet",
-                "columns": ["sku"],
-                "row_count": 2,
-                "sample": [],
-            }
-        ],
-    )
-    monkeypatch.setattr(Path, "exists", lambda self: True)
-    monkeypatch.setattr(Path, "mkdir", lambda self, parents=False, exist_ok=False: None)
-
-    brief = AnalysisBrief(intent="test", metrics=["qty"])
-    payload = iv_brain.run_analysis_brain(
-        brief=brief,
-        manifest={"queries": [{"path": "/tmp/fake.parquet", "row_count": 2}]},
-        profile={"row_count": 2, "columns": ["sku", "qty"]},
-        out_dir="/tmp/out",
-        max_steps=4,
-        query_meta=[{"role": "main", "purpose": "agg"}],
-        recipe_candidates=[],
-        domain_rules_excerpt="",
-        permissions=_perms(),
-        context_policy=ContextPolicy(),
-        llm=object(),
-        profile_name="analyst",
-        system_prompt="x",
-    )
-    assert payload["action"] == "data_feedback"
-    assert payload["data_feedback"]["issue"] == "missing_artifacts"
-    assert payload["sandbox_steps"] == 1
-    assert any("list" in c for c in payload.get("caveats") or []) or payload["steps_trace"][0]["error"]
-    assert payload["steps_trace"][0]["error"] and "list" in payload["steps_trace"][0]["error"]
-
-
-def test_iv_brain_marks_empty_ok_script_as_no_files_written(monkeypatch):
-    from project_core.domain.access.context_policy import ContextPolicy
-    from project_core.domain.analysis import iv_brain
-    from project_core.domain.contracts.brief import AnalysisBrief
-
-    class FakeSandbox:
-        def run_analysis_script(self, path, script, output_dir, tool_grants=None):
-            return {"status": "ok", "artifacts": []}
-
-    class FakePlanner:
-        def __init__(self, *a, **k):
-            self.tokens = 1
-            self._n = 0
-
-        def next_decision(self, state):
-            self._n += 1
-            if self._n == 1:
-                return {
-                    "decision": "run_step",
-                    "step": {
-                        "kind": "script",
-                        "dataset_index": 0,
-                        "script": "df=pd.read_parquet(path)",
-                    },
-                }
-            return {"decision": "finalize", "status": "partial", "insight_vi": "done"}
-
-    monkeypatch.setattr(iv_brain, "_sandbox", lambda: FakeSandbox())
-    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
-    monkeypatch.setattr(
-        iv_brain.DataProfiler,
-        "profile",
-        lambda self, paths, meta: [
-            {"index": 0, "role": "main", "columns": ["a"], "row_count": 1, "sample": []}
-        ],
-    )
-    monkeypatch.setattr(Path, "exists", lambda self: True)
-    monkeypatch.setattr(Path, "mkdir", lambda self, parents=False, exist_ok=False: None)
-
-    brief = AnalysisBrief(intent="test", metrics=["a"])
-    payload = iv_brain.run_analysis_brain(
-        brief=brief,
-        manifest={"queries": [{"path": "/tmp/x.parquet", "row_count": 1}]},
-        profile={"row_count": 1},
-        out_dir="/tmp/out",
-        max_steps=3,
-        query_meta=[{"role": "main"}],
-        recipe_candidates=[],
-        domain_rules_excerpt="",
-        permissions=_perms(),
-        context_policy=ContextPolicy(),
-        llm=object(),
-        profile_name="analyst",
-        system_prompt="x",
-    )
-    assert payload["sandbox_steps"] == 1
-    assert payload["action"] == "data_feedback"
-    assert payload["data_feedback"]["issue"] == "missing_artifacts"
-    assert any("no_files_written" in c for c in payload.get("caveats") or []) or True
-
-
-def test_iv_brain_finalize_with_artifact_is_complete(monkeypatch, tmp_path):
-    from project_core.domain.access.context_policy import ContextPolicy
-    from project_core.domain.analysis import iv_brain
-    from project_core.domain.contracts.brief import AnalysisBrief
-
-    art = tmp_path / "summary.csv"
-    art.write_text("a,b\n1,2\n", encoding="utf-8")
-
-    class FakeSandbox:
-        def run_analysis_script(self, path, script, output_dir, tool_grants=None):
-            return {"status": "ok", "artifacts": [str(art)], "kind": "script"}
+    df = pd.DataFrame({"sku": ["a", "b"], "qty": [1, 2]})
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    path = raw / "q0.parquet"
+    df.to_parquet(path, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
 
     class FakePlanner:
         def __init__(self, *a, **k):
@@ -217,8 +42,13 @@ def test_iv_brain_finalize_with_artifact_is_complete(monkeypatch, tmp_path):
             self._n += 1
             if self._n == 1:
                 return {
-                    "decision": "run_step",
-                    "step": {"kind": "script", "dataset_index": 0, "script": "x=1"},
+                    "decision": "run_op",
+                    "thought": "export",
+                    "op": {
+                        "op_id": "export_csv",
+                        "dataset": "q0",
+                        "args": {"filename": "summary.csv"},
+                    },
                 }
             return {
                 "decision": "finalize",
@@ -227,23 +57,13 @@ def test_iv_brain_finalize_with_artifact_is_complete(monkeypatch, tmp_path):
                 "headline_metrics": {"qty": 3},
             }
 
-    monkeypatch.setattr(iv_brain, "_sandbox", lambda: FakeSandbox())
     monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
-    monkeypatch.setattr(
-        iv_brain.DataProfiler,
-        "profile",
-        lambda self, paths, meta: [
-            {"index": 0, "role": "main", "columns": ["sku"], "row_count": 2, "sample": []}
-        ],
-    )
-    monkeypatch.setattr(Path, "exists", lambda self: True)
-    monkeypatch.setattr(Path, "mkdir", lambda self, parents=False, exist_ok=False: None)
 
     payload = iv_brain.run_analysis_brain(
-        brief=AnalysisBrief(intent="test", metrics=["qty"]),
-        manifest={"queries": [{"path": "/tmp/fake.parquet", "row_count": 2}]},
+        brief=AnalysisBrief(intent="test", metrics=["qty"], output_format=["table"]),
+        manifest={"queries": [{"path": str(path), "row_count": 2}]},
         profile={"row_count": 2},
-        out_dir=str(tmp_path / "out"),
+        out_dir=str(out),
         max_steps=4,
         query_meta=[{"role": "main"}],
         recipe_candidates=[],
@@ -256,6 +76,67 @@ def test_iv_brain_finalize_with_artifact_is_complete(monkeypatch, tmp_path):
     )
     assert payload["action"] == "complete"
     assert payload["artifact_paths"]
+    assert Path(payload["artifact_paths"][0]).exists()
+
+
+def test_iv_brain_rejects_script(tmp_path, monkeypatch):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    df = pd.DataFrame({"a": [1]})
+    path = tmp_path / "q.parquet"
+    df.to_parquet(path, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *a, **k):
+            self.tokens = 1
+            self._n = 0
+
+        def next_decision(self, state):
+            self._n += 1
+            if self._n == 1:
+                return {
+                    "decision": "run_step",
+                    "step": {"kind": "script", "script": "x=1"},
+                }
+            return {
+                "decision": "finalize",
+                "status": "partial",
+                "insight_vi": "done",
+            }
+
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(intent="test", metrics=["a"]),
+        manifest={"queries": [{"path": str(path), "row_count": 1}]},
+        profile={"row_count": 1},
+        out_dir=str(out),
+        max_steps=3,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    # Script rejected; finalize may auto-export CSV so action can be partial.
+    assert any(
+        "script_ops_disabled" in str(c)
+        for c in (payload.get("caveats") or [])
+    ) or any(
+        "script_ops_disabled" in str(s.get("error") or "")
+        for s in (payload.get("steps_trace") or [])
+    )
+    assert payload["action"] in {"data_feedback", "partial", "complete"}
+    if payload["action"] == "data_feedback":
+        assert payload.get("data_feedback")
+    else:
+        assert payload.get("artifact_paths"), "auto-export should produce artifacts after script reject"
 
 
 def test_analysis_planner_logs_preview_on_invalid_json(caplog):

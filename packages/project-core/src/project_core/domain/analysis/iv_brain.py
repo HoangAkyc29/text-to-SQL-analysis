@@ -1,16 +1,7 @@
-"""Agent IV as an LLM reasoning brain (target design docs2/00, Sơ đồ 12).
+"""Agent IV LLM reasoning brain — tool-catalog ops only (no sandbox scripts).
 
-This module turns Agent IV from a thin templated wrapper into a bounded
-reasoning loop:
-
-    DataProfiler -> AnalysisPlanner(LLM) -> [gate] -> SandboxRunner
-                 -> ResultEvaluator(loop) -> ResponseAssembler
-
-The loop is budget-limited by ``iv_max_steps``. Every executed step is gated
-against the caller's ``PermissionsSnapshot`` (tool + function capability). On
-any LLM/sandbox failure the caller (``DataAnalystService.decide``) falls back
-to the deterministic ``analyze_datasets`` pipeline, so offline/CI runs and the
-``ALLOW_LLM_STUB`` path keep working unchanged.
+    DatasetWorkingSet -> AnalysisPlanner(LLM) -> execute_op -> loop
+                     -> sufficiency/critic -> ResponseAssembler
 """
 
 from __future__ import annotations
@@ -31,9 +22,10 @@ from project_core.domain.analysis.iv_sufficiency import (
     assess_sufficiency,
     insufficiency_data_feedback,
 )
+from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
+from project_core.domain.analysis.ops.registry import catalog_for_prompt
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.brief import AnalysisBrief
-from project_core.domain.feedback.analysis_tool_registry import apply_params_to_script
 
 if TYPE_CHECKING:
     from project_core.domain.access.context_policy import ContextPolicy
@@ -42,71 +34,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Substrings that must never appear in an LLM-authored analysis script. The
-# sandbox subprocess already restricts builtins; this is a cheap first gate so
-# obviously malicious code never reaches the child. Phase 5 hardens further.
-_FORBIDDEN_SCRIPT_TOKENS: tuple[str, ...] = (
-    "__import__",
-    "importlib",
-    "subprocess",
-    "eval(",
-    "exec(",
-    "compile(",
-    "globals(",
-    "os.system",
-    "os.popen",
-    "socket",
-    "open(",
-    "Path(",
-    "pd.read_sql",
-    "read_html",
-    "requests",
-    "urllib",
-)
-
-
-def _sandbox():
-    from python_sandbox import tools_impl
-
-    return tools_impl
-
-
-def _reject_unsafe_script(script: str) -> str | None:
-    lowered = script.lower()
-    for token in _FORBIDDEN_SCRIPT_TOKENS:
-        if token.lower() in lowered:
-            return f"forbidden_token:{token}"
-    return None
-
-
-class DataProfiler:
-    """Compact, LLM-friendly profile of every resolved dataset."""
-
-    def __init__(self, sandbox: Any) -> None:
-        self._sandbox = sandbox
-
-    def profile(self, paths: list[str], meta: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        profiles: list[dict[str, Any]] = []
-        for idx, path in enumerate(paths):
-            role = meta[idx].get("role") if idx < len(meta) else None
-            entry: dict[str, Any] = {"index": idx, "role": role, "path": path}
-            if not path or not Path(path).exists():
-                entry["error"] = "missing"
-                profiles.append(entry)
-                continue
-            loaded = self._sandbox.load_dataset(path)
-            if "error" in loaded:
-                entry["error"] = loaded["error"]
-            else:
-                entry["columns"] = loaded.get("columns", [])
-                entry["row_count"] = loaded.get("row_count", 0)
-                entry["sample"] = (loaded.get("preview") or [])[:5]
-            profiles.append(entry)
-        return profiles
-
 
 class AnalysisPlanner:
-    """One LLM turn: decide the next action given the running observation log."""
+    """One LLM turn: decide the next op or a terminal action."""
 
     def __init__(self, llm: "OpenRouterClient", profile_name: str, system_prompt: str) -> None:
         self._llm = llm
@@ -135,111 +65,6 @@ class AnalysisPlanner:
             raise
 
 
-class SandboxRunner:
-    """Executes a single planner-chosen step, enforcing capability gates."""
-
-    def __init__(
-        self,
-        sandbox: Any,
-        *,
-        permissions: "PermissionsSnapshot",
-        context_policy: "ContextPolicy",
-        recipes_by_id: dict[str, dict[str, Any]],
-    ) -> None:
-        self._sandbox = sandbox
-        self._perms = permissions
-        self._cp = context_policy
-        self._recipes = recipes_by_id
-
-    def _gate_tool(self, tool_name: str) -> str | None:
-        if not self._cp.can_invoke_tool(self._perms, "IV", tool_name):
-            return f"tool_not_granted:{tool_name}"
-        return None
-
-    def run(self, step: dict[str, Any], paths: list[str], out_dir: str) -> dict[str, Any]:
-        kind = str(step.get("kind") or "script")
-        idx = int(step.get("dataset_index") or 0)
-        dpath = paths[idx] if 0 <= idx < len(paths) else (paths[0] if paths else "")
-        if not dpath or not Path(dpath).exists():
-            return {"status": "error", "error": "missing_dataset", "kind": kind}
-
-        if kind == "chart":
-            return self._run_chart(step, dpath, out_dir)
-        if kind == "excel":
-            return self._run_excel(step, dpath, out_dir)
-        if kind == "recipe":
-            return self._run_recipe(step, dpath, out_dir)
-        return self._run_script(step, dpath, out_dir)
-
-    def _run_script(self, step: dict[str, Any], dpath: str, out_dir: str) -> dict[str, Any]:
-        gate = self._gate_tool("run_analysis_script")
-        if gate:
-            return {"status": "policy_blocked", "error": gate, "kind": "script"}
-        script = str(step.get("script") or "")
-        if not script.strip():
-            return {"status": "error", "error": "empty_script", "kind": "script"}
-        unsafe = _reject_unsafe_script(script)
-        if unsafe:
-            return {"status": "policy_blocked", "error": unsafe, "kind": "script"}
-        sub_out = str(Path(out_dir) / str(step.get("step_id") or "step"))
-        Path(sub_out).mkdir(parents=True, exist_ok=True)
-        result = self._sandbox.run_analysis_script(
-            dpath, script, sub_out, tool_grants=list(self._perms.tool_grants)
-        )
-        return {"kind": "script", **result}
-
-    def _run_chart(self, step: dict[str, Any], dpath: str, out_dir: str) -> dict[str, Any]:
-        gate = self._gate_tool("plot_chart")
-        if gate:
-            return {"status": "policy_blocked", "error": gate, "kind": "chart"}
-        chart = step.get("chart") or {}
-        x = chart.get("x")
-        y = chart.get("y")
-        if not x or not y:
-            return {"status": "error", "error": "chart_missing_axes", "kind": "chart"}
-        out_path = str(Path(out_dir) / f"{step.get('step_id') or 'chart'}.png")
-        result = self._sandbox.plot_chart(
-            dpath, out_path, x, y, title=str(chart.get("title") or ""), kind=str(chart.get("kind") or "line")
-        )
-        return {"kind": "chart", **result}
-
-    def _run_excel(self, step: dict[str, Any], dpath: str, out_dir: str) -> dict[str, Any]:
-        gate = self._gate_tool("export_excel")
-        if gate:
-            return {"status": "policy_blocked", "error": gate, "kind": "excel"}
-        out_path = str(Path(out_dir) / f"{step.get('step_id') or 'export'}.xlsx")
-        result = self._sandbox.export_excel(dpath, out_path)
-        return {"kind": "excel", **result}
-
-    def _run_recipe(self, step: dict[str, Any], dpath: str, out_dir: str) -> dict[str, Any]:
-        tool_id = str(step.get("tool_id") or "")
-        gate = self._gate_tool("run_recipe_tool")
-        if gate:
-            return {"status": "policy_blocked", "error": gate, "kind": "recipe"}
-        if not self._cp.can_invoke_function(self._perms, tool_id):
-            return {"status": "policy_blocked", "error": f"function_not_granted:{tool_id}", "kind": "recipe"}
-        recipe = self._recipes.get(tool_id)
-        if not recipe:
-            return {"status": "error", "error": f"recipe_not_found:{tool_id}", "kind": "recipe"}
-        script = str(recipe.get("script_template") or "")
-        steps = recipe.get("steps") or []
-        if steps and not script:
-            script = str((steps[0] or {}).get("script_template") or "")
-        if not script:
-            return {"status": "error", "error": f"recipe_no_script:{tool_id}", "kind": "recipe"}
-        params = {**(recipe.get("params") or {}), **(step.get("params") or {})}
-        script = apply_params_to_script(script, params)
-        unsafe = _reject_unsafe_script(script)
-        if unsafe:
-            return {"status": "policy_blocked", "error": unsafe, "kind": "recipe"}
-        sub_out = str(Path(out_dir) / f"recipe_{step.get('step_id') or tool_id}")
-        Path(sub_out).mkdir(parents=True, exist_ok=True)
-        result = self._sandbox.run_analysis_script(
-            dpath, script, sub_out, tool_grants=list(self._perms.tool_grants)
-        )
-        return {"kind": "recipe", "tool_id": tool_id, **result}
-
-
 def run_analysis_brain(
     *,
     brief: AnalysisBrief,
@@ -258,18 +83,40 @@ def run_analysis_brain(
     output_table_semantics: list[dict[str, Any]] | None = None,
     output_column_semantics: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Run the bounded LLM reasoning loop and return an AnalystResponse payload."""
-    sandbox = _sandbox()
+    """Bounded LLM loop that only invokes catalog ops (never free-form scripts)."""
     paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
     paths, meta = _merge_external_paths(brief, paths, query_meta or [])
-    row_counts = {i: int(q.get("row_count", 0)) for i, q in enumerate(manifest.get("queries", []))}
+    # Rebuild manifest paths after external merge
+    queries = []
+    for i, p in enumerate(paths):
+        m = meta[i] if i < len(meta) else {}
+        queries.append(
+            {
+                "path": p,
+                "ref": f"q{i}",
+                "role": m.get("role"),
+                "purpose": m.get("purpose"),
+                "row_count": (manifest.get("queries") or [{}])[i].get("row_count")
+                if i < len(manifest.get("queries") or [])
+                else None,
+            }
+        )
+    row_counts = {
+        i: int((manifest.get("queries") or [{}])[i].get("row_count", 0) or 0)
+        if i < len(manifest.get("queries") or [])
+        else 0
+        for i in range(len(paths))
+    }
+    # Prefer explicit row counts from merged query entries when present
+    for i, q in enumerate(manifest.get("queries") or []):
+        if i < len(paths) and q.get("row_count") is not None:
+            row_counts[i] = int(q.get("row_count") or 0)
 
     mode, main_rows, probe_rows, _main_idxs, probe_idxs = classify_query_roles(
         meta, row_counts, num_queries=len(paths)
     )
     product_code = (brief.filters or {}).get("product_code") or (brief.filters or {}).get("sku")
 
-    # Deterministic early exits before spending LLM budget.
     if mode == "probe_only_success":
         return _probe_success_needs_fact_feedback(brief, probe_idxs, row_counts, paths)
     if mode == "main_empty_probe_hit" and product_code:
@@ -277,19 +124,15 @@ def run_analysis_brain(
     if profile.get("row_count", 0) == 0:
         return _empty_feedback(brief, product_code)
 
-    profiler = DataProfiler(sandbox)
-    dataset_profiles = profiler.profile([p for p in paths if p], [m for p, m in zip(paths, meta) if p])
-
-    recipes_by_id = {str(c.get("tool_id")): c for c in (recipe_candidates or []) if c.get("tool_id")}
-    planner = AnalysisPlanner(llm, profile_name, system_prompt)
-    runner = SandboxRunner(
-        sandbox, permissions=permissions, context_policy=context_policy, recipes_by_id=recipes_by_id
+    work_dir = Path(out_dir) / "_ws"
+    ws = DatasetWorkingSet.from_manifest(
+        {"queries": queries},
+        meta,
+        work_dir=work_dir,
     )
+    planner = AnalysisPlanner(llm, profile_name, system_prompt)
 
     observations: list[dict[str, Any]] = []
-    artifacts: list[str] = []
-    chart_artifacts: list[str] = []
-    excel_artifacts: list[str] = []
     steps_trace: list[dict[str, Any]] = []
     caveats: list[str] = []
     headline_metrics: dict[str, Any] = {"row_count": profile.get("row_count", 0)}
@@ -301,21 +144,20 @@ def run_analysis_brain(
             "name": c.get("name"),
             "intent_pattern": c.get("intent_pattern"),
             "score": c.get("score"),
+            "steps": c.get("steps") or c.get("op_chain"),
         }
         for c in (recipe_candidates or [])
     ]
-
-    table_sem = list(output_table_semantics or [])
-    column_sem = list(output_column_semantics or [])
 
     terminal: dict[str, Any] | None = None
     while steps_run < max_steps:
         state = {
             "brief": brief.model_dump(),
             "domain_rules_excerpt": domain_rules_excerpt or "",
-            "datasets": dataset_profiles,
-            "output_table_semantics": table_sem,
-            "output_column_semantics": column_sem,
+            "datasets": ws.list_profiles(),
+            "op_catalog": catalog_for_prompt(),
+            "output_table_semantics": list(output_table_semantics or []),
+            "output_column_semantics": list(output_column_semantics or []),
             "recipe_candidates": recipe_summaries,
             "output_format": brief.output_format,
             "chart_spec": brief.chart_spec,
@@ -323,6 +165,7 @@ def run_analysis_brain(
             "steps_run": steps_run,
             "max_steps": max_steps,
             "remaining_steps": max_steps - steps_run,
+            "artifacts": list(ws.artifact_paths),
         }
         try:
             decision = planner.next_decision(state)
@@ -345,14 +188,13 @@ def run_analysis_brain(
             if decision.get("suggest_clarify"):
                 payload["suggest_clarify"] = decision["suggest_clarify"]
             payload["steps_trace"] = steps_trace
-            # Keep any sandbox files already written so the pipeline can deliver
-            # partial results instead of discarding them on soft retries.
-            if artifacts:
-                payload["artifact_paths"] = list(artifacts)
-                payload["chart_artifacts"] = list(chart_artifacts)
-                payload["excel_artifacts"] = list(excel_artifacts)
+            if ws.artifact_paths:
+                payload["artifact_paths"] = list(ws.artifact_paths)
+                payload["chart_artifacts"] = list(ws.chart_artifacts)
+                payload["excel_artifacts"] = list(ws.excel_artifacts)
                 payload["sandbox_steps"] = steps_run
             return payload
+
         if action == "suggest_clarify":
             return {
                 "action": "suggest_clarify",
@@ -370,15 +212,26 @@ def run_analysis_brain(
                 "steps_trace": steps_trace,
             }
         if action in ("finalize", "complete", "partial"):
+            # Auto critic: brief coverage
+            cov = execute_op(
+                ws,
+                "match_brief_coverage",
+                {"brief": brief.model_dump()},
+                out_dir=out_dir,
+            )
+            if cov.status == "ok" and cov.result.get("issue") == "insufficient_deliverable":
+                caveats.append("brief_coverage_gap")
+            _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats)
             claimed = str(decision.get("status") or action)
             if claimed not in ("complete", "partial"):
                 claimed = "complete" if action != "partial" else "partial"
+            arts = list(ws.primary_artifacts or ws.artifact_paths)
             check = assess_sufficiency(
                 brief,
                 row_count=int(profile.get("row_count", 0) or 0),
-                artifacts=artifacts,
-                chart_artifacts=chart_artifacts,
-                excel_artifacts=excel_artifacts,
+                artifacts=arts,
+                chart_artifacts=ws.chart_artifacts,
+                excel_artifacts=ws.excel_artifacts,
                 headline_metrics={
                     **headline_metrics,
                     **(decision.get("headline_metrics") or {}),
@@ -390,94 +243,143 @@ def run_analysis_brain(
                     brief,
                     check,
                     row_count=int(profile.get("row_count", 0) or 0),
-                    artifacts=artifacts,
+                    artifacts=arts,
                 )
                 fb_payload["steps_trace"] = steps_trace
                 fb_payload["sandbox_steps"] = steps_run
                 if caveats:
-                    fb_payload["caveats"] = list(dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats]))[:8]
-                if chart_artifacts:
-                    fb_payload["chart_artifacts"] = list(chart_artifacts)
-                if excel_artifacts:
-                    fb_payload["excel_artifacts"] = list(excel_artifacts)
+                    fb_payload["caveats"] = list(
+                        dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats])
+                    )[:8]
                 return fb_payload
             if check.gaps:
-                # Format-only gaps: keep partial with caveats instead of fake complete.
                 decision = {**decision, "status": "partial"}
                 caveats.extend(check.gaps)
             terminal = decision
             break
 
-        # action == run_step
-        step = decision.get("step") or {}
-        step.setdefault("step_id", f"iv-step-{steps_run + 1}")
-        result = runner.run(step, [p for p in paths if p], out_dir)
-        steps_run += 1
-        status = str(result.get("status") or ("error" if result.get("error") else "ok"))
-        new_arts = result.get("artifacts") or ([result["path"]] if result.get("path") else [])
-        # Script/recipe reported ok but wrote nothing — treat as soft failure so the
-        # planner can see the miss and retry with an explicit to_csv / export.
-        if status == "ok" and result.get("kind") in {"script", "recipe"} and not new_arts:
-            status = "error"
-            result = {
-                **result,
-                "status": "error",
-                "error": "no_files_written",
-                "detail": "script finished without writing files under `out`; write CSV/Excel/PNG",
-            }
-        err = result.get("error")
-        detail = result.get("detail")
-        err_msg = str(err) if err else None
-        if detail and err_msg:
-            err_msg = f"{err_msg}: {detail}"
-        elif detail and not err_msg:
-            err_msg = str(detail)
-        trace_entry = {
-            "step_id": step.get("step_id"),
-            "kind": result.get("kind"),
-            "status": status,
-            "thought": decision.get("thought"),
-            "error": err_msg,
-        }
-        steps_trace.append(trace_entry)
-        observations.append(
-            {
-                "step_id": step.get("step_id"),
-                "kind": result.get("kind"),
-                "status": status,
-                "artifacts": new_arts if status == "ok" else [],
-                "error": err_msg,
-            }
-        )
-        if status == "ok":
-            artifacts.extend(new_arts)
-            if result.get("kind") == "chart":
-                chart_artifacts.extend(new_arts)
-            elif result.get("kind") == "excel":
-                excel_artifacts.extend(new_arts)
-        else:
-            caveats.append(f"{result.get('kind')}:{err_msg or 'error'}")
+        # run_op (or legacy run_step with op payload)
+        if action in ("run_op", "run_step"):
+            op = decision.get("op") or decision.get("step") or {}
+            # Reject any attempt to run free-form scripts
+            if op.get("script") or op.get("kind") == "script":
+                steps_run += 1
+                err_msg = "script_ops_disabled:use_catalog_ops"
+                caveats.append(err_msg)
+                observations.append({"op_id": "forbidden", "status": "error", "error": err_msg})
+                steps_trace.append({"step_id": f"iv-step-{steps_run}", "status": "error", "error": err_msg})
+                continue
+
+            # Recipe chain: execute listed ops sequentially as one budgeted step group
+            if op.get("kind") == "recipe" or (op.get("tool_id") and op.get("steps")):
+                chain = op.get("steps") or []
+                for cand in recipe_candidates or []:
+                    if cand.get("tool_id") == op.get("tool_id"):
+                        chain = cand.get("steps") or cand.get("op_chain") or chain
+                        break
+                for step_op in chain:
+                    oid = str(step_op.get("op_id") or "")
+                    oargs = dict(step_op.get("args") or {})
+                    if step_op.get("dataset") and "dataset" not in oargs:
+                        oargs["dataset"] = step_op["dataset"]
+                    if step_op.get("save_as"):
+                        oargs["save_as"] = step_op["save_as"]
+                    res = execute_op(ws, oid, oargs, out_dir=out_dir)
+                    steps_run += 1
+                    observations.append(res.as_observation())
+                    steps_trace.append(
+                        {
+                            "step_id": f"iv-step-{steps_run}",
+                            "op_id": oid,
+                            "status": res.status,
+                            "error": res.error,
+                            "thought": decision.get("thought"),
+                        }
+                    )
+                    if res.status != "ok":
+                        caveats.append(f"{oid}:{res.error or 'error'}")
+                        break
+                    if steps_run >= max_steps:
+                        break
+                continue
+
+            op_id = str(op.get("op_id") or op.get("kind") or "")
+            # Map legacy chart/excel kinds to catalog ops
+            if op_id in {"chart", "plot"}:
+                op_id = "plot_chart"
+                oargs = dict(op.get("chart") or op.get("args") or {})
+                oargs.setdefault("dataset", op.get("dataset") or op.get("dataset_index", "q0"))
+                if isinstance(oargs.get("dataset"), int):
+                    oargs["dataset"] = f"q{oargs['dataset']}"
+            elif op_id == "excel":
+                op_id = "export_excel"
+                oargs = dict(op.get("args") or {})
+                oargs.setdefault("dataset", op.get("dataset") or "q0")
+            else:
+                oargs = dict(op.get("args") or {})
+                if op.get("dataset") is not None and "dataset" not in oargs:
+                    ds = op.get("dataset")
+                    oargs["dataset"] = f"q{ds}" if isinstance(ds, int) else str(ds)
+                if op.get("dataset_index") is not None and "dataset" not in oargs:
+                    oargs["dataset"] = f"q{int(op['dataset_index'])}"
+                if op.get("save_as"):
+                    oargs["save_as"] = op["save_as"]
+
+            if not context_policy.can_invoke_tool(permissions, "IV", "run_analysis_op"):
+                return {
+                    "action": "data_feedback",
+                    "data_feedback": {
+                        "needs_sql_retry": False,
+                        "issue": "tool_not_granted",
+                        "summary": "run_analysis_op not granted",
+                        "diagnosis": "impossible",
+                    },
+                    "impossible_reason": "tool_not_granted:run_analysis_op",
+                }
+
+            res = execute_op(ws, op_id, oargs, out_dir=out_dir)
+            steps_run += 1
+            obs = res.as_observation()
+            observations.append(obs)
+            steps_trace.append(
+                {
+                    "step_id": f"iv-step-{steps_run}",
+                    "op_id": op_id,
+                    "status": res.status,
+                    "error": res.error,
+                    "thought": decision.get("thought"),
+                }
+            )
+            if res.status != "ok":
+                caveats.append(f"{op_id}:{res.error or 'error'}")
+            elif obs.get("empty_after_op"):
+                caveats.append("empty_after_op")
+            continue
+
+        caveats.append(f"unknown_decision:{action}")
+        break
     else:
         caveats.append("budget_exceeded")
 
+    _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats)
+    arts = list(ws.primary_artifacts or ws.artifact_paths)
     assembled = _assemble_response(
         terminal=terminal,
-        artifacts=artifacts,
-        chart_artifacts=chart_artifacts,
-        excel_artifacts=excel_artifacts,
+        artifacts=arts,
+        chart_artifacts=ws.chart_artifacts,
+        excel_artifacts=ws.excel_artifacts,
         steps_trace=steps_trace,
         caveats=caveats,
         headline_metrics=headline_metrics,
         steps_run=steps_run,
         planner_tokens=planner.tokens,
     )
-    # Post-loop gate: planner_failed / budget paths can still claim partial with no files.
     post = assess_sufficiency(
         brief,
         row_count=int(profile.get("row_count", 0) or 0),
-        artifacts=artifacts,
-        chart_artifacts=chart_artifacts,
-        excel_artifacts=excel_artifacts,
+        artifacts=arts,
+        chart_artifacts=ws.chart_artifacts,
+        excel_artifacts=ws.excel_artifacts,
         headline_metrics=assembled.get("headline_metrics") or headline_metrics,
         claimed_status=str(assembled.get("action") or "partial"),
     )
@@ -486,7 +388,7 @@ def run_analysis_brain(
             brief,
             post,
             row_count=int(profile.get("row_count", 0) or 0),
-            artifacts=artifacts,
+            artifacts=arts,
         )
         fb_payload["steps_trace"] = steps_trace
         fb_payload["sandbox_steps"] = steps_run
@@ -498,11 +400,59 @@ def run_analysis_brain(
     if post.gaps and assembled.get("action") == "complete":
         assembled["action"] = "partial"
         assembled["caveats"] = list(assembled.get("caveats") or []) + list(post.gaps)
-        assembled["coverage"] = {
-            "diagnosis": "partial",
-            "gaps": list(post.gaps)[:5],
-        }
+        assembled["coverage"] = {"diagnosis": "partial", "gaps": list(post.gaps)[:5]}
     return assembled
+
+
+def _ensure_deliverable_exports(
+    ws: DatasetWorkingSet,
+    brief: AnalysisBrief,
+    *,
+    out_dir: str,
+    caveats: list[str],
+) -> None:
+    """If the planner forgot to export, write CSV/Excel from the richest dataset."""
+    if ws.artifact_paths:
+        return
+    refs = ws.refs()
+    if not refs:
+        return
+    preferred = [r for r in refs if not r.startswith("q") or "_" in r] or refs
+    best_ref = preferred[-1]
+    best_n = -1
+    for ref in preferred:
+        try:
+            n = len(ws.get(ref).frame())
+        except Exception:  # noqa: BLE001
+            continue
+        if n > best_n:
+            best_n = n
+            best_ref = ref
+    if best_n <= 0:
+        return
+    formats = {str(x).strip().lower() for x in (brief.output_format or []) if str(x).strip()}
+    want_excel = bool(formats & {"excel", "xlsx", "spreadsheet"})
+    csv_res = execute_op(
+        ws,
+        "export_csv",
+        {"dataset": best_ref, "filename": "analysis_result.csv", "primary": True},
+        out_dir=out_dir,
+    )
+    if csv_res.status != "ok":
+        caveats.append(f"auto_export_csv:{csv_res.error or 'error'}")
+    elif not want_excel:
+        caveats.append("auto_exported_csv")
+    if want_excel:
+        x_res = execute_op(
+            ws,
+            "export_excel",
+            {"dataset": best_ref, "filename": "analysis_result.xlsx", "primary": True},
+            out_dir=out_dir,
+        )
+        if x_res.status != "ok":
+            caveats.append(f"auto_export_excel:{x_res.error or 'error'}")
+        else:
+            caveats.append("auto_exported_excel")
 
 
 def _assemble_response(
@@ -517,7 +467,6 @@ def _assemble_response(
     steps_run: int,
     planner_tokens: int,
 ) -> dict[str, Any]:
-    """ResponseAssembler: map loop outcome to a complete/partial AnalystResponse."""
     status = "complete"
     insight_vi = None
     if terminal:
@@ -554,4 +503,9 @@ def _assemble_response(
         payload["explanation_vi"] = insight_vi
     if planner_tokens:
         payload["usage_tokens"] = planner_tokens
+    payload["op_chain"] = [
+        {"op_id": s.get("op_id"), "status": s.get("status")}
+        for s in steps_trace
+        if s.get("op_id")
+    ]
     return payload

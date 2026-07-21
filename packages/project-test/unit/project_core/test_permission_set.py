@@ -21,6 +21,7 @@ def test_capability_granted_exact_and_wildcard():
 
 def test_tool_capability_mapping():
     assert tool_capability_for("execute_readonly") == "tool:sql-gateway:execute"
+    assert tool_capability_for("run_analysis_op") == "tool:analysis-ops:run_analysis_op"
     assert tool_capability_for("run_analysis_script") == "tool:python-sandbox:run_analysis_script"
     assert tool_capability_for("unknown_tool") == "tool:unknown_tool"
 

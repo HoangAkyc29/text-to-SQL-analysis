@@ -52,6 +52,7 @@ class AnalystResponse(BaseModel):
     caveats: list[str] = Field(default_factory=list)
     new_steps: list[dict[str, Any]] = Field(default_factory=list)
     analysis_script: str | None = None
+    op_chain: list[dict[str, Any]] = Field(default_factory=list)
     # LLM reasoning-loop extensions (Agent IV as analysis brain)
     insight_vi: str | None = None
     chart_artifacts: list[str] = Field(default_factory=list)

@@ -28,14 +28,31 @@ class RecipeParam(BaseModel):
 
 
 class RecipeStep(BaseModel):
-    step_id: str
+    """Legacy script step and/or catalog op step.
+
+    Op-chain recipes set ``op_id`` (+ optional ``args``/``dataset``/``save_as``).
+    Script recipes use ``script_template``.
+    """
+
+    step_id: str = ""
     name: str = ""
     script_template: str = ""
+    op_id: str | None = None
+    args: dict[str, Any] = Field(default_factory=dict)
+    dataset: str | None = None
+    save_as: str | None = None
     source_tool_id: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     param_schema: list[RecipeParam] = Field(default_factory=list)
     dataset_role: str = "primary"
     status: Literal["reuse", "generated", "inline"] = "generated"
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.step_id:
+            if self.op_id:
+                self.step_id = f"op-{self.op_id}"
+            elif self.script_template:
+                self.step_id = "script-main"
 
 
 class RecipeCandidate(BaseModel):
@@ -46,6 +63,7 @@ class RecipeCandidate(BaseModel):
     matched_aspects: list[str] = Field(default_factory=list)
     missing_aspects: list[str] = Field(default_factory=list)
     steps: list[RecipeStep] = Field(default_factory=list)
+    op_chain: list[dict[str, Any]] = Field(default_factory=list)
     script_template: str = ""
     param_schema: list[RecipeParam] = Field(default_factory=list)
 

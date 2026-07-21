@@ -1,41 +1,35 @@
 # Agent IV — Data Analyst
 
-Thực thi phân tích trên dataset parquet từ sql-gateway, merge upload ngoài, chạy recipe composable, và báo cáo kết quả / data feedback.
+Thực thi phân tích trên dataset parquet từ sql-gateway bằng **catalog ops** tham số hóa (không codegen sandbox trong workflow).
 
 ## Runtime
 
-Implementation: `project_core.domain.analysis.iv_analyzer.analyze_datasets` (in-process pandas sandbox).
+- LLM brain: `project_core.domain.analysis.iv_brain.run_analysis_brain` + `reason_loop_guide`
+- Fallback deterministic: `iv_analyzer.analyze_datasets` (chuỗi ops cố định)
+- Ops: `project_core.domain.analysis.ops`
 
-Pipeline truyền:
-- `brief`, `dataset_manifest`, `result_profile`
-- `analysis_plan`, `execution_plan`, `recipe_candidates`
-- `analysis_tools` (promoted recipes)
-- `domain_rules_excerpt`
-- `output_table_semantics`, `output_column_semantics` (diễn nghĩa dictionary chỉ cho table/cột có trong SQL output — không full schema)
-
-LLM brain (`reason_loop_guide`): dùng `output_*_semantics` để hiểu metric/grain; tôn trọng `unresolved` / `aggregated`.
+Pipeline truyền: `brief`, `dataset_manifest`, `result_profile`, `recipe_candidates` (op_chain), semantics.
 
 ## Actions
 
 | `action` | Ý nghĩa |
 |----------|---------|
 | `complete` | Đủ coverage, có artifacts |
-| `partial` | Một phần reuse recipe, một phần generated — vẫn trả kết quả |
-| `data_feedback` | Cần Agent II chạy lại SQL (empty, mismatch SKU, grain) |
-| `suggest_clarify` | Exploration mode — gợi ý làm rõ với user |
+| `partial` | Thiếu format / một phần — vẫn trả kết quả |
+| `data_feedback` | Cần Agent II chạy lại SQL |
+| `suggest_clarify` | Exploration / làm rõ với user |
 
 ## Composable execution
 
-1. `execution_plan` từ pipeline (ưu tiên) hoặc build từ candidates.
-2. Mỗi step: `run_analysis_script` hoặc `run_recipe_tool(tool_id)`.
-3. Stage generated steps → Mongo `analysis_tools`.
+1. Working set `q0`, `q1`, … từ parquet.
+2. Mỗi bước: `run_op` với `op_id` + args (+ `save_as`).
+3. Export CSV/Excel/chart bắt buộc trước finalize.
+4. Stage recipe dưới dạng **op_chain** (không script).
 
-## External data
-
-- `brief.external_sources[].parquet_path` merged với SQL dataset qua `merge_datasets`.
-- Join key ưu tiên: `SKU`, `BARCODE`, `STK_ID`.
+Sandbox `run_analysis_script` giữ trong package MCP nhưng **không thuộc workflow**.
 
 ## Đọc thêm
 
+- `TOOLS.md` — catalog ops
+- `prompts/reason_loop_guide.md`
 - `prompts/analyze_guide.md`
-- `prompts/recipe_guide.md`

@@ -1,32 +1,20 @@
+"""Deterministic Agent IV fallback — catalog ops only (no sandbox scripts)."""
+
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
 
-from project_core.domain.analysis.execution_composer import build_execution_plan
-from project_core.domain.analysis.recipe_matcher import rank_candidates
-from project_core.domain.contracts.analysis_plan import (
-    AnalysisPlan,
-    ExecutionCoverage,
-    ExecutionStepPlan,
-    RecipeCandidate,
-    RecipeStep,
-)
-from project_core.domain.contracts.brief import AnalysisBrief
-from project_core.domain.contracts.clarification import ClarificationRequest
+import pandas as pd
+
+from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
+from project_core.domain.contracts.analysis_plan import AnalysisPlan, ExecutionCoverage
+from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved, ProbeRequest
-from project_core.domain.feedback.analysis_tool_registry import apply_params_to_script
 
 logger = logging.getLogger(__name__)
-
-
-def _sandbox():
-    from python_sandbox import tools_impl
-
-    return tools_impl
 
 
 def analyze_datasets(
@@ -43,12 +31,13 @@ def analyze_datasets(
     execution_plan: list[dict[str, Any]] | None = None,
     domain_rules_excerpt: str = "",
 ) -> dict[str, Any]:
-    """Run composable sandbox steps and return IV action payload with coverage."""
+    """Run a fixed op-chain fallback and return IV action payload with coverage."""
+    del analysis_tools, analysis_plan, execution_plan, domain_rules_excerpt  # unused in op fallback
     paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
     paths, meta = _merge_external_paths(brief, paths, query_meta or [])
     row_counts = {i: int(q.get("row_count", 0)) for i, q in enumerate(manifest.get("queries", []))}
 
-    mode, main_rows, probe_rows, main_idxs, probe_idxs = classify_query_roles(
+    mode, main_rows, probe_rows, _main_idxs, probe_idxs = classify_query_roles(
         meta, row_counts, num_queries=len(paths)
     )
     product_code = (brief.filters or {}).get("product_code") or (brief.filters or {}).get("sku")
@@ -62,86 +51,79 @@ def analyze_datasets(
     if profile.get("row_count", 0) == 0:
         return _empty_feedback(brief, product_code)
 
-    plan = _coerce_plan(analysis_plan, brief)
+    queries = []
+    for i, p in enumerate(paths):
+        m = meta[i] if i < len(meta) else {}
+        queries.append(
+            {
+                "path": p,
+                "ref": f"q{i}",
+                "role": m.get("role"),
+                "purpose": m.get("purpose"),
+                "row_count": row_counts.get(i, 0),
+            }
+        )
 
-    sandbox = _sandbox()
-    external_paths = [p for i, p in enumerate(paths) if i < len(meta) and meta[i].get("role") == "external"]
-    sql_paths = [p for i, p in enumerate(paths) if i < len(meta) and meta[i].get("role") != "external"]
-    if external_paths and sql_paths and Path(sql_paths[0]).exists() and Path(external_paths[0]).exists():
-        merged_out = str(Path(out_dir) / "merged_upload.parquet")
-        try:
-            merge_result = sandbox.merge_datasets(sql_paths[0], external_paths[0], merged_out)
-            if merge_result.get("status") == "ok":
-                paths = [merged_out] + paths
-                meta = [{"role": "merged", "join_key": merge_result.get("join_key")}] + meta
-        except Exception:
-            logger.warning("merge_datasets failed; continuing without merged upload", exc_info=True)
-
-    exec_steps, coverage = _resolve_execution(
-        plan=plan,
-        paths=paths,
-        meta=meta,
-        brief=brief,
-        analysis_tools=analysis_tools or [],
-        recipe_candidates=recipe_candidates or [],
-        execution_plan=execution_plan,
-    )
-
+    work_dir = Path(out_dir) / "_ws"
+    ws = DatasetWorkingSet.from_manifest({"queries": queries}, meta, work_dir=work_dir)
     steps_run = 0
-    artifacts: list[str] = []
-    metrics: dict[str, Any] = {"row_count": profile.get("row_count", 0)}
-    new_steps: list[RecipeStep] = []
+    gaps: list[str] = []
+    new_op_chains: list[dict[str, Any]] = []
 
-    for path in paths[:2]:
-        if steps_run >= max_steps:
-            break
-        if path and Path(path).exists():
-            preview = sandbox.preview_dataframe(path, n=30)
-            steps_run += 1
-            if "error" not in preview:
-                metrics[f"preview_rows_{steps_run}"] = len(preview.get("preview", []))
+    # Prefer recipe tool-chains when present
+    chain = _pick_recipe_chain(recipe_candidates or [])
+    if not chain:
+        chain = _default_op_chain(brief, ws)
 
-    for exec_step in exec_steps:
+    for step in chain:
         if steps_run >= max_steps:
-            coverage.gaps.append(f"budget_exceeded:{exec_step.subtask_id}")
+            gaps.append("budget_exceeded")
             break
-        step = exec_step.step
-        dpath = exec_step.dataset_path or (paths[0] if paths else "")
-        if not dpath or not Path(dpath).exists():
-            coverage.gaps.append(f"missing_dataset:{exec_step.subtask_id}")
+        op_id = str(step.get("op_id") or "")
+        args = dict(step.get("args") or {})
+        if step.get("dataset") and "dataset" not in args:
+            args["dataset"] = step["dataset"]
+        if step.get("save_as"):
+            args["save_as"] = step["save_as"]
+        res = execute_op(ws, op_id, args, out_dir=out_dir)
+        steps_run += 1
+        if res.status != "ok":
+            gaps.append(f"{op_id}:{res.error or 'error'}")
             continue
-        sub_out = str(Path(out_dir) / exec_step.subtask_id)
-        Path(sub_out).mkdir(parents=True, exist_ok=True)
-        script = apply_params_to_script(step.script_template, step.params)
-        try:
-            result = sandbox.run_analysis_script(dpath, script, sub_out)
-            steps_run += 1
-            if result.get("status") == "ok":
-                artifacts.extend(result.get("artifacts") or [])
-            if step.status == "generated":
-                new_steps.append(step)
-        except Exception:
-            logger.warning("analysis step %s failed", step.step_id, exc_info=True)
-            coverage.gaps.append(f"step_failed:{step.step_id}")
+        new_op_chains.append({"op_id": op_id, "args": args})
 
-    if "chart" in (brief.output_format or []) and paths and steps_run < max_steps:
-        primary = paths[0]
-        if primary and Path(primary).exists():
-            cols = _column_names(primary)
-            if len(cols) >= 2:
-                chart_path = str(Path(out_dir) / "chart.png")
-                try:
-                    sandbox.plot_chart(primary, chart_path, cols[0], cols[1], title=brief.intent[:80])
-                    artifacts.append(chart_path)
-                    steps_run += 1
-                except Exception:
-                    logger.warning("plot_chart failed for %s", primary, exc_info=True)
+    # Ensure at least one tabular export
+    if not ws.artifact_paths and ws.refs():
+        ref = ws.refs()[0]
+        formats = {str(x).lower() for x in (brief.output_format or [])}
+        if "excel" in formats or "xlsx" in formats:
+            execute_op(ws, "export_excel", {"dataset": ref, "filename": "analysis.xlsx"}, out_dir=out_dir)
+        else:
+            execute_op(ws, "export_csv", {"dataset": ref, "filename": f"{ref}.csv"}, out_dir=out_dir)
+        steps_run += 1
+
+    if "chart" in {str(x).lower() for x in (brief.output_format or [])} and ws.refs():
+        ref = ws.refs()[0]
+        cols = list(ws.get(ref).frame().columns)
+        if len(cols) >= 2:
+            execute_op(
+                ws,
+                "plot_chart",
+                {"dataset": ref, "x": cols[0], "y": cols[1], "kind": "bar", "title": brief.intent[:80]},
+                out_dir=out_dir,
+            )
+            steps_run += 1
 
     if brief.exploration_mode and main_rows > 0 and steps_run < max_steps:
         clarify = _exploration_clarify(brief, paths, row_counts)
         if clarify:
             return clarify
 
+    arts = list(ws.primary_artifacts or ws.artifact_paths)
+    coverage = ExecutionCoverage(
+        diagnosis="full" if arts and not gaps else ("partial" if arts else "none"),
+        gaps=gaps[:8],
+    )
     if _is_impossible_analysis(brief, coverage, steps_run, main_rows, paths):
         return {
             "action": "impossible",
@@ -150,103 +132,106 @@ def analyze_datasets(
             "explanation_vi": "Không thể map metric từ brief sang cột dữ liệu sau khi chạy hết bước phân tích",
         }
 
-    action = "complete"
-    if coverage.diagnosis == "partial":
-        action = "partial"
-
+    action = "complete" if coverage.diagnosis == "full" else "partial"
     payload: dict[str, Any] = {
         "action": action,
-        "headline_metrics": metrics,
-        "artifact_paths": artifacts,
+        "headline_metrics": {"row_count": profile.get("row_count", 0)},
+        "artifact_paths": arts,
+        "chart_artifacts": list(ws.chart_artifacts),
+        "excel_artifacts": list(ws.excel_artifacts),
         "caveats": coverage.gaps[:5],
         "sandbox_steps": steps_run,
         "coverage": coverage.model_dump(),
-        "new_steps": [s.model_dump() for s in new_steps],
+        "new_steps": [],
+        "op_chain": new_op_chains,
     }
-    if new_steps:
-        payload["analysis_script"] = new_steps[0].script_template
     return payload
 
 
-def _coerce_plan(analysis_plan: AnalysisPlan | dict[str, Any] | None, brief: AnalysisBrief) -> AnalysisPlan:
-    if analysis_plan is None:
-        if brief.plan:
-            return brief.plan
-        from project_core.domain.analysis.decomposer import decompose_brief
+def _pick_recipe_chain(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    best: list[dict[str, Any]] = []
+    best_score = -1.0
+    for c in candidates:
+        steps = c.get("steps") or c.get("op_chain") or []
+        if not steps:
+            continue
+        # Skip legacy script recipes
+        if any(s.get("script_template") or s.get("script") for s in steps if isinstance(s, dict)):
+            if not any(s.get("op_id") for s in steps if isinstance(s, dict)):
+                continue
+        score = float(c.get("score") or 0)
+        if score > best_score:
+            best_score = score
+            best = [s for s in steps if isinstance(s, dict) and s.get("op_id")]
+    return best
 
-        return decompose_brief(brief)
-    if isinstance(analysis_plan, dict):
-        return AnalysisPlan.model_validate(analysis_plan)
-    return analysis_plan
 
+def _default_op_chain(brief: AnalysisBrief, ws: DatasetWorkingSet) -> list[dict[str, Any]]:
+    if not ws.refs():
+        return []
+    ref = ws.refs()[0]
+    df = ws.get(ref).frame()
+    cols = [str(c) for c in df.columns]
+    chain: list[dict[str, Any]] = [
+        {"op_id": "assert_nonempty", "args": {"dataset": ref}},
+    ]
+    # Heuristic groupby when brief has dimensions + numeric metrics
+    dim = None
+    for d in brief.dimensions or []:
+        for c in cols:
+            if d.lower() in c.lower() or c.lower() in d.lower():
+                dim = c
+                break
+        if dim:
+            break
+    metric_cols = [
+        c
+        for c in cols
+        if pd.api.types.is_numeric_dtype(df[c]) and c != dim
+    ]
+    if dim and metric_cols:
+        aggs = [{"column": metric_cols[0], "fn": "sum", "as": f"{metric_cols[0]}_sum"}]
+        chain.append(
+            {
+                "op_id": "groupby_agg",
+                "dataset": ref,
+                "save_as": "agg",
+                "args": {"by": [dim], "aggs": aggs},
+            }
+        )
+        export_ref = "agg"
+    else:
+        export_ref = ref
 
-def _resolve_execution(
-    *,
-    plan: AnalysisPlan,
-    paths: list[str],
-    meta: list[dict],
-    brief: AnalysisBrief,
-    analysis_tools: list[dict],
-    recipe_candidates: list[dict],
-    execution_plan: list[dict] | None,
-) -> tuple[list[ExecutionStepPlan], ExecutionCoverage]:
-    if execution_plan:
-        steps = [ExecutionStepPlan.model_validate(s) for s in execution_plan]
-        coverage = ExecutionCoverage(diagnosis="partial" if steps else "none")
-        return steps, coverage
-
-    candidates_by_subtask: dict[str, list[RecipeCandidate]] = {}
-    for subtask in plan.subtasks:
-        if recipe_candidates and recipe_candidates[0].get("subtask_id"):
-            ranked = [
-                RecipeCandidate.model_validate({k: v for k, v in c.items() if k != "subtask_id"})
-                for c in recipe_candidates
-                if c.get("subtask_id") == subtask.id
-            ]
-        else:
-            ranked = rank_candidates(subtask.intent, analysis_tools, top_k=5)
-        candidates_by_subtask[subtask.id] = ranked
-
-    return build_execution_plan(
-        plan,
-        dataset_paths=paths,
-        query_meta=meta,
-        candidates_by_subtask=candidates_by_subtask,
-        brief=brief,
-    )
+    formats = {str(x).lower() for x in (brief.output_format or [])}
+    if "excel" in formats or "xlsx" in formats:
+        chain.append({"op_id": "export_excel", "args": {"dataset": export_ref, "filename": "analysis.xlsx"}})
+    else:
+        chain.append({"op_id": "export_csv", "args": {"dataset": export_ref, "filename": f"{export_ref}.csv"}})
+    return chain
 
 
 def _merge_external_paths(
     brief: AnalysisBrief,
-    sql_paths: list[str],
+    paths: list[str],
     query_meta: list[dict[str, Any]],
 ) -> tuple[list[str], list[dict[str, Any]]]:
-    paths = list(sql_paths)
     meta = list(query_meta)
+    while len(meta) < len(paths):
+        meta.append({"role": "main"})
     for ext in brief.external_sources or []:
-        pp = ext.parquet_path or ext.path
-        if pp and Path(pp).exists():
-            paths.append(pp)
-            meta.append(
-                {
-                    "role": "external",
-                    "file_id": ext.file_id,
-                    "source": ext.original_name,
-                    "row_count": ext.row_count,
-                }
-            )
+        pp = getattr(ext, "parquet_path", None) or getattr(ext, "path", None)
+        if pp and Path(str(pp)).exists():
+            paths.append(str(pp))
+            meta.append({"role": "external", "source": "upload"})
     return paths, meta
 
 
-def _column_names(path: str) -> list[str]:
-    try:
-        import pandas as pd
-
-        df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
-        return list(df.columns.astype(str))
-    except Exception:
-        logger.warning("could not read columns from %s", path, exc_info=True)
-        return []
+def _exploration_clarify(
+    brief: AnalysisBrief, paths: list[str], row_counts: dict[int, int]
+) -> dict[str, Any] | None:
+    del brief, paths, row_counts
+    return None
 
 
 def _is_impossible_analysis(
@@ -254,21 +239,11 @@ def _is_impossible_analysis(
     coverage: ExecutionCoverage,
     steps_run: int,
     main_rows: int,
-    paths: list[str | None],
+    paths: list[str],
 ) -> bool:
-    if main_rows <= 0:
+    if main_rows <= 0 or not paths:
         return False
-    if coverage.diagnosis == "none" and steps_run == 0 and brief.metrics:
-        primary = next((p for p in paths if p), None)
-        if primary:
-            cols = {c.lower() for c in _column_names(primary)}
-            for metric in brief.metrics:
-                if metric.lower() not in cols and metric.lower() not in {"revenue", "amount", "points"}:
-                    return True
-    if steps_run >= 1 and coverage.diagnosis == "none" and not coverage.gaps:
-        return False
-    budget_gaps = [g for g in coverage.gaps if g.startswith("budget_exceeded:")]
-    if budget_gaps and steps_run >= 1 and not any(p for p in paths if p):
+    if steps_run == 0 and coverage.diagnosis == "none":
         return True
     return False
 
@@ -277,33 +252,22 @@ def _probe_success_needs_fact_feedback(
     brief: AnalysisBrief,
     probe_idxs: list[int],
     row_counts: dict[int, int],
-    paths: list[str | None],
+    paths: list[str],
 ) -> dict[str, Any]:
+    del paths
     observed = "; ".join(f"probe_{i}={row_counts.get(i, 0)} rows" for i in probe_idxs)
-    filters = brief.filters or {}
-    min_bill = filters.get("min_bill_value") or filters.get("min_transaction_value")
-    bill_hint = f" filter TRANSHDR.AMOUNT >= {min_bill}" if min_bill else ""
-    fix = (
-        "Probe SKU master succeeded — next plan must include role=main fact query: "
-        "STRANS join TRANSHDR on TRANS_NUM, filter resolved SKU_ID from probe,"
-        f" TRANS_CODE='113', time_range{bill_hint}. Do not repeat probe-only plan."
-    )
     return {
         "action": "data_feedback",
         "data_feedback": DataFeedback(
             needs_sql_retry=True,
             issue="probe_success_needs_fact",
-            diagnosis="solvable",
-            summary="Probe thành công — cần fact query STRANS+TRANSHDR, không lặp probe",
-            suggested_intent_fix=fix,
+            diagnosis="needs_probe",
+            summary="Probe đã có dữ liệu master nhưng chưa có fact query phù hợp",
+            suggested_intent_fix=brief.intent,
             expected_vs_observed=[
-                ExpectedVsObserved(
-                    aspect="query_roles",
-                    expected="at least one main fact query after probe",
-                    observed=observed,
-                )
+                ExpectedVsObserved(aspect="probe", expected="fact rows", observed=observed)
             ],
-            evidence_refs=[p for p in paths if p],
+            probe_requests=[ProbeRequest(table="STRANS", purpose="fact_after_probe")],
         ).model_dump(),
     }
 
@@ -312,110 +276,44 @@ def _identifier_mismatch_feedback(
     product_code: str,
     probe_idxs: list[int],
     row_counts: dict[int, int],
-    paths: list[str | None],
+    paths: list[str],
 ) -> dict[str, Any]:
+    del paths
     observed = "; ".join(f"probe_{i}={row_counts.get(i, 0)} rows" for i in probe_idxs)
     return {
         "action": "data_feedback",
         "data_feedback": DataFeedback(
             needs_sql_retry=True,
             issue="identifier_mismatch",
-            diagnosis="needs_user_clarify",
+            diagnosis="solvable",
             summary="Main query empty but product probe returned rows — likely wrong code format",
-            suggested_intent_fix=f"Resolve product code for {product_code}",
+            suggested_intent_fix=f"retry product lookup for {product_code}",
             expected_vs_observed=[
-                ExpectedVsObserved(
-                    aspect="product_code",
-                    expected=f"match for {product_code}",
-                    observed=observed,
-                )
+                ExpectedVsObserved(aspect="product_code", expected=str(product_code), observed=observed)
             ],
-            evidence_refs=[p for p in paths if p],
+            probe_requests=[ProbeRequest(table="SKU_DEF", purpose="sku_lookup")],
         ).model_dump(),
-        "suggest_clarify": _product_clarify(product_code).model_dump(),
     }
 
 
 def _empty_feedback(brief: AnalysisBrief, product_code: Any) -> dict[str, Any]:
-    probes = []
-    if product_code:
-        # Table + purpose only — never inject SQL for Agent II to copy.
-        probes = [
-            ProbeRequest(table="SKU_DEF", purpose="sku_lookup"),
-            ProbeRequest(table="BARCODE", purpose="barcode_lookup"),
-        ]
     return {
         "action": "data_feedback",
         "data_feedback": DataFeedback(
             needs_sql_retry=True,
             issue="empty_result",
-            diagnosis="needs_probe" if probes else "solvable",
-            summary="No rows returned",
-            suggested_intent_fix="expand filters or verify product code format",
-            probe_requests=probes,
+            diagnosis="solvable",
+            summary="Không có dòng dữ liệu để phân tích theo yêu cầu.",
+            suggested_intent_fix=brief.intent,
+            expected_vs_observed=[
+                ExpectedVsObserved(
+                    aspect="row_count",
+                    expected=">0",
+                    observed="0",
+                )
+            ],
+            probe_requests=(
+                [ProbeRequest(table="SKU_DEF", purpose="sku_lookup")] if product_code else []
+            ),
         ).model_dump(),
     }
-
-
-def _product_clarify(product_code: str) -> ClarificationRequest:
-    return ClarificationRequest(
-        source_agent="IV",
-        reason="product_code_ambiguous",
-        trigger_context="after_data_feedback",
-        partial_brief=AnalysisBrief(intent=f"product revenue {product_code}"),
-        evidence_summary=f"Mã '{product_code}' không khớp trực tiếp; có kết quả từ bảng master/barcode",
-        questions=[
-            {
-                "id": "product_code_choice",
-                "prompt": f"Không tìm thấy doanh thu với mã '{product_code}'. Bạn muốn dùng cách tra cứu nào?",
-                "options": [
-                    {
-                        "id": "try_barcode",
-                        "label": "Tra theo mã vạch / barcode đầy đủ",
-                        "brief_value": {"filters": {"lookup_mode": "barcode"}},
-                    },
-                    {
-                        "id": "try_sku_pad",
-                        "label": "Thêm số 0 đầu (mã nội bộ 8 số)",
-                        "brief_value": {"filters": {"lookup_mode": "sku_padded"}},
-                    },
-                    {
-                        "id": "unknown",
-                        "label": "Tôi không chắc — hãy khám phá dữ liệu giúp tôi",
-                        "brief_value": {"exploration_mode": True, "user_knowledge_level": "unknown"},
-                    },
-                ],
-                "maps_to_brief_field": "filters.lookup_mode",
-            }
-        ],
-    )
-
-
-def _exploration_clarify(
-    brief: AnalysisBrief,
-    paths: list[str | None],
-    row_counts: dict[int, int],
-) -> dict[str, Any] | None:
-    if brief.user_knowledge_level != "unknown":
-        return None
-    sample_evidence = json.dumps({str(i): row_counts.get(i, 0) for i in row_counts}, ensure_ascii=False)
-    req = ClarificationRequest(
-        source_agent="IV",
-        reason="exploration_needs_direction",
-        trigger_context="after_data_feedback",
-        partial_brief=brief,
-        evidence_summary=f"Đã lấy mẫu dữ liệu: {sample_evidence}",
-        questions=[
-            {
-                "id": "exploration_focus",
-                "prompt": "Dữ liệu đã được tải. Bạn muốn tập trung vào khía cạnh nào?",
-                "options": [
-                    {"id": "revenue", "label": "Doanh thu / số lượng bán", "brief_value": {"metrics": ["revenue"]}},
-                    {"id": "trend", "label": "Xu hướng theo thời gian", "brief_value": {"dimensions": ["time"]}},
-                    {"id": "unknown", "label": "Tiếp tục khám phá tự động", "brief_value": {"exploration_mode": True}},
-                ],
-                "maps_to_brief_field": "metrics",
-            }
-        ],
-    )
-    return {"action": "suggest_clarify", "clarification_request": req.model_dump()}

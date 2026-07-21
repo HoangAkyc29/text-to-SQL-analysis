@@ -1,33 +1,37 @@
-# Agent IV — Sandbox tools (pipeline-centric)
+# Agent IV — Analysis ops catalog (pipeline)
 
-**Agent IV `decide()` returns JSON;** `iv_analyzer` + pipeline execute sandbox tools in-process (`python_sandbox.tools_impl`). MCP prefix `sandbox_*` when using MCP server directly.
+**Agent IV `decide()` returns JSON;** the IV brain executes **parameterized ops** in-process via `project_core.domain.analysis.ops` on parquet working sets.
 
-| Tool | Params | Mô tả |
-|------|--------|-------|
-| `load_dataset` | `path` | Schema preview parquet/csv |
-| `preview_dataframe` | `path`, `n` | Head rows |
-| `run_analysis_script` | `path`, `script`, `output_dir` | Pandas script an toàn (`pd`, `plt`, `path`, `out`) |
-| `run_recipe_tool` | `tool_id`, `path`, `output_dir`, `params_json` | Chạy promoted recipe từ Mongo |
-| `merge_datasets` | `primary_path`, `secondary_path`, `output_path`, `on` | Join SQL + upload |
-| `export_excel` | `path`, `output_path` | Xuất Excel |
-| `plot_chart` | `path`, `output_path`, `x`, `y`, `title` | Chart đơn giản |
+Sandbox MCP (`run_analysis_script`) is **out of workflow** — kept in repo for debug only. Do not ask the LLM to write pandas scripts.
 
-## Script constraints
+## Working set
 
-- Biến có sẵn: `pd`, `plt`, `path` (dataset), `out` (Path output dir).
-- Không import tùy ý; không network/filesystem ngoài `out`.
-- `SANDBOX_MAX_ROWS` (default 200k), `SANDBOX_MAX_SECONDS` (30s).
+- Seed datasets: `q0`, `q1`, … from SQL parquet paths.
+- Transform ops take `dataset` + optional `save_as` to create a new named frame.
+- Export/plot ops write under the trace `out/` directory and register artifacts.
 
-## Recipe params
+## Core ops
 
-Scripts có thể dùng `params['card_prefix']`, `params['group_by']`, `:param_*` — pipeline inject từ `AnalysisBrief`.
+| op_id | Purpose |
+|-------|---------|
+| `list_datasets` | Profile all datasets |
+| `describe_columns` | null%, nunique, min/max / top values |
+| `head_rows` / `sample_rows` | Preview rows |
+| `value_counts` / `null_report` | Distributions / nulls |
+| `assert_nonempty` / `assert_columns_present` | Critic checks |
+| `select_columns` / `rename_columns` / `drop_columns` | Shape |
+| `cast_column` / `add_column_expr` / `fill_null` / `drop_null` | Column ops (DSL expr, no free Python) |
+| `filter_rows` | eq, ne, in, gt/gte/lt/lte, between, contains, startswith, endswith, regex, is_null… |
+| `sort_rows` / `limit_rows` / `distinct_rows` | Order / slice |
+| `groupby_agg` | sum, mean, count, nunique, min, max, median, std |
+| `pivot_table` / `melt` | Reshape |
+| `window_rank` / `top_n_per_group` | Ranking |
+| `percent_of_total` / `cumulative_sum` | Derived metrics |
+| `join_datasets` / `concat_datasets` / `set_compare` | Multi-dataset |
+| `export_csv` / `export_excel` / `plot_chart` | Deliverables (must write files) |
+| `bundle_deliverables` | Mark primary artifacts |
+| `match_brief_coverage` / `detect_empty_after_filter` / `grain_check` | Critic |
 
-## Params từ brief
+## Capability
 
-| Brief field | Recipe param |
-|-------------|--------------|
-| `filters.card_prefix` | `card_prefix` |
-| `filters.sku` / `product_code` | `product_code` |
-| `dimensions[0]` | `group_by` |
-| `time_range.*` | `time_start`, `time_end`, `time_grain` |
-| `metrics[0]` | `metric` |
+Workflow grant: `tool:analysis-ops:run_analysis_op` (covered by `tool:*` in role configs).

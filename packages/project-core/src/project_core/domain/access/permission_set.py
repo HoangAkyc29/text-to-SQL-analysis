@@ -32,13 +32,16 @@ MCP_TOOL_CAPABILITY: dict[str, str] = {
     "explain_sql": "tool:sql-gateway:explain",
     "get_schema_snapshot": "tool:sql-gateway:explain",
     "execute_readonly": "tool:sql-gateway:execute",
-    "run_analysis_script": "tool:python-sandbox:run_analysis_script",
+    # Agent IV workflow uses in-process analysis ops (not sandbox scripts).
+    "run_analysis_op": "tool:analysis-ops:run_analysis_op",
     "preview_dataframe": "tool:python-sandbox:preview_dataframe",
     "load_dataset": "tool:python-sandbox:load_dataset",
     "merge_datasets": "tool:python-sandbox:merge_datasets",
     "plot_chart": "tool:python-sandbox:plot_chart",
     "export_excel": "tool:python-sandbox:export_excel",
     "run_recipe_tool": "tool:python-sandbox:run_recipe_tool",
+    # Kept for MCP debug / out-of-workflow use only — not in AGENT_TOOLS["IV"].
+    "run_analysis_script": "tool:python-sandbox:run_analysis_script",
 }
 
 # Full tool capability set (used for the admin/full-access role).
@@ -50,7 +53,7 @@ AGENT_TOOLS: dict[str, tuple[str, ...]] = {
     "II": ("validate_sql",),
     "III": ("explain_sql", "get_schema_snapshot"),
     "IV": (
-        "run_analysis_script",
+        "run_analysis_op",
         "preview_dataframe",
         "export_excel",
         "plot_chart",

@@ -192,8 +192,8 @@ def test_build_output_semantics_unresolved_custom_alias():
         assert col["semantic_key"] is None
 
 
-def test_iv_brain_state_includes_output_semantics(monkeypatch):
-    from pathlib import Path
+def test_iv_brain_state_includes_output_semantics(tmp_path, monkeypatch):
+    import pandas as pd
 
     from project_core.domain.access.context_policy import ContextPolicy
     from project_core.domain.analysis import iv_brain
@@ -201,10 +201,10 @@ def test_iv_brain_state_includes_output_semantics(monkeypatch):
     from project_core.domain.contracts.workflow import PermissionsSnapshot
 
     captured: dict = {}
-
-    class FakeSandbox:
-        def run_analysis_script(self, *a, **k):
-            return {"status": "ok", "artifacts": ["/tmp/a.csv"]}
+    pq = tmp_path / "x.parquet"
+    pd.DataFrame({"GIFT_QTY": [1]}).to_parquet(pq, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
 
     class FakePlanner:
         def __init__(self, *a, **k):
@@ -214,26 +214,18 @@ def test_iv_brain_state_includes_output_semantics(monkeypatch):
             captured["state"] = state
             return {
                 "decision": "finalize",
-                "status": "complete",
+                "status": "partial",
                 "insight_vi": "ok",
                 "headline_metrics": {},
             }
 
-    monkeypatch.setattr(iv_brain, "_sandbox", lambda: FakeSandbox())
     monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
-    monkeypatch.setattr(
-        iv_brain.DataProfiler,
-        "profile",
-        lambda self, paths, meta: [{"index": 0, "role": "main", "columns": ["GIFT_QTY"], "row_count": 1, "sample": []}],
-    )
-    monkeypatch.setattr(Path, "exists", lambda self: True)
-    monkeypatch.setattr(Path, "mkdir", lambda self, parents=False, exist_ok=False: None)
 
-    brief = AnalysisBrief(intent="test", metrics=["gift_qty"])
+    brief = AnalysisBrief(intent="test", metrics=["gift_qty"], output_format=["table"])
     perms = PermissionsSnapshot(
         actor_id="u",
         role="hq_analyst",
-        tool_grants=["tool:python-sandbox:run_analysis_script"],
+        tool_grants=["tool:analysis-ops:run_analysis_op"],
     )
     table_sem = [{"query_index": 0, "logical_name": "STRANS", "table_ref": "db2:strans", "description": "x", "confidence": "high"}]
     col_sem = [
@@ -249,9 +241,9 @@ def test_iv_brain_state_includes_output_semantics(monkeypatch):
     ]
     iv_brain.run_analysis_brain(
         brief=brief,
-        manifest={"queries": [{"path": "/tmp/x.parquet", "row_count": 1}]},
+        manifest={"queries": [{"path": str(pq), "row_count": 1}]},
         profile={"row_count": 1},
-        out_dir="/tmp/out",
+        out_dir=str(out),
         max_steps=2,
         query_meta=[{"role": "main"}],
         recipe_candidates=[],
@@ -266,4 +258,5 @@ def test_iv_brain_state_includes_output_semantics(monkeypatch):
     )
     assert captured["state"]["output_table_semantics"] == table_sem
     assert captured["state"]["output_column_semantics"] == col_sem
+    assert "op_catalog" in captured["state"]
     assert "schema_context" not in captured["state"]

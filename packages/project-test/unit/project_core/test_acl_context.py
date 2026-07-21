@@ -32,8 +32,9 @@ def test_context_policy_agent_II_gets_brief():
     assert "inbox" in str(ctx) or "workflow_steps" in ctx
 
 
-def test_context_policy_IV_sandbox_tools_only():
+def test_context_policy_IV_ops_tools_only():
     policy = ContextPolicy()
     tools = policy.allowed_mcp_tools("IV")
-    assert "run_analysis_script" in tools
+    assert "run_analysis_op" in tools
+    assert "run_analysis_script" not in tools
     assert not any("execute_readonly" in t for t in tools)

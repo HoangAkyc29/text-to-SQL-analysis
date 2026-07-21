@@ -15,7 +15,7 @@ def build_tool_record(
     *,
     name: str,
     intent_pattern: str,
-    script: str,
+    script: str = "",
     input_schema: dict[str, Any],
     output_schema: dict[str, Any],
     trace_id: str,
@@ -28,16 +28,22 @@ def build_tool_record(
     version = 1
     if parent_tool_id:
         version = 2
+    step_list = steps or []
+    is_op_chain = bool(step_list) and all(
+        isinstance(s, dict) and s.get("op_id") for s in step_list
+    )
+    kind = "op_chain" if is_op_chain else ("recipe" if step_list and len(step_list) > 1 else "script")
     return {
         "tool_id": str(uuid4()),
         "name": name,
         "status": "staged",
-        "kind": "recipe" if steps and len(steps) > 1 else "script",
+        "kind": kind,
         "intent_pattern": intent_pattern,
         "input_schema": input_schema,
         "output_schema": output_schema,
-        "script_template": parameterize_analysis_script(script),
-        "steps": steps or [],
+        "script_template": parameterize_analysis_script(script) if script else "",
+        "steps": step_list,
+        "op_chain": step_list if is_op_chain else [],
         "sql_dependencies": sql_dependencies or [],
         "parent_tool_id": parent_tool_id,
         "version": version,

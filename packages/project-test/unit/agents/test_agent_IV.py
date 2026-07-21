@@ -74,7 +74,7 @@ def test_IV_denied_without_permissions(decision_ctx):
     )
     payload = json.loads(_svc().decide(ctx).content)
     assert payload["action"] == "data_feedback"
-    assert payload["impossible_reason"] == "tool_not_granted:python-sandbox:run_analysis_script"
+    assert payload["impossible_reason"] == "tool_not_granted:run_analysis_op"
 
 
 def test_IV_falls_back_when_brain_partial_without_artifacts_step0(decision_ctx, monkeypatch):

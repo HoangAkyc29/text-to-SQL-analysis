@@ -39,7 +39,7 @@ class DataAnalystService(SupermarketAgentService):
 
         permissions = self.resolve_permissions(payload_in, meta)
         cp = self.context_policy
-        if permissions is None or not cp.can_invoke_tool(permissions, "IV", "run_analysis_script"):
+        if permissions is None or not cp.can_invoke_tool(permissions, "IV", "run_analysis_op"):
             return self.json_response(
                 ctx,
                 {
@@ -47,10 +47,10 @@ class DataAnalystService(SupermarketAgentService):
                     "data_feedback": {
                         "needs_sql_retry": False,
                         "issue": "tool_not_granted",
-                        "summary": "run_analysis_script not granted",
+                        "summary": "run_analysis_op not granted",
                         "diagnosis": "impossible",
                     },
-                    "impossible_reason": "tool_not_granted:python-sandbox:run_analysis_script",
+                    "impossible_reason": "tool_not_granted:run_analysis_op",
                 },
             )
         recipe_candidates = [
