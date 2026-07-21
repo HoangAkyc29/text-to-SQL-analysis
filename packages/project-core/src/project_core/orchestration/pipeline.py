@@ -124,6 +124,17 @@ class SupermarketAnalysisPipeline:
         out_dir = artifact_base / "out"
         raw_dir.mkdir(parents=True, exist_ok=True)
         out_dir.mkdir(parents=True, exist_ok=True)
+        (artifact_base / "owner.json").write_text(
+            json.dumps(
+                {
+                    "trace_id": trace_id,
+                    "analysis_id": analysis_id,
+                    "actor_id": permissions.actor_id,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         pipeline_span = TimedSpan("pipeline")
         self._pipeline_timing = {
             "span": pipeline_span,
@@ -689,7 +700,22 @@ class SupermarketAnalysisPipeline:
                         shard_plan=shard_plan,
                         allowed_tables=list(permissions.allowed_tables or []),
                     )
-                    if is_vacuous_topology_reject(record, shard_plan=shard_plan):
+                    if _is_false_future_date_reject(record, brief):
+                        # III can have stale date context. The pipeline owns the
+                        # current clock and can safely disprove this claim.
+                        approved = True
+                        workflow.steps.append(
+                            WorkflowStep(
+                                step_id=str(uuid4()),
+                                trace_id=trace_id,
+                                analysis_id=workflow.active_analysis_id or trace_id,
+                                step_type=WorkflowStepType.RISK_REJECT,
+                                sql_attempt=sql_attempt,
+                                query_index=idx,
+                                summary="risk_false_future_date_ignored",
+                            )
+                        )
+                    elif is_vacuous_topology_reject(record, shard_plan=shard_plan):
                         # III only raised inverted cutoff / false allowlist claims — proceed.
                         approved = True
                         workflow.steps.append(
@@ -845,6 +871,54 @@ class SupermarketAnalysisPipeline:
                     query_index=idx,
                 )
 
+            # Approved uploads are first-class IV datasets. This also permits
+            # external-only analysis without inventing a SQL query.
+            external_assets = []
+            for ext in brief.external_sources or []:
+                external_assets.extend(list(getattr(ext, "datasets", None) or []))
+                if not getattr(ext, "datasets", None) and getattr(ext, "parquet_path", None):
+                    external_assets.append(
+                        type(
+                            "_LegacyAsset",
+                            (),
+                            {
+                                "path": ext.parquet_path,
+                                "row_count": ext.row_count,
+                                "columns": [
+                                    str(c.get("name"))
+                                    for c in (ext.schema_profile.get("columns") or [])
+                                    if c.get("name")
+                                ],
+                                "sheet_name": None,
+                            },
+                        )()
+                    )
+            for asset in external_assets:
+                asset_path = Path(str(asset.path))
+                if not asset_path.exists() or any(q.path == str(asset_path) for q in query_files):
+                    continue
+                query_index = len(query_files)
+                try:
+                    external_df = pd.read_parquet(asset_path)
+                except Exception:
+                    continue
+                query_files.append(
+                    QueryResultFile(
+                        query_index=query_index,
+                        path=str(asset_path),
+                        row_count=len(external_df),
+                        columns=[str(c) for c in external_df.columns],
+                    )
+                )
+                profiles.append(build_result_profile(external_df))
+                query_meta.append(
+                    {
+                        "role": "main" if not approved_sql else "external",
+                        "purpose": f"uploaded dataset{': ' + str(asset.sheet_name) if asset.sheet_name else ''}",
+                        "source": "upload",
+                    }
+                )
+
             if not query_files:
                 terminal = _terminal_on_no_queries(
                     workflow=workflow,
@@ -988,6 +1062,10 @@ class SupermarketAnalysisPipeline:
                 action=str(iv_action),
                 duration_ms=iv_span.duration_ms,
                 usage_tokens=int(iv_raw.get("usage_tokens", 0) or 0),
+                verification=dict(iv_parsed.verification or {}),
+                coverage=dict(iv_parsed.coverage or {}),
+                artifact_manifests=list(iv_parsed.artifact_manifests or []),
+                headline_metrics=dict(iv_parsed.headline_metrics or {}),
             )
             self._append_timed_step(
                 workflow,
@@ -995,7 +1073,12 @@ class SupermarketAnalysisPipeline:
                 step_type=WorkflowStepType.AGENT_IV,
                 sql_attempt=sql_attempt,
                 span=iv_span,
-                summary=f"action={iv_action}",
+                summary=(
+                    f"action={iv_action};"
+                    f"verification={str((iv_parsed.verification or {}).get('status') or 'none')};"
+                    f"gaps={','.join(str(g) for g in ((iv_parsed.coverage or {}).get('gaps') or [])[:6]) or 'none'};"
+                    f"artifacts={len(iv_parsed.artifact_paths or [])}"
+                ),
             )
 
             if iv_action == "data_feedback":
@@ -1019,7 +1102,14 @@ class SupermarketAnalysisPipeline:
                     step_summary = f"invalid_feedback:{val_err or 'unknown'}"
                 else:
                     inbox["data_feedback"] = fb.model_dump()
-                    step_summary = fb.issue
+                    missing_fields = [
+                        str(item.brief_field)
+                        for item in (fb.missing_for_brief or [])
+                        if item.brief_field
+                    ]
+                    step_summary = (
+                        f"{fb.issue};missing={','.join(missing_fields[:6]) or 'none'}"
+                    )
                 workflow.steps.append(
                     WorkflowStep(
                         step_id=str(uuid4()),
@@ -1056,6 +1146,11 @@ class SupermarketAnalysisPipeline:
                 # Soft presentation/grain / insufficient deliverable: retry II↔III↔IV
                 # until the last attempt, then deliver the best partial.
                 arts = list(iv_parsed.artifact_paths or [])
+                if iv_parsed.artifact_manifests:
+                    _write_artifact_manifest(
+                        artifact_base,
+                        list(iv_parsed.artifact_manifests),
+                    )
                 row_total = sum(int(getattr(q, "row_count", 0) or 0) for q in query_files)
                 has_rows = row_total > 0
                 soft_solvable = (
@@ -1121,6 +1216,35 @@ class SupermarketAnalysisPipeline:
                 )
 
             if iv_action in {"complete", "partial"}:
+                if iv_action == "complete":
+                    verification = dict(iv_parsed.verification or {})
+                    reasoning_state = dict(iv_parsed.reasoning_state or {})
+                    revision = dict(reasoning_state.get("revision") or {})
+                    verified_revision = verification.get("revision")
+                    manifests = list(iv_parsed.artifact_manifests or [])
+                    manifests_valid = bool(manifests) and all(
+                        str(item.get("validation_status")) == "valid"
+                        for item in manifests
+                        if item.get("primary", False)
+                    )
+                    has_primary = any(item.get("primary", False) for item in manifests)
+                    verified = (
+                        verification.get("status") == "passed"
+                        and verified_revision == revision.get("number")
+                        and has_primary
+                        and manifests_valid
+                    )
+                    if not verified:
+                        iv_action = "partial"
+                        iv_parsed.action = "partial"
+                        iv_parsed.caveats = list(
+                            dict.fromkeys(
+                                [
+                                    *iv_parsed.caveats,
+                                    "completion_downgraded:verification_not_current",
+                                ]
+                            )
+                        )[:8]
                 if iv_parsed.sandbox_steps:
                     workflow.steps.append(
                         WorkflowStep(
@@ -1135,6 +1259,10 @@ class SupermarketAnalysisPipeline:
                 workflow.progress_step = WorkflowStepType.SYNTHESIZE.value
                 self._emit_progress(workflow, on_progress)
                 artifact_paths = iv_parsed.artifact_paths
+                _write_artifact_manifest(
+                    artifact_base,
+                    list(iv_parsed.artifact_manifests or []),
+                )
                 coverage = iv_parsed.coverage
                 outcome = AnalysisOutcome.SUCCESS if iv_action == "complete" else AnalysisOutcome.PARTIAL
                 summary = TechnicalSummary(
@@ -1322,6 +1450,7 @@ class SupermarketAnalysisPipeline:
         workflow.status = WorkflowStatus.IDLE
         workflow.last_outcome = outcome.value
         workflow.last_completed_trace_id = trace_id
+        workflow.last_artifact_urls = list(summary.artifact_urls)
         workflow.progress_step = None
         self._log_pipeline_timing(workflow, outcome.value)
         return PipelineResult(
@@ -1341,6 +1470,38 @@ class SupermarketAnalysisPipeline:
         if total_rows == 0:
             flags.append("empty")
         return ResultProfile(row_count=total_rows, columns=profiles[0].columns, flags=flags)
+
+
+def _is_false_future_date_reject(
+    record: dict[str, Any],
+    brief: AnalysisBrief,
+) -> bool:
+    """Disprove stale-model future-date claims using the authoritative clock."""
+    end = str(brief.time_range.end or "").strip()
+    if not end:
+        return False
+    try:
+        requested_end = pd.Timestamp(end).date()
+    except (TypeError, ValueError):
+        return False
+    if requested_end > utc_now().date():
+        return False
+    claims = [
+        *(str(item) for item in (record.get("concerns") or [])),
+        str(record.get("issue") or ""),
+    ]
+    normalized = {
+        claim.strip().lower().replace("-", "_").replace(" ", "_")
+        for claim in claims
+        if claim.strip()
+    }
+    future_claims = {
+        "future_date_query",
+        "future_data_access",
+        "future_date_access",
+        "querying_future_data",
+    }
+    return bool(normalized) and normalized.issubset(future_claims)
 
 
 def _needs_explain_from_feedback(risk_feedback: Any) -> bool:
@@ -1482,6 +1643,20 @@ def _remember_best_effort(
     if current is None or score > int(current.get("score") or 0):
         return candidate
     return current
+
+
+def _write_artifact_manifest(
+    artifact_base: Path,
+    manifests: list[dict[str, Any]],
+) -> None:
+    """Persist the authoritative manifest for success and best-effort outputs."""
+    manifest_path = artifact_base / "artifact_manifest.json"
+    manifest_temp = artifact_base / ".artifact_manifest.tmp"
+    manifest_temp.write_text(
+        json.dumps(manifests, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
+    manifest_temp.replace(manifest_path)
 
 
 def _terminal_on_exhausted(workflow: WorkflowState) -> tuple[AnalysisOutcome, TechnicalSummary] | None:

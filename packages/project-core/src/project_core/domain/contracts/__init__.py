@@ -7,13 +7,34 @@ from project_core.domain.contracts.clarification import (
     ClarificationRequest,
 )
 from project_core.domain.contracts.feedback import DataFeedback, FeedbackRecord, SatisfactionSignal
+from project_core.domain.contracts.datasets import (
+    ArtifactRecord,
+    DatasetManifest,
+    DatasetManifestEntry,
+    LineageNode,
+)
+from project_core.domain.contracts.iv_reasoning import (
+    IVChecklistItem,
+    IVChecklistStatus,
+    IVReasoningPhase,
+    IVReasoningState,
+    IVRevision,
+    IVVerificationState,
+    IVVerificationStatus,
+)
 from project_core.domain.contracts.pipeline import (
     ChatResponse,
     ExtractedDataset,
     PipelineResult,
     QueryResultFile,
 )
-from project_core.domain.contracts.plot_review import PlotReviewResult
+from project_core.domain.contracts.plot_review import (
+    PlotFixArgs,
+    PlotReviewCheck,
+    PlotReviewIssue,
+    PlotReviewResult,
+    PlotSourceConsistency,
+)
 from project_core.domain.contracts.workflow import (
     AnalysisOutcome,
     PermissionsSnapshot,
@@ -26,6 +47,7 @@ from project_core.domain.contracts.workflow import (
 __all__ = [
     "AnalysisBrief",
     "AnalysisOutcome",
+    "ArtifactRecord",
     "ChatResponse",
     "ClarificationBridgeResult",
     "ClarificationOption",
@@ -33,12 +55,26 @@ __all__ = [
     "ClarificationReply",
     "ClarificationRequest",
     "DataFeedback",
+    "DatasetManifest",
+    "DatasetManifestEntry",
     "ExtractedDataset",
     "FeedbackRecord",
     "IntentSlice",
+    "LineageNode",
+    "IVChecklistItem",
+    "IVChecklistStatus",
+    "IVReasoningPhase",
+    "IVReasoningState",
+    "IVRevision",
+    "IVVerificationState",
+    "IVVerificationStatus",
     "PermissionsSnapshot",
     "PipelineResult",
+    "PlotFixArgs",
+    "PlotReviewCheck",
+    "PlotReviewIssue",
     "PlotReviewResult",
+    "PlotSourceConsistency",
     "QueryResultFile",
     "SatisfactionSignal",
     "TechnicalSummary",

@@ -44,6 +44,8 @@ def assess_sufficiency(
     excel_artifacts: list[str] | None = None,
     headline_metrics: dict[str, Any] | None = None,
     claimed_status: str = "complete",
+    verify_artifact_files: bool = False,
+    coverage_gaps: list[str] | None = None,
 ) -> SufficiencyResult:
     """Return whether IV outputs meet the brief well enough to finalize.
 
@@ -56,7 +58,7 @@ def assess_sufficiency(
     tabular = [a for a in arts if a not in charts and a not in excels]
     formats = _norm_formats(brief.output_format)
     metrics = headline_metrics or {}
-    gaps: list[str] = []
+    gaps: list[str] = list(dict.fromkeys(coverage_gaps or []))
 
     if int(row_count or 0) <= 0:
         return SufficiencyResult(
@@ -76,6 +78,21 @@ def assess_sufficiency(
             summary="Phân tích kết thúc nhưng không có file kết quả (CSV/Excel/biểu đồ).",
         )
 
+    if verify_artifact_files:
+        missing_or_empty = [
+            artifact
+            for artifact in arts
+            if not Path(artifact).is_file() or Path(artifact).stat().st_size <= 0
+        ]
+        if missing_or_empty:
+            return SufficiencyResult(
+                sufficient=False,
+                force_feedback=True,
+                gaps=["invalid_artifacts"],
+                issue="invalid_artifacts",
+                summary="File kết quả không tồn tại hoặc rỗng nên chưa thể hoàn tất phân tích.",
+            )
+
     if formats & {"chart", "plot", "graph"} and not charts:
         gaps.append("missing_chart")
     if formats & {"excel", "xlsx", "spreadsheet"} and not excels:
@@ -84,9 +101,10 @@ def assess_sufficiency(
     # Brief lists metrics but we have neither a metric value nor a tabular export.
     brief_metrics = [m for m in (brief.metrics or []) if str(m).strip()]
     metric_keys = {str(k).lower() for k in metrics if k and str(k).lower() != "row_count"}
-    if brief_metrics and not metric_keys and not tabular and not excels:
+    if brief_metrics and not metric_keys and not tabular and not excels and not charts:
         gaps.append("missing_metric_deliverable")
 
+    gaps = list(dict.fromkeys(gaps))
     if not gaps:
         return SufficiencyResult(sufficient=True, force_feedback=False)
 

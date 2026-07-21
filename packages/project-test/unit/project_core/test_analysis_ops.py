@@ -141,3 +141,57 @@ def test_analyze_datasets_fallback_exports(tmp_path):
     )
     assert payload["action"] in {"complete", "partial"}
     assert payload.get("artifact_paths")
+
+
+def test_brief_coverage_uses_semantics_and_filter_value_evidence(tmp_path):
+    frame = pd.DataFrame(
+        {
+            "SKU_CODE": ["0030344", "0030348", "0030355"],
+            "TOTAL_GIFT_QTY": [2, 3, 4],
+            "TRANS_NUM": ["B1", "B2", "B3"],
+            "BILL_AMOUNT": [600_000, 700_000, 800_000],
+            "TRAN_DATE": pd.to_datetime(["2026-07-01", "2026-07-02", "2026-07-03"]),
+            "GRP_NAME": ["quà tặng", "quà tặng", "quà tặng"],
+        }
+    )
+    source = tmp_path / "coverage.parquet"
+    frame.to_parquet(source, index=False)
+    working_set = DatasetWorkingSet.from_manifest(
+        {"queries": [{"path": str(source), "ref": "q0", "row_count": 3}]},
+        [{"role": "main"}],
+        work_dir=tmp_path / "ws",
+    )
+    result = execute_op(
+        working_set,
+        "match_brief_coverage",
+        {
+            "brief": {
+                "metrics": ["quantity", "min_bill_value"],
+                "dimensions": ["product", "transaction"],
+                "filters": {
+                    "product_code": ["0030344", "0030348", "0030355"],
+                    "min_bill_value": 600_000,
+                    "category": "quà tặng",
+                },
+                "time_range": {
+                    "start": "2026-07-01",
+                    "end": "2026-07-06",
+                    "grain": "day",
+                },
+            },
+            "semantic_labels": [
+                {"output_name": "SKU_CODE", "semantic_key": "sku_code"},
+                {"output_name": "TOTAL_GIFT_QTY", "semantic_key": "gift_qty"},
+                {"output_name": "TRANS_NUM", "semantic_key": "transaction_number"},
+                {"output_name": "BILL_AMOUNT", "semantic_key": "transaction_amount"},
+                {"output_name": "GRP_NAME", "semantic_key": "product_group"},
+            ],
+        },
+        out_dir=tmp_path / "out",
+    )
+    assert result.status == "ok"
+    assert result.result["ok"] is True
+    assert result.result["metrics_missing"] == []
+    assert result.result["dimensions_missing"] == []
+    assert result.result["filters_missing"] == []
+    assert result.result["time_covered"] is True

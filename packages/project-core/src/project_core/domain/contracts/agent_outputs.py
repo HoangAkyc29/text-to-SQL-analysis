@@ -58,3 +58,8 @@ class AnalystResponse(BaseModel):
     chart_artifacts: list[str] = Field(default_factory=list)
     excel_artifacts: list[str] = Field(default_factory=list)
     steps_trace: list[dict[str, Any]] = Field(default_factory=list)
+    artifact_manifests: list[dict[str, Any]] = Field(default_factory=list)
+    visual_reviews: list[dict[str, Any]] = Field(default_factory=list)
+    verification: dict[str, Any] = Field(default_factory=dict)
+    reasoning_state: dict[str, Any] = Field(default_factory=dict)
+    planner_turns: int = 0

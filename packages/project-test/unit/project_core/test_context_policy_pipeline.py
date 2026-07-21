@@ -93,4 +93,26 @@ def test_pipeline_explain_sql_on_performance_reject(pipeline_factory, workflow_s
     pipeline = pipeline_factory(invoker, _TrackingSql())
     result = pipeline.run(brief=AnalysisBrief(intent="x"), workflow=workflow_state, permissions=hq_permissions)
     assert calls == ["explain"]
-    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    # The explain path succeeds, but an unverified IV response cannot claim success.
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
+
+
+def test_false_future_date_reject_uses_authoritative_clock():
+    from project_core.domain.contracts.brief import AnalysisBrief, TimeRange
+    from project_core.orchestration.pipeline import _is_false_future_date_reject
+
+    stale_claim = {
+        "concerns": ["future_date_query"],
+        "issue": "future_date_query",
+    }
+    past_brief = AnalysisBrief(time_range=TimeRange(start="2020-01-01", end="2020-01-02"))
+    future_brief = AnalysisBrief(time_range=TimeRange(start="2999-01-01", end="2999-01-02"))
+    assert _is_false_future_date_reject(stale_claim, past_brief) is True
+    assert _is_false_future_date_reject(stale_claim, future_brief) is False
+    assert (
+        _is_false_future_date_reject(
+            {"concerns": ["unsafe_join"], "issue": "unsafe_join"},
+            past_brief,
+        )
+        is False
+    )

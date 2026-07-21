@@ -122,6 +122,10 @@ class AuditLogger:
         action: str,
         duration_ms: int,
         usage_tokens: int = 0,
+        verification: dict[str, Any] | None = None,
+        coverage: dict[str, Any] | None = None,
+        artifact_manifests: list[dict[str, Any]] | None = None,
+        headline_metrics: dict[str, Any] | None = None,
     ) -> str:
         event_id = str(uuid4())
         self.log(
@@ -134,6 +138,19 @@ class AuditLogger:
                 "action": action,
                 "duration_ms": int(duration_ms),
                 "usage_tokens": int(usage_tokens or 0),
+                "verification": dict(verification or {}),
+                "coverage": dict(coverage or {}),
+                "artifacts": [
+                    {
+                        "artifact_id": item.get("artifact_id"),
+                        "filename": item.get("filename"),
+                        "kind": item.get("kind"),
+                        "primary": item.get("primary"),
+                        "validation_status": item.get("validation_status"),
+                    }
+                    for item in (artifact_manifests or [])[:20]
+                ],
+                "headline_metrics": dict(headline_metrics or {}),
             },
         )
         return event_id

@@ -2,13 +2,26 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from pathlib import Path
+import re
+import tempfile
 from typing import Any, Callable
 
+import numpy as np
 import pandas as pd
 
 from project_core.domain.analysis.ops.expr_dsl import eval_column_expr
-from project_core.domain.analysis.ops.working_set import DatasetWorkingSet
+from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+from project_core.tabular.io import (
+    inspect_tabular,
+    inspect_workbook,
+    neutralize_spreadsheet_formulas,
+    read_tabular,
+    sha256_file,
+)
 
 OpHandler = Callable[[DatasetWorkingSet, dict[str, Any], Path], dict[str, Any]]
 
@@ -30,7 +43,13 @@ def _save(
 ) -> dict[str, Any]:
     if not save_as:
         return {"row_count": int(len(df)), "columns": [str(c) for c in df.columns]}
-    handle = ws.save_frame(save_as, df, role=role, source=source)
+    handle = ws.save_frame(
+        save_as,
+        df,
+        role=role,
+        source=source,
+        op_id=source,
+    )
     return {
         "saved_as": handle.ref,
         "row_count": int(len(df)),
@@ -161,8 +180,18 @@ def op_drop_columns(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) 
 
 def op_cast_column(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
-    col = str(args["column"])
-    to = str(args.get("to") or "str").lower()
+    column_value = args.get("column") or args.get("column_name")
+    if column_value is None and len(args.get("columns") or []) == 1:
+        column_value = args["columns"][0]
+    if column_value is None:
+        return {"error": "column_required"}
+    col = str(column_value)
+    to = str(
+        args.get("to")
+        or args.get("dtype")
+        or args.get("target_type")
+        or "str"
+    ).lower()
     err = _require_cols(handle.frame(), [col])
     if err:
         return {"error": err}
@@ -573,39 +602,313 @@ def op_set_compare(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -
     return _save(ws, args.get("save_as"), out, source="set_compare")
 
 
+# ----- E2. Source / artifact lifecycle -----
+
+
+def op_load_tabular(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    source_ref = str(args["source_ref"])
+    save_as = str(args.get("save_as") or f"{source_ref}_loaded")
+    source = ws.sources.get(source_ref) or (
+        ws.get(source_ref) if ws.has(source_ref) else None
+    )
+    if source is None or not source.path:
+        return {"error": f"unknown_source:{source_ref}"}
+    frame = read_tabular(
+        source.path,
+        format=args.get("format") or source.format,
+        sheet_name=args.get("sheet_name") or source.sheet_name,
+    )
+    handle = ws.save_frame(
+        save_as,
+        frame,
+        role=source.role,
+        purpose=source.purpose,
+        source=source_ref,
+        parents=[source_ref],
+        op_id="load_tabular",
+        op_args={k: v for k, v in args.items() if k != "path"},
+    )
+    return {
+        "saved_as": handle.ref,
+        "row_count": len(frame),
+        "columns": [str(c) for c in frame.columns],
+    }
+
+
+def op_reload_artifact(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    artifact = ws.get_artifact(str(args["artifact_id"]))
+    if artifact.validation_status == "invalid":
+        return {"error": "artifact_invalid"}
+    frame = read_tabular(
+        artifact.path,
+        sheet_name=args.get("sheet_name"),
+    )
+    save_as = str(args.get("save_as") or f"artifact_{artifact.artifact_id[:8]}")
+    handle = ws.save_frame(
+        save_as,
+        frame,
+        source=artifact.artifact_id,
+        parents=[artifact.artifact_id],
+        op_id="reload_artifact",
+        op_args={"sheet_name": args.get("sheet_name")},
+    )
+    return {
+        "saved_as": handle.ref,
+        "row_count": len(frame),
+        "columns": [str(c) for c in frame.columns],
+        "artifact_id": artifact.artifact_id,
+    }
+
+
+def op_inspect_excel(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    if args.get("artifact_id"):
+        path = ws.get_artifact(str(args["artifact_id"])).path
+    else:
+        source_ref = str(args["source_ref"])
+        source = ws.sources.get(source_ref) or ws.get(source_ref)
+        if not source.path:
+            return {"error": "source_has_no_path"}
+        path = source.path
+    if Path(path).suffix.lower() != ".xlsx":
+        return {"error": "not_xlsx"}
+    return inspect_workbook(path, sample_rows=int(args.get("sample_rows", 5)))
+
+
+def op_validate_export(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    artifact = ws.get_artifact(str(args["artifact_id"]))
+    issues: list[str] = []
+    path = Path(artifact.path)
+    try:
+        path.resolve().relative_to(out_dir.resolve())
+    except ValueError:
+        issues.append("outside_output_root")
+    if not path.exists() or not path.is_file() or path.is_symlink():
+        issues.append("missing_or_unsafe_file")
+    elif path.stat().st_size <= 0:
+        issues.append("empty_file")
+    elif sha256_file(path) != artifact.sha256:
+        issues.append("checksum_mismatch")
+
+    inspection: dict[str, Any] = {}
+    if not issues:
+        try:
+            if path.suffix.lower() == ".xlsx":
+                inspection = inspect_workbook(path)
+            elif path.suffix.lower() in {".csv", ".parquet"}:
+                inspection = inspect_tabular(path)
+            else:
+                inspection = {"format": path.suffix.lstrip(".").lower()}
+        except Exception as exc:  # noqa: BLE001
+            issues.append(f"unreadable:{exc}")
+
+    expected = args.get("expected_dataset")
+    if expected and not issues:
+        source = ws.get(str(expected)).frame()
+        if path.suffix.lower() == ".xlsx":
+            sheet_name = args.get("sheet_name") or (
+                inspection.get("sheet_names") or ["data"]
+            )[0]
+            loaded = read_tabular(path, sheet_name=sheet_name)
+        else:
+            loaded = read_tabular(path)
+        if len(source) != len(loaded):
+            issues.append(f"row_count_mismatch:{len(source)}!={len(loaded)}")
+        if [str(c) for c in source.columns] != [str(c) for c in loaded.columns]:
+            issues.append("columns_mismatch")
+
+    artifact.validation_status = "valid" if not issues else "invalid"
+    artifact.validation_issues = issues
+    return {
+        "artifact_id": artifact.artifact_id,
+        "valid": not issues,
+        "issues": issues,
+        "inspection": inspection,
+        **({"error": "artifact_validation_failed"} if issues else {}),
+    }
+
+
+def op_compare_datasets(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    left = ws.get(str(args["left"])).frame()
+    right = ws.get(str(args["right"])).frame()
+    keys = [str(k) for k in (args.get("keys") or [])]
+    tolerance = float(args.get("numeric_tolerance", 0.0))
+    issues: dict[str, Any] = {
+        "row_count_delta": len(right) - len(left),
+        "left_only_columns": [str(c) for c in left.columns if c not in right.columns],
+        "right_only_columns": [str(c) for c in right.columns if c not in left.columns],
+    }
+    common = [str(c) for c in left.columns if c in right.columns]
+    mismatch_counts: dict[str, int] = {}
+    diff_rows = pd.DataFrame()
+    if keys:
+        err = _require_cols(left, keys) or _require_cols(right, keys)
+        if err:
+            return {"error": err}
+        if left.duplicated(keys).any() or right.duplicated(keys).any():
+            return {"error": "duplicate_comparison_keys"}
+        merged = left.merge(right, on=keys, how="outer", suffixes=("_left", "_right"), indicator=True)
+        for column in [c for c in common if c not in keys]:
+            lcol, rcol = f"{column}_left", f"{column}_right"
+            if pd.api.types.is_numeric_dtype(left[column]) and pd.api.types.is_numeric_dtype(right[column]):
+                mismatch = ~np.isclose(
+                    pd.to_numeric(merged[lcol], errors="coerce"),
+                    pd.to_numeric(merged[rcol], errors="coerce"),
+                    atol=tolerance,
+                    rtol=0,
+                    equal_nan=True,
+                )
+            else:
+                mismatch = merged[lcol].fillna("<NULL>").astype(str) != merged[rcol].fillna("<NULL>").astype(str)
+            mismatch_counts[column] = int(mismatch.sum())
+        diff_rows = merged.loc[
+            (merged["_merge"] != "both")
+            | pd.Series(False, index=merged.index)
+        ]
+    else:
+        left_hash = pd.util.hash_pandas_object(left[common], index=False).value_counts()
+        right_hash = pd.util.hash_pandas_object(right[common], index=False).value_counts()
+        issues["row_hash_multiset_equal"] = left_hash.equals(right_hash)
+    issues["mismatch_counts"] = mismatch_counts
+    equal = (
+        issues["row_count_delta"] == 0
+        and not issues["left_only_columns"]
+        and not issues["right_only_columns"]
+        and not any(mismatch_counts.values())
+        and issues.get("row_hash_multiset_equal", True)
+    )
+    result = {"equal": equal, **issues}
+    if args.get("save_as") and not diff_rows.empty:
+        result.update(_save(ws, str(args["save_as"]), diff_rows, source="compare_datasets"))
+    return result
+
+
+def op_get_lineage(
+    ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
+) -> dict[str, Any]:
+    ref = str(args.get("ref") or args.get("dataset") or args.get("artifact_id"))
+    node = ws.lineage.get(ref)
+    if node is None:
+        return {"error": f"lineage_not_found:{ref}"}
+    nodes = [node.model_dump()]
+    if bool(args.get("recursive", True)):
+        pending = list(node.parents)
+        seen = {node.node_id}
+        while pending:
+            parent = pending.pop(0)
+            if parent in seen:
+                continue
+            seen.add(parent)
+            parent_node = ws.lineage.get(parent)
+            if parent_node:
+                nodes.append(parent_node.model_dump())
+                pending.extend(parent_node.parents)
+    return {"nodes": nodes}
+
+
 # ----- F. Export -----
+
+
+def _safe_filename(name: str, suffix: str) -> str:
+    value = Path(name).name
+    if value != name or name in {"", ".", ".."} or "/" in name or "\\" in name:
+        raise ValueError("unsafe_filename")
+    value = re.sub(r"[^A-Za-z0-9_. -]", "_", value)[:120]
+    if not value.lower().endswith(suffix):
+        value += suffix
+    return value
+
+
+def _atomic_target(out_dir: Path, filename: str) -> tuple[Path, Path]:
+    out = out_dir.resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    target = (out / filename).resolve()
+    try:
+        target.relative_to(out)
+    except ValueError as exc:
+        raise ValueError("output_path_not_allowed") from exc
+    temp = target.with_name(
+        f".{target.stem}.{os.getpid()}.tmp{target.suffix}"
+    )
+    return target, temp
 
 
 def op_export_csv(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
-    name = str(args.get("filename") or f"{handle.ref}.csv")
-    if not name.endswith(".csv"):
-        name += ".csv"
-    path = out_dir / name
-    handle.frame().to_csv(path, index=False)
+    name = _safe_filename(str(args.get("filename") or f"{handle.ref}.csv"), ".csv")
+    path, temp = _atomic_target(out_dir, name)
+    frame = neutralize_spreadsheet_formulas(handle.frame())
+    frame.to_csv(temp, index=False)
+    temp.replace(path)
     primary = bool(args.get("primary", True))
-    ws.register_artifact(str(path), kind="file", primary=primary)
-    return {"path": str(path), "row_count": int(len(handle.frame())), "artifact": True}
+    record = ws.register_artifact(
+        str(path),
+        kind="csv",
+        primary=primary,
+        source_refs=[handle.ref],
+        metadata={"row_count": len(frame), "columns": [str(c) for c in frame.columns]},
+        validated=True,
+    )
+    return {
+        "path": str(path),
+        "artifact_id": record.artifact_id,
+        "row_count": int(len(frame)),
+        "columns": [str(c) for c in frame.columns],
+        "artifact": True,
+        "sha256": record.sha256,
+    }
 
 
 def op_export_excel(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     sheets = args.get("sheets")  # {sheet_name: dataset_ref}
-    name = str(args.get("filename") or "analysis.xlsx")
-    if not name.endswith(".xlsx"):
-        name += ".xlsx"
-    path = out_dir / name
+    name = _safe_filename(str(args.get("filename") or "analysis.xlsx"), ".xlsx")
+    path, temp = _atomic_target(out_dir, name)
+    source_refs: list[str] = []
     try:
-        with pd.ExcelWriter(path, engine="openpyxl") as writer:
+        with pd.ExcelWriter(temp, engine="openpyxl") as writer:
             if sheets:
                 for sheet, ref in sheets.items():
-                    ws.get(str(ref)).frame().to_excel(writer, sheet_name=str(sheet)[:31], index=False)
+                    source_refs.append(str(ref))
+                    neutralize_spreadsheet_formulas(ws.get(str(ref)).frame()).to_excel(
+                        writer, sheet_name=str(sheet)[:31], index=False
+                    )
             else:
                 ref = str(args["dataset"])
-                ws.get(ref).frame().to_excel(writer, sheet_name="data", index=False)
+                source_refs.append(ref)
+                neutralize_spreadsheet_formulas(ws.get(ref).frame()).to_excel(
+                    writer, sheet_name="data", index=False
+                )
+        temp.replace(path)
     except Exception as exc:  # noqa: BLE001
+        temp.unlink(missing_ok=True)
         return {"error": str(exc)}
-    ws.register_artifact(str(path), kind="excel", primary=bool(args.get("primary", True)))
-    return {"path": str(path), "artifact": True, "kind": "excel"}
+    inspection = inspect_workbook(path)
+    record = ws.register_artifact(
+        str(path),
+        kind="excel",
+        primary=bool(args.get("primary", True)),
+        source_refs=source_refs,
+        sheet_map={str(k): str(v) for k, v in (sheets or {"data": source_refs[0]}).items()},
+        metadata=inspection,
+        validated=True,
+    )
+    return {
+        "path": str(path),
+        "artifact_id": record.artifact_id,
+        "artifact": True,
+        "kind": "excel",
+        "sheets": inspection["sheet_names"],
+        "sha256": record.sha256,
+    }
 
 
 def op_plot_chart(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
@@ -620,45 +923,117 @@ def op_plot_chart(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) ->
     y = str(args["y"])
     kind = str(args.get("kind") or "bar").lower()
     title = str(args.get("title") or "")
+    hue = str(args.get("hue") or "")
     err = _require_cols(df, [x, y])
     if err:
         return {"error": err}
-    name = str(args.get("filename") or f"{handle.ref}_{kind}.png")
-    if not name.endswith(".png"):
-        name += ".png"
-    path = out_dir / name
-    plt.figure(figsize=(10, 6))
+    if kind not in {"bar", "line", "pie", "hist"}:
+        return {"error": f"unsupported_chart_kind:{kind}"}
+    if hue and hue not in df.columns:
+        return {"error": f"missing_columns:['{hue}']"}
+    numeric_y = pd.to_numeric(df[y], errors="coerce")
+    if numeric_y.notna().sum() == 0:
+        return {"error": f"non_numeric_y:{y}"}
+    if kind == "pie" and ((numeric_y.dropna() < 0).any() or numeric_y.fillna(0).sum() <= 0):
+        return {"error": "invalid_pie_values"}
+    name = _safe_filename(
+        str(args.get("filename") or f"{handle.ref}_{kind}.png"), ".png"
+    )
+    path, temp = _atomic_target(out_dir, name)
+    figsize = args.get("figsize") or [10, 6]
+    if not isinstance(figsize, list) or len(figsize) != 2:
+        figsize = [10, 6]
+    plt.figure(figsize=(float(figsize[0]), float(figsize[1])))
     try:
-        if kind == "bar":
-            plt.bar(df[x].astype(str), pd.to_numeric(df[y], errors="coerce"))
+        if hue and kind in {"bar", "line"}:
+            pivot = df.assign(_y=numeric_y).pivot_table(
+                index=x, columns=hue, values="_y", aggfunc="sum"
+            )
+            pivot.plot(kind=kind, ax=plt.gca())
+        elif kind == "bar":
+            plt.bar(df[x].astype(str), numeric_y)
         elif kind == "line":
-            plt.plot(df[x].astype(str), pd.to_numeric(df[y], errors="coerce"))
+            plt.plot(df[x].astype(str), numeric_y)
         elif kind == "pie":
-            plt.pie(pd.to_numeric(df[y], errors="coerce").fillna(0), labels=df[x].astype(str), autopct="%1.1f%%")
+            plt.pie(numeric_y.fillna(0), labels=df[x].astype(str), autopct="%1.1f%%")
         elif kind == "hist":
-            plt.hist(pd.to_numeric(df[y], errors="coerce").dropna())
-        else:
-            plt.bar(df[x].astype(str), pd.to_numeric(df[y], errors="coerce"))
+            plt.hist(numeric_y.dropna())
         if title:
             plt.title(title)
+        if kind != "pie":
+            plt.xlabel(str(args.get("x_label") or x))
+            plt.ylabel(str(args.get("y_label") or y))
+        rotation = int(args.get("rotate_x_labels", 0) or 0)
+        if rotation:
+            plt.xticks(rotation=max(-90, min(rotation, 90)))
         plt.tight_layout()
-        plt.savefig(path)
+        plt.savefig(temp)
+        temp.replace(path)
     finally:
         plt.close()
-    ws.register_artifact(str(path), kind="chart", primary=bool(args.get("primary", True)))
-    return {"path": str(path), "artifact": True, "kind": "chart"}
+        temp.unlink(missing_ok=True)
+    from project_core.domain.analysis.chart_validation import (
+        source_data_fingerprint,
+        validate_chart_artifact,
+    )
+
+    chart_columns = [x, y] + ([hue] if hue else [])
+    chart_source = df[chart_columns]
+    fingerprint = source_data_fingerprint(chart_source)
+    validation = validate_chart_artifact(
+        path,
+        allowed_root=out_dir,
+        source_data=chart_source,
+        expected_source_fingerprint=fingerprint,
+    )
+    if validation.verdict != "pass":
+        path.unlink(missing_ok=True)
+        return {"error": "chart_validation_failed", "issues": validation.issues}
+    record = ws.register_artifact(
+        str(path),
+        kind="chart",
+        primary=bool(args.get("primary", True)),
+        source_refs=[handle.ref],
+        metadata={
+            "chart_spec": {"kind": kind, "x": x, "y": y, "hue": hue or None, "title": title},
+            "row_count": len(df),
+            "columns": [str(c) for c in df.columns],
+            "validation": validation.model_dump(),
+        },
+        validated=True,
+    )
+    return {
+        "path": str(path),
+        "artifact_id": record.artifact_id,
+        "artifact": True,
+        "kind": "chart",
+        "validation": validation.model_dump(),
+    }
 
 
 def op_bundle_deliverables(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
-    paths = [str(p) for p in (args.get("paths") or [])]
-    for p in paths:
-        kind = "excel" if p.endswith(".xlsx") else ("chart" if p.endswith(".png") else "file")
-        ws.register_artifact(p, kind=kind, primary=True)
-    if not paths:
+    artifact_ids = [str(p) for p in (args.get("artifact_ids") or [])]
+    for path in args.get("paths") or []:
+        record = ws.artifact_for_path(str(path))
+        if record is None:
+            return {"error": f"unregistered_artifact:{Path(str(path)).name}"}
+        artifact_ids.append(record.artifact_id)
+    artifact_ids = list(dict.fromkeys(artifact_ids))
+    for artifact_id in artifact_ids:
+        record = ws.get_artifact(artifact_id)
+        record.primary = True
+        if record.path not in ws.primary_artifacts:
+            ws.primary_artifacts.append(record.path)
+    if not artifact_ids:
         # Mark all current artifacts as primary
-        for p in list(ws.artifact_paths):
-            ws.register_artifact(p, primary=True)
-    return {"primary_artifacts": list(ws.primary_artifacts), "artifact_paths": list(ws.artifact_paths)}
+        for record in ws.artifacts.values():
+            record.primary = True
+            if record.path not in ws.primary_artifacts:
+                ws.primary_artifacts.append(record.path)
+    return {
+        "primary_artifacts": list(ws.primary_artifacts),
+        "artifact_ids": [a.artifact_id for a in ws.artifacts.values() if a.primary],
+    }
 
 
 # ----- G. Critic -----
@@ -668,18 +1043,98 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
     brief = args.get("brief") or {}
     metrics = [str(m).lower() for m in (brief.get("metrics") or [])]
     dimensions = [str(d).lower() for d in (brief.get("dimensions") or [])]
+    filter_values = dict(brief.get("filters") or {})
+    filters = [str(k).lower() for k in filter_values]
+    time_range = brief.get("time_range") or {}
     all_cols: set[str] = set()
     total_rows = 0
+    frames: list[pd.DataFrame] = []
     for prof in ws.list_profiles():
         if prof.get("error"):
             continue
         all_cols.update(str(c).lower() for c in (prof.get("columns") or []))
         total_rows += int(prof.get("row_count") or 0)
+        ref = str(prof.get("ref") or "")
+        if ref and ws.has(ref):
+            try:
+                frames.append(ws.get(ref).frame())
+            except Exception:  # noqa: BLE001
+                pass
+
+    semantic_labels: list[str] = []
+    for item in args.get("semantic_labels") or []:
+        if isinstance(item, str):
+            semantic_labels.append(item)
+        elif isinstance(item, dict):
+            semantic_labels.extend(
+                str(value)
+                for key, value in item.items()
+                if key in {"output_name", "semantic_key", "purpose"}
+                and value
+            )
+            source = item.get("source") or {}
+            semantic_labels.extend(
+                str(value) for value in (source.get("physical_columns") or []) if value
+            )
+
+    synonyms = {
+        "qty": "quantity",
+        "quantity": "quantity",
+        "sku": "product",
+        "product": "product",
+        "item": "product",
+        "plu": "product",
+        "trans": "transaction",
+        "transaction": "transaction",
+        "bill": "transaction",
+        "invoice": "transaction",
+        "receipt": "transaction",
+        "amount": "amount",
+        "value": "amount",
+        "revenue": "amount",
+        "sales": "amount",
+        "code": "code",
+        "category": "category",
+        "group": "category",
+        "grp": "category",
+        "date": "time",
+        "time": "time",
+        "day": "time",
+        "month": "time",
+        "year": "time",
+    }
+
+    def _tokens(value: str) -> set[str]:
+        raw = re.findall(r"[a-z0-9]+", value.lower())
+        out: set[str] = set()
+        for token in raw:
+            if token in {"min", "max", "total", "minimum", "maximum"}:
+                continue
+            mapped = synonyms.get(token)
+            if mapped:
+                out.add(mapped)
+                continue
+            for prefix, canonical in synonyms.items():
+                if len(prefix) >= 4 and token.startswith(prefix):
+                    out.add(canonical)
+                    break
+            else:
+                out.add(token)
+        return out
+
+    evidence_labels = sorted(all_cols) + semantic_labels
+    evidence_tokens = [_tokens(label) for label in evidence_labels]
 
     def _present(names: list[str]) -> tuple[list[str], list[str]]:
         found, missing = [], []
         for n in names:
-            if any(n in c or c in n for c in all_cols):
+            needed = _tokens(n)
+            if any(
+                n in label.lower()
+                or label.lower() in n
+                or (needed and needed.issubset(tokens))
+                for label, tokens in zip(evidence_labels, evidence_tokens, strict=True)
+            ):
                 found.append(n)
             else:
                 missing.append(n)
@@ -687,7 +1142,64 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
 
     m_found, m_missing = _present(metrics)
     d_found, d_missing = _present(dimensions)
-    ok = total_rows > 0 and not m_missing
+    f_found, f_missing = _present(filters)
+
+    def _normalize_code(value: Any) -> str:
+        text = re.sub(r"\D", "", str(value))
+        return text.lstrip("0") or "0"
+
+    def _filter_has_value_evidence(name: str, expected: Any) -> bool:
+        needed = _tokens(name)
+        if not frames:
+            return False
+        if "product" in needed:
+            values = expected if isinstance(expected, list) else [expected]
+            wanted = {_normalize_code(value) for value in values}
+            seen: set[str] = set()
+            for frame in frames:
+                for column in frame.columns:
+                    column_tokens = _tokens(str(column))
+                    if "product" not in column_tokens:
+                        continue
+                    seen.update(
+                        _normalize_code(value)
+                        for value in frame[column].dropna().astype(str).head(5_000)
+                    )
+            return bool(wanted) and wanted.issubset(seen)
+        if "amount" in needed and isinstance(expected, (int, float)):
+            for frame in frames:
+                for column in frame.columns:
+                    column_tokens = _tokens(str(column))
+                    if not ({"amount", "transaction"} & column_tokens):
+                        continue
+                    numeric = pd.to_numeric(frame[column], errors="coerce").dropna()
+                    if not numeric.empty and bool((numeric >= float(expected)).all()):
+                        return True
+            return False
+        if "category" in needed:
+            wanted = str(expected).strip().lower()
+            if not wanted:
+                return False
+            for frame in frames:
+                for column in frame.columns:
+                    if "category" not in _tokens(str(column)):
+                        continue
+                    if frame[column].dropna().astype(str).str.lower().str.contains(
+                        re.escape(wanted), regex=True
+                    ).any():
+                        return True
+            return False
+        return False
+
+    for name in list(f_missing):
+        if _filter_has_value_evidence(name, filter_values.get(name)):
+            f_missing.remove(name)
+            f_found.append(name)
+
+    needs_time = bool(time_range.get("start") or time_range.get("end") or time_range.get("grain"))
+    time_columns = [label for label, tokens in zip(evidence_labels, evidence_tokens, strict=True) if "time" in tokens]
+    time_ok = not needs_time or bool(time_columns)
+    ok = total_rows > 0 and not m_missing and not d_missing and not f_missing and time_ok
     return {
         "ok": ok,
         "total_rows": total_rows,
@@ -696,6 +1208,11 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
         "metrics_missing": m_missing,
         "dimensions_found": d_found,
         "dimensions_missing": d_missing,
+        "filters_found": f_found,
+        "filters_missing": f_missing,
+        "time_required": needs_time,
+        "time_columns": sorted(time_columns),
+        "time_covered": time_ok,
         "issue": None if ok else ("empty_result" if total_rows <= 0 else "insufficient_deliverable"),
     }
 
@@ -774,6 +1291,12 @@ HANDLERS: dict[str, OpHandler] = {
     "join_datasets": op_join_datasets,
     "concat_datasets": op_concat_datasets,
     "set_compare": op_set_compare,
+    "load_tabular": op_load_tabular,
+    "reload_artifact": op_reload_artifact,
+    "inspect_excel": op_inspect_excel,
+    "validate_export": op_validate_export,
+    "compare_datasets": op_compare_datasets,
+    "get_lineage": op_get_lineage,
     "export_csv": op_export_csv,
     "export_excel": op_export_excel,
     "plot_chart": op_plot_chart,

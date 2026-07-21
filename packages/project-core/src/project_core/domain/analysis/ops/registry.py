@@ -41,6 +41,12 @@ OP_CATALOG: dict[str, str] = {
     "join_datasets": "Join two datasets",
     "concat_datasets": "Concatenate datasets",
     "set_compare": "left_only / right_only / both on keys",
+    "load_tabular": "Load an allowlisted parquet/CSV/XLSX source into the working set",
+    "reload_artifact": "Reload a registered CSV/XLSX artifact as a dataset",
+    "inspect_excel": "Inspect workbook sheets, headers, shapes and samples",
+    "validate_export": "Reopen and validate a registered export against its source",
+    "compare_datasets": "Compare datasets by keys or row-hash multiset",
+    "get_lineage": "Return dataset/artifact lineage",
     "export_csv": "Write CSV under out/",
     "export_excel": "Write Excel (optional multi-sheet map)",
     "plot_chart": "Write PNG chart bar|line|pie|hist",
@@ -48,6 +54,90 @@ OP_CATALOG: dict[str, str] = {
     "match_brief_coverage": "Compare brief metrics/dims vs available columns",
     "detect_empty_after_filter": "Flag empty dataset for feedback",
     "grain_check": "Check one-row-per-key vs many grain",
+}
+
+REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
+    "describe_columns": ("dataset",),
+    "head_rows": ("dataset",),
+    "sample_rows": ("dataset",),
+    "value_counts": ("dataset", "column"),
+    "null_report": ("dataset",),
+    "assert_nonempty": ("dataset",),
+    "assert_columns_present": ("dataset", "columns"),
+    "select_columns": ("dataset", "columns"),
+    "rename_columns": ("dataset", "mapping"),
+    "drop_columns": ("dataset", "columns"),
+    "cast_column": ("dataset", "column", "to"),
+    "add_column_expr": ("dataset", "name", "expr"),
+    "fill_null": ("dataset",),
+    "drop_null": ("dataset",),
+    "filter_rows": ("dataset",),
+    "sort_rows": ("dataset", "by"),
+    "limit_rows": ("dataset",),
+    "distinct_rows": ("dataset",),
+    "drop_duplicates": ("dataset",),
+    "groupby_agg": ("dataset", "by", "aggs"),
+    "pivot_table": ("dataset",),
+    "melt": ("dataset",),
+    "window_rank": ("dataset", "order_by"),
+    "top_n_per_group": ("dataset", "partition_by", "order_by"),
+    "percent_of_total": ("dataset", "column"),
+    "cumulative_sum": ("dataset", "column"),
+    "join_datasets": ("left", "right"),
+    "concat_datasets": ("datasets",),
+    "set_compare": ("left", "right"),
+    "export_csv": ("dataset",),
+    "export_excel": (),
+    "plot_chart": ("dataset", "x", "y"),
+    "load_tabular": ("source_ref",),
+    "reload_artifact": ("artifact_id",),
+    "inspect_excel": (),
+    "validate_export": ("artifact_id",),
+    "compare_datasets": ("left", "right"),
+    "get_lineage": (),
+}
+
+MUTATING_OPS = {
+    "select_columns", "rename_columns", "drop_columns", "cast_column",
+    "add_column_expr", "fill_null", "drop_null", "filter_rows", "sort_rows",
+    "limit_rows", "distinct_rows", "drop_duplicates", "groupby_agg",
+    "pivot_table", "melt", "window_rank", "top_n_per_group",
+    "percent_of_total", "cumulative_sum", "join_datasets", "concat_datasets",
+    "set_compare", "load_tabular", "reload_artifact",
+}
+
+
+@dataclass(frozen=True)
+class OpSpec:
+    op_id: str
+    description: str
+    required_args: tuple[str, ...] = ()
+    mutates_working_set: bool = False
+    output_kind: str = "observation"
+
+    def for_prompt(self) -> dict[str, Any]:
+        return {
+            "op_id": self.op_id,
+            "description": self.description,
+            "args_schema": {
+                "type": "object",
+                "required": list(self.required_args),
+                "additionalProperties": True,
+            },
+            "mutates_working_set": self.mutates_working_set,
+            "output_kind": self.output_kind,
+        }
+
+
+OP_SPECS: dict[str, OpSpec] = {
+    op_id: OpSpec(
+        op_id=op_id,
+        description=description,
+        required_args=REQUIRED_ARGS.get(op_id, ()),
+        mutates_working_set=op_id in MUTATING_OPS,
+        output_kind="artifact" if op_id.startswith("export_") or op_id == "plot_chart" else "observation",
+    )
+    for op_id, description in OP_CATALOG.items()
 }
 
 
@@ -82,6 +172,15 @@ def execute_op(
         return OpResult(op_id=op_id, status="error", error=f"unknown_op:{op_id}")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    ws.set_output_root(out)
+    spec = OP_SPECS.get(op_id)
+    missing = [name for name in (spec.required_args if spec else ()) if name not in args]
+    if op_id == "export_excel" and not args.get("dataset") and not args.get("sheets"):
+        missing.append("dataset_or_sheets")
+    if op_id == "inspect_excel" and not args.get("source_ref") and not args.get("artifact_id"):
+        missing.append("source_ref_or_artifact_id")
+    if missing:
+        return OpResult(op_id=op_id, status="error", error=f"missing_args:{missing}")
     # Inject save_as from top-level if provided alongside args
     try:
         raw = HANDLERS[op_id](ws, args, out)
@@ -94,5 +193,5 @@ def execute_op(
     return OpResult(op_id=op_id, status="ok", result=raw if isinstance(raw, dict) else {"value": raw})
 
 
-def catalog_for_prompt() -> list[dict[str, str]]:
-    return [{"op_id": k, "description": v} for k, v in sorted(OP_CATALOG.items())]
+def catalog_for_prompt() -> list[dict[str, Any]]:
+    return [OP_SPECS[k].for_prompt() for k in sorted(OP_SPECS)]

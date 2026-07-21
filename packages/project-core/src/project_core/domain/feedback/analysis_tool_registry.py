@@ -12,6 +12,28 @@ from project_core.domain.contracts.analysis_plan import RecipeCandidate, RecipeS
 from project_core.domain.sql.analysis_script_parameterizer import build_tool_record
 
 
+def _clean_op_chain(steps: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    cleaned: list[dict[str, Any]] = []
+    for raw in steps or []:
+        if not isinstance(raw, dict) or not raw.get("op_id"):
+            continue
+        # Runtime observations are not reusable recipe steps.
+        if raw.get("status") is not None and not any(
+            key in raw for key in ("args", "dataset", "save_as")
+        ):
+            continue
+        step: dict[str, Any] = {
+            "op_id": str(raw["op_id"]),
+            "args": dict(raw.get("args") or {}),
+        }
+        if raw.get("dataset") is not None:
+            step["dataset"] = raw["dataset"]
+        if raw.get("save_as") is not None:
+            step["save_as"] = raw["save_as"]
+        cleaned.append(step)
+    return cleaned
+
+
 def apply_params_to_script(script: str, params: dict[str, Any]) -> str:
     out = script
     for key, value in params.items():
@@ -72,11 +94,13 @@ class AnalysisToolRegistry:
         metrics: dict[str, Any],
         params: list[dict[str, Any]] | None = None,
         steps: list[dict[str, Any]] | None = None,
+        verification: dict[str, Any] | None = None,
         parent_tool_id: str | None = None,
     ) -> str:
         if not steps and self.find_similar_intent(intent):
             return str(self.find_similar_intent(intent)["tool_id"])
 
+        clean_chain = _clean_op_chain(steps)
         record = build_tool_record(
             name=name,
             intent_pattern=intent,
@@ -85,8 +109,22 @@ class AnalysisToolRegistry:
             output_schema={"artifacts": artifacts, "metrics": list(metrics.keys())},
             trace_id=trace_id,
             parent_tool_id=parent_tool_id,
-            steps=steps,
+            steps=clean_chain or None,
         )
+        if steps is not None:
+            record["kind"] = "catalog_op_chain"
+            record["op_chain"] = clean_chain
+            record["verification_semantics"] = {
+                "has_export": any(
+                    step["op_id"] in {"export_csv", "export_excel", "plot_chart"}
+                    for step in clean_chain
+                ),
+                "verified": bool(
+                    verification
+                    and verification.get("status") == "passed"
+                    and verification.get("revision") is not None
+                ),
+            }
         record["created_at"] = datetime.utcnow()
         record = self._attach_embedding(record)
         self.collection.update_one({"tool_id": record["tool_id"]}, {"$set": record}, upsert=True)
@@ -117,6 +155,11 @@ class AnalysisToolRegistry:
         return record["tool_id"]
 
     def promote(self, tool_id: str) -> None:
+        tool = self.collection.find_one({"tool_id": tool_id})
+        if tool and tool.get("kind") == "catalog_op_chain":
+            semantics = tool.get("verification_semantics") or {}
+            if not tool.get("op_chain") or not semantics.get("has_export") or not semantics.get("verified"):
+                raise ValueError("catalog_recipe_requires_verified_export_semantics")
         self.collection.update_one(
             {"tool_id": tool_id},
             {"$set": {"status": "promoted", "promote_score": 1.0, "promoted_at": datetime.utcnow()}},

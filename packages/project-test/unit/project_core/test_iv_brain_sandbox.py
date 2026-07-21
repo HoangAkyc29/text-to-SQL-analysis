@@ -74,7 +74,7 @@ def test_iv_brain_run_op_exports(tmp_path, monkeypatch):
         profile_name="analyst",
         system_prompt="x",
     )
-    assert payload["action"] == "complete"
+    assert payload["action"] == "complete", payload
     assert payload["artifact_paths"]
     assert Path(payload["artifact_paths"][0]).exists()
 
@@ -155,3 +155,369 @@ def test_analysis_planner_logs_preview_on_invalid_json(caplog):
         with pytest.raises(json.JSONDecodeError):
             planner.next_decision({"x": 1})
     assert "invalid JSON content preview" in caplog.text
+
+
+def test_iv_reasoning_state_seeds_checklist_and_invalidates_verification():
+    from project_core.domain.contracts.brief import AnalysisBrief
+    from project_core.domain.contracts.iv_reasoning import (
+        IVReasoningPhase,
+        IVReasoningState,
+        IVVerificationStatus,
+    )
+
+    state = IVReasoningState.from_brief(
+        AnalysisBrief(
+            intent="compare",
+            metrics=["qty"],
+            dimensions=["store"],
+            output_format=["chart"],
+        )
+    )
+    assert {item.item_id for item in state.checklist} == {
+        "intent",
+        "metric:0",
+        "dimension:0",
+        "format:0",
+    }
+    state.advance_to(IVReasoningPhase.VERIFY)
+    state.record_verification(
+        passed=True,
+        artifact_checks={"out.csv": True},
+        coverage_gaps=[],
+        checked_items=["intent"],
+    )
+    state.record_mutation("filter_rows")
+    assert state.phase == IVReasoningPhase.EXECUTE
+    assert state.revision.number == 1
+    assert state.verification.status == IVVerificationStatus.UNVERIFIED
+
+
+def test_iv_brain_direct_finalize_requires_coverage(tmp_path, monkeypatch):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    path = tmp_path / "q.parquet"
+    pd.DataFrame({"other": [1]}).to_parquet(path, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *args, **kwargs):
+            self.tokens = 0
+
+        def next_decision(self, state):
+            return {"decision": "finalize", "status": "complete"}
+
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(intent="test", metrics=["requested_metric"]),
+        manifest={"queries": [{"path": str(path), "row_count": 1}]},
+        profile={"row_count": 1},
+        out_dir=str(out),
+        max_steps=1,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert payload["action"] == "data_feedback"
+    assert "missing_metric:requested_metric" in payload["reasoning_state"]["verification"][
+        "coverage_gaps"
+    ]
+    assert payload["headline_metrics"]["row_count"] == 1
+    assert payload["artifact_manifests"]
+    assert payload["artifact_manifests"][0]["validation_status"] == "valid"
+
+
+def test_iv_brain_planner_turn_budget_is_separate_from_op_count(tmp_path, monkeypatch):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    path = tmp_path / "q.parquet"
+    pd.DataFrame({"qty": [1, 2]}).to_parquet(path, index=False)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *args, **kwargs):
+            self.tokens = 0
+            self.calls = 0
+
+        def next_decision(self, state):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "decision": "run_op",
+                    "op": {
+                        "kind": "recipe",
+                        "steps": [
+                            {
+                                "op_id": "select_columns",
+                                "dataset": "q0",
+                                "save_as": "selected",
+                                "args": {"columns": ["qty"]},
+                            },
+                            {
+                                "op_id": "export_csv",
+                                "dataset": "selected",
+                                "args": {"filename": "summary.csv", "primary": True},
+                            },
+                        ],
+                    },
+                }
+            return {"decision": "finalize", "status": "complete"}
+
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(intent="test", metrics=["qty"], output_format=["table"]),
+        manifest={"queries": [{"path": str(path), "row_count": 2}]},
+        profile={"row_count": 2},
+        out_dir=str(out),
+        max_steps=2,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert payload["action"] == "complete"
+    assert payload["planner_turns"] == 2
+    # Two planner ops plus coverage and export-reload verification checks.
+    assert payload["sandbox_steps"] == 4
+    assert payload["reasoning_state"]["analysis_ops"] == 2
+
+
+def test_iv_brain_multi_deliverable_workbook_is_reloaded_and_counted(
+    tmp_path, monkeypatch
+):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    source = tmp_path / "gift.parquet"
+    rows = [
+        {"sku": f"S{index % 3}", "bill": f"B{index:02}", "qty": 1}
+        for index in range(15)
+    ]
+    pd.DataFrame(rows).to_parquet(source)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *_args, **_kwargs):
+            self.tokens = 0
+            self.calls = 0
+
+        def next_decision(self, _state):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "decision": "run_op",
+                    "op": {
+                        "op_id": "groupby_agg",
+                        "dataset": "q0",
+                        "save_as": "summary",
+                        "args": {
+                            "by": ["sku"],
+                            "aggs": [{"column": "qty", "fn": "sum", "as": "qty"}],
+                        },
+                    },
+                }
+            if self.calls == 2:
+                return {
+                    "decision": "run_op",
+                    "op": {
+                        "op_id": "export_excel",
+                        "args": {
+                            "filename": "gift.xlsx",
+                            "sheets": {"summary": "summary", "detail": "q0"},
+                            "primary": True,
+                        },
+                    },
+                }
+            return {"decision": "finalize", "status": "complete"}
+
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(
+            intent="summary and detail",
+            metrics=["qty"],
+            dimensions=["sku"],
+            output_format=["excel"],
+        ),
+        manifest={"queries": [{"path": str(source), "row_count": 15}]},
+        profile={"row_count": 15},
+        out_dir=str(out),
+        max_steps=4,
+        max_planner_turns=6,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert payload["action"] == "complete", payload
+    assert payload["headline_metrics"]["row_count"] == 15
+    assert sorted(payload["headline_metrics"]["artifact_rows"].values()) == [3, 15]
+    workbook = pd.ExcelFile(payload["artifact_paths"][0])
+    assert workbook.sheet_names == ["summary", "detail"]
+    assert len(pd.read_excel(workbook, sheet_name="summary")) == 3
+    assert len(pd.read_excel(workbook, sheet_name="detail")) == 15
+
+
+def test_iv_brain_replots_chart_at_most_from_structured_review(tmp_path, monkeypatch):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+    from project_core.domain.contracts.plot_review import PlotFixArgs, PlotReviewResult
+
+    source = tmp_path / "chart.parquet"
+    pd.DataFrame({"label": ["A", "B"], "value": [1, 2]}).to_parquet(source)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *_args, **_kwargs):
+            self.tokens = 0
+            self.calls = 0
+
+        def next_decision(self, _state):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "decision": "run_op",
+                    "op": {
+                        "op_id": "plot_chart",
+                        "dataset": "q0",
+                        "args": {
+                            "x": "label",
+                            "y": "value",
+                            "kind": "bar",
+                            "filename": "chart.png",
+                        },
+                    },
+                }
+            return {"decision": "finalize", "status": "complete"}
+
+    class FakeReviewer:
+        def __init__(self, *_args, **_kwargs):
+            self.calls = 0
+
+        def review(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return PlotReviewResult(
+                    verdict="replot",
+                    issues=["labels_too_dense"],
+                    fix_args=PlotFixArgs(rotate_x_labels=45, width=12, height=6),
+                )
+            return PlotReviewResult(verdict="pass", issues=[], vision_available=True)
+
+    fake_reviewer = FakeReviewer()
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    monkeypatch.setattr(iv_brain, "ChartReviewer", lambda **_kwargs: fake_reviewer)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(
+            intent="chart",
+            metrics=["value"],
+            dimensions=["label"],
+            output_format=["chart"],
+            chart_spec={"kind": "bar"},
+        ),
+        manifest={"queries": [{"path": str(source), "row_count": 2}]},
+        profile={"row_count": 2},
+        out_dir=str(out),
+        max_steps=4,
+        max_planner_turns=5,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert fake_reviewer.calls == 2
+    assert payload["action"] == "complete", payload
+    assert len(payload["visual_reviews"]) == 2
+    assert payload["visual_reviews"][0]["verdict"] == "replot"
+    assert payload["visual_reviews"][1]["verdict"] == "pass"
+    assert Path(payload["chart_artifacts"][-1]).name == "chart_reviewed_1.png"
+
+
+def test_iv_brain_accepts_direct_catalog_action_and_registered_bundle(
+    tmp_path, monkeypatch
+):
+    from project_core.domain.access.context_policy import ContextPolicy
+    from project_core.domain.analysis import iv_brain
+    from project_core.domain.contracts.brief import AnalysisBrief
+
+    source = tmp_path / "direct.parquet"
+    pd.DataFrame({"qty": [1, 2]}).to_parquet(source)
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class FakePlanner:
+        def __init__(self, *_args, **_kwargs):
+            self.tokens = 0
+            self.calls = 0
+
+        def next_decision(self, state):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "decision": "cast_column",
+                    "dataset": "q0",
+                    "column": "qty",
+                    "to": "float",
+                    "save_as": "casted",
+                }
+            if self.calls == 2:
+                return {
+                    "decision": "export_csv",
+                    "args": {
+                        "dataset": "casted",
+                        "filename": "direct.csv",
+                        "primary": False,
+                    },
+                }
+            if self.calls == 3:
+                return {
+                    "decision": "bundle_deliverables",
+                    "paths": state["artifacts"],
+                }
+            return {"decision": "finalize", "status": "complete"}
+
+    monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
+    payload = iv_brain.run_analysis_brain(
+        brief=AnalysisBrief(intent="direct", metrics=["qty"], output_format=["table"]),
+        manifest={"queries": [{"path": str(source), "row_count": 2}]},
+        profile={"row_count": 2},
+        out_dir=str(out),
+        max_steps=4,
+        max_planner_turns=6,
+        query_meta=[{"role": "main"}],
+        recipe_candidates=[],
+        domain_rules_excerpt="",
+        permissions=_perms(),
+        context_policy=ContextPolicy(),
+        llm=object(),
+        profile_name="analyst",
+        system_prompt="x",
+    )
+    assert payload["action"] == "complete", payload
+    assert "unknown_decision:bundle_deliverables" not in payload["caveats"]
+    assert payload["artifact_manifests"][0]["primary"] is True

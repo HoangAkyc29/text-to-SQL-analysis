@@ -177,3 +177,52 @@ def test_decompose_heuristic_unchanged_with_stub():
     brief = AnalysisBrief(intent="So sánh doanh thu VIP và tồn kho theo cửa hàng Q1 vs Q2", metrics=["revenue"])
     assert decompose_brief(brief).is_decomposed is True
     assert decompose_brief_heuristic(brief).is_decomposed is True
+
+
+def test_catalog_recipe_strips_observations_and_requires_verified_export():
+    class FakeCursor(list):
+        def limit(self, limit):
+            return self[:limit]
+
+    class FakeCol:
+        def __init__(self):
+            self.docs = {}
+
+        def find(self, _query):
+            return FakeCursor(self.docs.values())
+
+        def find_one(self, query):
+            return self.docs.get(query.get("tool_id"))
+
+        def update_one(self, filt, update, upsert=False):
+            tool_id = filt.get("tool_id")
+            doc = self.docs.get(tool_id, {})
+            doc.update(update.get("$set", {}))
+            self.docs[tool_id] = doc
+
+    col = FakeCol()
+    registry = AnalysisToolRegistry(col)
+    tool_id = registry.stage_from_run(
+        name="verified_chain",
+        intent="generic analysis",
+        script="",
+        trace_id="trace",
+        datasets=[],
+        artifacts=["result.csv"],
+        metrics={"row_count": 2},
+        steps=[
+            {"op_id": "select_columns", "status": "ok"},
+            {
+                "op_id": "export_csv",
+                "status": "ok",
+                "args": {"dataset": "selected", "filename": "result.csv"},
+                "dataset": "selected",
+            },
+        ],
+        verification={"status": "passed", "revision": 2},
+    )
+    record = col.find_one({"tool_id": tool_id})
+    assert [step["op_id"] for step in record["op_chain"]] == ["export_csv"]
+    assert "status" not in record["op_chain"][0]
+    registry.promote(tool_id)
+    assert col.find_one({"tool_id": tool_id})["status"] == "promoted"

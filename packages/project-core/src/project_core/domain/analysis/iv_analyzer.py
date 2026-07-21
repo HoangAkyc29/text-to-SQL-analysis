@@ -220,10 +220,24 @@ def _merge_external_paths(
     while len(meta) < len(paths):
         meta.append({"role": "main"})
     for ext in brief.external_sources or []:
-        pp = getattr(ext, "parquet_path", None) or getattr(ext, "path", None)
+        assets = list(getattr(ext, "datasets", None) or [])
+        if assets:
+            for asset in assets:
+                if asset.path and Path(str(asset.path)).exists():
+                    paths.append(str(asset.path))
+                    meta.append(
+                        {
+                            "role": "external",
+                            "source": "upload",
+                            "source_id": ext.file_id,
+                            "sheet_name": asset.sheet_name,
+                        }
+                    )
+            continue
+        pp = getattr(ext, "parquet_path", None)
         if pp and Path(str(pp)).exists():
             paths.append(str(pp))
-            meta.append({"role": "external", "source": "upload"})
+            meta.append({"role": "external", "source": "upload", "source_id": ext.file_id})
     return paths, meta
 
 

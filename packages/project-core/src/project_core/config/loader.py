@@ -18,12 +18,18 @@ class PipelineConfig(BaseModel):
     max_clarify_rounds: int = 3
     max_sync_seconds: int = 120
     iv_max_steps: int = 8
+    iv_max_planner_turns: int = 12
     iv_llm_enabled: bool = True
     best_effort_on_exhaust: bool = True
     poll_enabled: bool = True
     workflow_stale_ttl_seconds: int = 900
     workflow_steps_max: int = 200
     workflow_steps_scope: str = "analysis"
+    review_all_images: bool = True
+    vision_review_timeout_seconds: float = Field(default=60.0, gt=0)
+    vision_review_max_attempts: int = Field(default=2, ge=1, le=5)
+    vision_review_max_image_bytes: int = Field(default=8_388_608, gt=0)
+    vision_review_max_image_pixels: int = Field(default=20_000_000, gt=0)
 
 
 class ClarificationConfig(BaseModel):

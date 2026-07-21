@@ -8,12 +8,18 @@ pipeline:
   max_clarify_rounds: 3
   max_sync_seconds: 1200
   iv_max_steps: 8
+  iv_max_planner_turns: 12
   iv_llm_enabled: true
   best_effort_on_exhaust: true
   poll_enabled: true
   workflow_stale_ttl_seconds: 900
   workflow_steps_max: 200
   workflow_steps_scope: analysis
+  review_all_images: true
+  vision_review_timeout_seconds: 60
+  vision_review_max_attempts: 2
+  vision_review_max_image_bytes: 8388608
+  vision_review_max_image_pixels: 20000000
 
 clarification:
   hard_enforce: true

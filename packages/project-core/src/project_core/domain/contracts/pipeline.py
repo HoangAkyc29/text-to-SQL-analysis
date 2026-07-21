@@ -6,13 +6,14 @@ from pydantic import BaseModel, Field
 
 from project_core.domain.contracts.brief import TechnicalSummary
 from project_core.domain.contracts.clarification import ClarificationRequest
+from project_core.domain.contracts.datasets import ArtifactRecord, DatasetManifestEntry
 from project_core.domain.contracts.workflow import WorkflowStep
 
 
 class QueryResultFile(BaseModel):
     query_index: int
     path: str
-    format: Literal["parquet", "csv", "json"] = "parquet"
+    format: Literal["parquet", "csv", "xlsx", "json"] = "parquet"
     row_count: int = 0
     columns: list[str] = Field(default_factory=list)
 
@@ -20,6 +21,8 @@ class QueryResultFile(BaseModel):
 class ExtractedDataset(BaseModel):
     trace_id: str
     queries: list[QueryResultFile] = Field(default_factory=list)
+    datasets: list[DatasetManifestEntry] = Field(default_factory=list)
+    artifact_inputs: list[ArtifactRecord] = Field(default_factory=list)
 
 
 class ColumnStat(BaseModel):

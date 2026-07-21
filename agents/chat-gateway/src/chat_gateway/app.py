@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
+import re
 from typing import Any
 
 import httpx
@@ -217,7 +219,10 @@ def feedback(body: FeedbackRequest, user: dict[str, Any] = Depends(current_user)
 
 @app.get("/analysis/{analysis_id}/status")
 def analysis_status(analysis_id: str, user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
-    return get_orchestrator().analysis_status(analysis_id)
+    result = get_orchestrator().analysis_status(analysis_id, actor_id=str(user["sub"]))
+    if result.get("status") == "forbidden":
+        raise HTTPException(status_code=403, detail="forbidden")
+    return result
 
 
 @app.get("/artifacts/{trace_id}/{file_name}")
@@ -227,11 +232,53 @@ def get_artifact(
     session_id: str | None = None,
     user: dict[str, Any] = Depends(current_user),
 ) -> FileResponse:
-    if ".." in file_name or "/" in file_name or "\\" in file_name:
+    if (
+        not re.fullmatch(r"[A-Za-z0-9-]{16,64}", trace_id)
+        or ".." in file_name
+        or "/" in file_name
+        or "\\" in file_name
+        or Path(file_name).name != file_name
+    ):
         raise HTTPException(status_code=400, detail="invalid_path")
-    base = Path(os.getenv("ARTIFACTS_DIR", "data/artifacts")) / trace_id / "out"
-    path = base / file_name
-    if not path.exists():
+    root = Path(os.getenv("ARTIFACTS_DIR", "data/artifacts")).resolve()
+    trace_root = (root / trace_id).resolve()
+    try:
+        trace_root.relative_to(root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_path") from exc
+    owner_path = trace_root / "owner.json"
+    if not owner_path.exists():
+        raise HTTPException(status_code=403, detail="trace_owner_unknown")
+    try:
+        owner = json.loads(owner_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=403, detail="trace_owner_invalid") from exc
+    if str(owner.get("actor_id")) != str(user["sub"]):
+        raise HTTPException(status_code=403, detail="forbidden")
+    base = (trace_root / "out").resolve()
+    resolved_name = file_name
+    artifact_manifest = trace_root / "artifact_manifest.json"
+    if artifact_manifest.exists():
+        try:
+            records = json.loads(artifact_manifest.read_text(encoding="utf-8"))
+            match = next(
+                (
+                    item
+                    for item in records
+                    if str(item.get("artifact_id")) == file_name
+                ),
+                None,
+            )
+            if match:
+                resolved_name = Path(str(match.get("path") or "")).name
+        except Exception:
+            pass
+    path = (base / resolved_name).resolve()
+    try:
+        path.relative_to(base)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_path") from exc
+    if not path.exists() or not path.is_file() or path.is_symlink():
         raise HTTPException(status_code=404, detail="not_found")
     if session_id:
         get_orchestrator().record_artifact_download(session_id, trace_id)

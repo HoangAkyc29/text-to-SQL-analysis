@@ -29,10 +29,15 @@ class DataAnalystService(SupermarketAgentService):
         brief = AnalysisBrief.model_validate(brief_data)
         query_meta = payload_in.get("query_meta") or meta.get("query_meta") or []
         out_dir = payload_in.get("out_dir") or meta.get("out_dir") or "data/artifacts/out"
-        max_steps = int(
+        max_ops = int(
             payload_in.get("max_steps")
             or meta.get("max_steps")
             or load_project_config().pipeline.iv_max_steps
+        )
+        max_planner_turns = int(
+            payload_in.get("max_planner_turns")
+            or meta.get("max_planner_turns")
+            or load_project_config().pipeline.iv_max_planner_turns
         )
         analysis_tools = payload_in.get("analysis_tools") or meta.get("analysis_tools") or []
         recipe_candidates = payload_in.get("recipe_candidates") or meta.get("recipe_candidates") or []
@@ -76,12 +81,15 @@ class DataAnalystService(SupermarketAgentService):
                 manifest=manifest,
                 profile=profile,
                 out_dir=out_dir,
-                max_steps=max_steps,
+                max_steps=max_ops,
+                max_planner_turns=max_planner_turns,
                 query_meta=query_meta,
                 recipe_candidates=recipe_candidates,
                 domain_rules_excerpt=domain_rules_excerpt,
                 output_table_semantics=output_table_semantics,
                 output_column_semantics=output_column_semantics,
+                analysis_plan=analysis_plan,
+                execution_plan=execution_plan,
                 permissions=permissions,
             )
             if brain_payload is not None:
@@ -106,7 +114,7 @@ class DataAnalystService(SupermarketAgentService):
             manifest=manifest,
             profile=profile,
             out_dir=out_dir,
-            max_steps=max_steps,
+            max_steps=max_ops,
             query_meta=query_meta,
             analysis_tools=analysis_tools,
             recipe_candidates=recipe_candidates,
@@ -131,11 +139,14 @@ class DataAnalystService(SupermarketAgentService):
         profile: dict[str, Any],
         out_dir: str,
         max_steps: int,
+        max_planner_turns: int,
         query_meta: list[dict[str, Any]],
         recipe_candidates: list[dict[str, Any]],
         domain_rules_excerpt: str,
         output_table_semantics: list[dict[str, Any]],
         output_column_semantics: list[dict[str, Any]],
+        analysis_plan: dict[str, Any] | None,
+        execution_plan: dict[str, Any] | None,
         permissions: Any,
     ) -> dict[str, Any] | None:
         """Run the Agent IV reasoning loop; return None to trigger fallback."""
@@ -150,11 +161,14 @@ class DataAnalystService(SupermarketAgentService):
                 profile=profile,
                 out_dir=out_dir,
                 max_steps=max_steps,
+                max_planner_turns=max_planner_turns,
                 query_meta=query_meta,
                 recipe_candidates=recipe_candidates,
                 domain_rules_excerpt=domain_rules_excerpt,
                 output_table_semantics=output_table_semantics,
                 output_column_semantics=output_column_semantics,
+                analysis_plan=analysis_plan,
+                execution_plan=execution_plan,
                 permissions=permissions,
                 context_policy=self.context_policy,
                 llm=OpenRouterClient(),

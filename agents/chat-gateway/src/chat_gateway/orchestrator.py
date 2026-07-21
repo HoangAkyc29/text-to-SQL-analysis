@@ -284,11 +284,13 @@ class ChatOrchestrator:
         bundle.workflow.brief = brief
         self.stm.save_workflow(session_id, bundle.workflow)
 
-    def analysis_status(self, analysis_id: str) -> dict[str, Any]:
+    def analysis_status(self, analysis_id: str, *, actor_id: str | None = None) -> dict[str, Any]:
         found = self.stm.find_by_analysis_id(analysis_id)
         if not found:
             return {"analysis_id": analysis_id, "status": "not_found"}
         session_id, workflow = found
+        if actor_id is not None and str(workflow.actor_id) != str(actor_id):
+            return {"analysis_id": analysis_id, "status": "forbidden"}
         return {
             "analysis_id": analysis_id,
             "session_id": session_id,

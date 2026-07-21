@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
+from project_core.domain.analysis.chart_reviewer import ChartReviewer
 from project_core.domain.analysis.iv_analyzer import (
     _empty_feedback,
     _identifier_mismatch_feedback,
@@ -22,10 +23,16 @@ from project_core.domain.analysis.iv_sufficiency import (
     assess_sufficiency,
     insufficiency_data_feedback,
 )
-from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
+from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op, list_op_ids
 from project_core.domain.analysis.ops.registry import catalog_for_prompt
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.brief import AnalysisBrief
+from project_core.domain.contracts.iv_reasoning import (
+    IVChecklistStatus,
+    IVReasoningPhase,
+    IVReasoningState,
+)
+from project_core.config.loader import load_project_config
 
 if TYPE_CHECKING:
     from project_core.domain.access.context_policy import ContextPolicy
@@ -33,6 +40,20 @@ if TYPE_CHECKING:
     from project_core.llm.openrouter_client import OpenRouterClient
 
 logger = logging.getLogger(__name__)
+
+_NON_MUTATING_OPS = {
+    "list_datasets",
+    "describe_columns",
+    "head_rows",
+    "sample_rows",
+    "value_counts",
+    "null_report",
+    "assert_nonempty",
+    "assert_columns_present",
+    "match_brief_coverage",
+    "detect_empty_after_filter",
+    "grain_check",
+}
 
 
 class AnalysisPlanner:
@@ -82,6 +103,9 @@ def run_analysis_brain(
     system_prompt: str,
     output_table_semantics: list[dict[str, Any]] | None = None,
     output_column_semantics: list[dict[str, Any]] | None = None,
+    analysis_plan: dict[str, Any] | None = None,
+    execution_plan: dict[str, Any] | None = None,
+    max_planner_turns: int | None = None,
 ) -> dict[str, Any]:
     """Bounded LLM loop that only invokes catalog ops (never free-form scripts)."""
     paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
@@ -136,7 +160,131 @@ def run_analysis_brain(
     steps_trace: list[dict[str, Any]] = []
     caveats: list[str] = []
     headline_metrics: dict[str, Any] = {"row_count": profile.get("row_count", 0)}
-    steps_run = 0
+    reasoning = IVReasoningState.from_brief(brief)
+    op_budget = max(1, int(max_steps))
+    planner_budget = max(
+        5,
+        int(
+            max_planner_turns
+            or load_project_config().pipeline.iv_max_planner_turns
+        ),
+    )
+    effective_analysis_plan = analysis_plan or {
+        "source": "deterministic_brief_checklist",
+        "subtasks": [
+            {
+                "subtask_id": item.item_id,
+                "requirement": item.requirement,
+                "category": item.category,
+            }
+            for item in reasoning.checklist
+        ],
+    }
+    visual_reviews: list[dict[str, Any]] = []
+    reviewed_images: set[str] = set()
+    reviewer = ChartReviewer(llm=llm) if load_project_config().pipeline.review_all_images else None
+    if reviewer is not None:
+        for ext in brief.external_sources or []:
+            if not str(getattr(ext, "mime", "")).startswith("image/"):
+                continue
+            image_path = Path(str(ext.path))
+            if not image_path.exists():
+                continue
+            review = reviewer.review(
+                image_path,
+                allowed_root=image_path.parent,
+                chart_context={"intent": brief.intent, "title": ext.original_name},
+            ).model_copy(update={"artifact_role": "uploaded_image"})
+            visual_reviews.append(review.model_dump(mode="json"))
+            reviewed_images.add(str(image_path.resolve()))
+            if review.verdict != "pass":
+                caveats.append(f"uploaded_image_review:{review.verdict}")
+
+    def _review_pending_charts() -> None:
+        if reviewer is None:
+            return
+        for chart_value in ws.chart_artifacts:
+            chart_path = Path(chart_value)
+            resolved_chart = str(chart_path.resolve())
+            if resolved_chart in reviewed_images or not chart_path.exists():
+                continue
+            record = ws.artifact_for_path(chart_value)
+            source_ref = record.source_refs[0] if record and record.source_refs else ""
+            source_frame = ws.get(source_ref).frame() if source_ref and ws.has(source_ref) else None
+            context = dict((record.metadata if record else {}).get("chart_spec") or {})
+            context.update(
+                {
+                    "intent": brief.intent,
+                    "row_count": len(source_frame) if source_frame is not None else 0,
+                    "columns": list(source_frame.columns.astype(str))
+                    if source_frame is not None
+                    else [],
+                }
+            )
+            review_path = chart_path
+            for attempt in range(3):
+                review = reviewer.review(
+                    review_path,
+                    allowed_root=out_dir,
+                    source_data=source_frame,
+                    chart_context=context,
+                ).model_copy(update={"review_attempts": attempt + 1})
+                visual_reviews.append(review.model_dump(mode="json"))
+                reviewed_images.add(str(review_path.resolve()))
+                if review.verdict == "pass" and attempt > 0:
+                    for prior in visual_reviews[-(attempt + 1) : -1]:
+                        prior["resolved"] = True
+                if (
+                    review.verdict != "replot"
+                    or review.fix_args is None
+                    or attempt >= 2
+                    or source_frame is None
+                    or not source_ref
+                ):
+                    if review.verdict != "pass":
+                        caveats.append(f"chart_review:{review.verdict}")
+                    break
+                fix = review.fix_args.model_dump(exclude_none=True)
+                plot_args = {
+                    **context,
+                    **{k: v for k, v in fix.items() if k not in {"width", "height", "orientation", "show_legend"}},
+                    "dataset": source_ref,
+                    "filename": f"{chart_path.stem}_reviewed_{attempt + 1}.png",
+                    "primary": True,
+                }
+                if fix.get("width") and fix.get("height"):
+                    plot_args["figsize"] = [fix["width"], fix["height"]]
+                if plot_args.get("kind") == "scatter":
+                    plot_args["kind"] = "line"
+                rerender = execute_op(ws, "plot_chart", plot_args, out_dir=out_dir)
+                reasoning.record_mutation("plot_chart")
+                observations.append(rerender.as_observation())
+                steps_trace.append(
+                    {
+                        "step_id": f"iv-step-{reasoning.op_count}",
+                        "op_id": "plot_chart",
+                        "status": rerender.status,
+                        "error": rerender.error,
+                        "reason": "visual_review_replot",
+                    }
+                )
+                if rerender.status != "ok" or not rerender.result.get("path"):
+                    caveats.append("chart_replot_failed")
+                    break
+                if record:
+                    record.primary = False
+                    if record.path in ws.primary_artifacts:
+                        ws.primary_artifacts.remove(record.path)
+                review_path = Path(str(rerender.result["path"]))
+                record = ws.artifact_for_path(str(review_path))
+                context = dict((record.metadata if record else {}).get("chart_spec") or context)
+                context.update(
+                    {
+                        "intent": brief.intent,
+                        "row_count": len(source_frame),
+                        "columns": list(source_frame.columns.astype(str)),
+                    }
+                )
 
     recipe_summaries = [
         {
@@ -150,7 +298,7 @@ def run_analysis_brain(
     ]
 
     terminal: dict[str, Any] | None = None
-    while steps_run < max_steps:
+    while reasoning.planner_turns < planner_budget:
         state = {
             "brief": brief.model_dump(),
             "domain_rules_excerpt": domain_rules_excerpt or "",
@@ -159,22 +307,63 @@ def run_analysis_brain(
             "output_table_semantics": list(output_table_semantics or []),
             "output_column_semantics": list(output_column_semantics or []),
             "recipe_candidates": recipe_summaries,
+            "analysis_plan": effective_analysis_plan,
+            "execution_plan": execution_plan or {},
             "output_format": brief.output_format,
             "chart_spec": brief.chart_spec,
             "observations": observations,
-            "steps_run": steps_run,
+            "reasoning": reasoning.for_prompt(),
+            "planner_turns": reasoning.planner_turns,
+            "op_count": reasoning.op_count,
+            "steps_run": reasoning.op_count,
             "max_steps": max_steps,
-            "remaining_steps": max_steps - steps_run,
+            "max_planner_turns": planner_budget,
+            "remaining_planner_turns": planner_budget - reasoning.planner_turns,
+            "remaining_steps": max(0, op_budget - reasoning.analysis_ops),
             "artifacts": list(ws.artifact_paths),
+            "artifact_manifests": [
+                record.model_dump(mode="json") for record in ws.artifacts.values()
+            ],
+            "visual_reviews": visual_reviews,
         }
         try:
+            reasoning.planner_turns += 1
             decision = planner.next_decision(state)
         except Exception:
-            logger.warning("IV planner LLM call failed at step %s", steps_run, exc_info=True)
+            logger.warning(
+                "IV planner LLM call failed at turn %s",
+                reasoning.planner_turns,
+                exc_info=True,
+            )
             caveats.append("planner_failed")
             break
 
         action = str(decision.get("decision") or decision.get("action") or "finalize")
+        if action in set(list_op_ids()):
+            direct_args = dict(decision.get("args") or {})
+            for key, value in decision.items():
+                if (
+                    key not in {"decision", "action", "args", "op", "thought", "reason"}
+                    and value is not None
+                    and key not in direct_args
+                ):
+                    direct_args[key] = value
+            decision = {
+                **decision,
+                "decision": "run_op",
+                "op": {
+                    "op_id": action,
+                    "args": direct_args,
+                },
+            }
+            action = "run_op"
+
+        if action == "assess":
+            reasoning.advance_to(IVReasoningPhase.PLAN)
+            continue
+        if action == "plan":
+            reasoning.advance_to(IVReasoningPhase.EXECUTE)
+            continue
 
         if action == "data_feedback":
             fb_raw = decision.get("data_feedback") or {}
@@ -192,7 +381,13 @@ def run_analysis_brain(
                 payload["artifact_paths"] = list(ws.artifact_paths)
                 payload["chart_artifacts"] = list(ws.chart_artifacts)
                 payload["excel_artifacts"] = list(ws.excel_artifacts)
-                payload["sandbox_steps"] = steps_run
+                payload["sandbox_steps"] = reasoning.op_count
+            payload["planner_turns"] = reasoning.planner_turns
+            payload["reasoning_state"] = reasoning.for_prompt()
+            payload["visual_reviews"] = visual_reviews
+            payload["artifact_manifests"] = [
+                record.model_dump(mode="json") for record in ws.artifacts.values()
+            ]
             return payload
 
         if action == "suggest_clarify":
@@ -211,33 +406,35 @@ def run_analysis_brain(
                 "explanation_vi": decision.get("insight_vi") or decision.get("explanation_vi"),
                 "steps_trace": steps_trace,
             }
-        if action in ("finalize", "complete", "partial"):
-            # Auto critic: brief coverage
-            cov = execute_op(
-                ws,
-                "match_brief_coverage",
-                {"brief": brief.model_dump()},
-                out_dir=out_dir,
-            )
-            if cov.status == "ok" and cov.result.get("issue") == "insufficient_deliverable":
-                caveats.append("brief_coverage_gap")
-            _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats)
+        if action in ("verify", "finalize", "complete", "partial"):
+            _review_pending_charts()
+            reasoning.advance_to(IVReasoningPhase.VERIFY)
             claimed = str(decision.get("status") or action)
             if claimed not in ("complete", "partial"):
                 claimed = "complete" if action != "partial" else "partial"
-            arts = list(ws.primary_artifacts or ws.artifact_paths)
-            check = assess_sufficiency(
-                brief,
+            verification_metrics = {
+                **headline_metrics,
+                **(decision.get("headline_metrics") or {}),
+            }
+            check, arts = _verify_deliverable(
+                reasoning=reasoning,
+                ws=ws,
+                brief=brief,
+                out_dir=out_dir,
+                caveats=caveats,
                 row_count=int(profile.get("row_count", 0) or 0),
-                artifacts=arts,
-                chart_artifacts=ws.chart_artifacts,
-                excel_artifacts=ws.excel_artifacts,
-                headline_metrics={
-                    **headline_metrics,
-                    **(decision.get("headline_metrics") or {}),
-                },
+                headline_metrics=verification_metrics,
                 claimed_status=claimed,
+                semantic_labels=[
+                    *(output_column_semantics or []),
+                    *[
+                        {"purpose": item.get("purpose")}
+                        for item in meta
+                        if isinstance(item, dict) and item.get("purpose")
+                    ],
+                ],
             )
+            headline_metrics.update(verification_metrics)
             if check.force_feedback:
                 fb_payload = insufficiency_data_feedback(
                     brief,
@@ -246,28 +443,62 @@ def run_analysis_brain(
                     artifacts=arts,
                 )
                 fb_payload["steps_trace"] = steps_trace
-                fb_payload["sandbox_steps"] = steps_run
+                fb_payload["sandbox_steps"] = reasoning.op_count
+                fb_payload["planner_turns"] = reasoning.planner_turns
+                fb_payload["reasoning_state"] = reasoning.for_prompt()
+                fb_payload["headline_metrics"] = verification_metrics
+                fb_payload["coverage"] = {
+                    "diagnosis": "partial",
+                    "gaps": list(check.gaps),
+                }
+                fb_payload["verification"] = reasoning.verification.model_dump(mode="json")
+                fb_payload["artifact_manifests"] = [
+                    record.model_dump(mode="json") for record in ws.artifacts.values()
+                ]
+                fb_payload["visual_reviews"] = visual_reviews
                 if caveats:
                     fb_payload["caveats"] = list(
                         dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats])
                     )[:8]
                 return fb_payload
+            if action == "verify":
+                continue
             if check.gaps:
                 decision = {**decision, "status": "partial"}
                 caveats.extend(check.gaps)
+            if "auto_export_fallback_partial" in caveats:
+                decision = {**decision, "status": "partial"}
+            if any(
+                r.get("verdict") != "pass" and not r.get("resolved")
+                for r in visual_reviews
+            ):
+                decision = {**decision, "status": "partial"}
+                caveats.append("visual_review_not_passed")
+            reasoning.advance_to(IVReasoningPhase.FINALIZE)
             terminal = decision
             break
 
         # run_op (or legacy run_step with op payload)
         if action in ("run_op", "run_step"):
+            if reasoning.phase in {IVReasoningPhase.VERIFY, IVReasoningPhase.FINALIZE}:
+                reasoning.phase = IVReasoningPhase.EXECUTE
+                reasoning.phase_history.append(IVReasoningPhase.EXECUTE)
+            else:
+                reasoning.advance_to(IVReasoningPhase.EXECUTE)
             op = decision.get("op") or decision.get("step") or {}
             # Reject any attempt to run free-form scripts
             if op.get("script") or op.get("kind") == "script":
-                steps_run += 1
+                reasoning.record_observation()
                 err_msg = "script_ops_disabled:use_catalog_ops"
                 caveats.append(err_msg)
                 observations.append({"op_id": "forbidden", "status": "error", "error": err_msg})
-                steps_trace.append({"step_id": f"iv-step-{steps_run}", "status": "error", "error": err_msg})
+                steps_trace.append(
+                    {
+                        "step_id": f"iv-step-{reasoning.op_count}",
+                        "status": "error",
+                        "error": err_msg,
+                    }
+                )
                 continue
 
             # Recipe chain: execute listed ops sequentially as one budgeted step group
@@ -278,6 +509,9 @@ def run_analysis_brain(
                         chain = cand.get("steps") or cand.get("op_chain") or chain
                         break
                 for step_op in chain:
+                    if reasoning.analysis_ops >= op_budget:
+                        caveats.append("op_budget_exceeded")
+                        break
                     oid = str(step_op.get("op_id") or "")
                     oargs = dict(step_op.get("args") or {})
                     if step_op.get("dataset") and "dataset" not in oargs:
@@ -285,12 +519,19 @@ def run_analysis_brain(
                     if step_op.get("save_as"):
                         oargs["save_as"] = step_op["save_as"]
                     res = execute_op(ws, oid, oargs, out_dir=out_dir)
-                    steps_run += 1
+                    reasoning.analysis_ops += 1
+                    if res.status == "ok" and oid not in _NON_MUTATING_OPS:
+                        reasoning.record_mutation(oid)
+                    else:
+                        reasoning.record_observation()
                     observations.append(res.as_observation())
                     steps_trace.append(
                         {
-                            "step_id": f"iv-step-{steps_run}",
+                            "step_id": f"iv-step-{reasoning.op_count}",
                             "op_id": oid,
+                            "args": oargs,
+                            "dataset": oargs.get("dataset"),
+                            "save_as": oargs.get("save_as"),
                             "status": res.status,
                             "error": res.error,
                             "thought": decision.get("thought"),
@@ -298,8 +539,6 @@ def run_analysis_brain(
                     )
                     if res.status != "ok":
                         caveats.append(f"{oid}:{res.error or 'error'}")
-                        break
-                    if steps_run >= max_steps:
                         break
                 continue
 
@@ -337,14 +576,24 @@ def run_analysis_brain(
                     "impossible_reason": "tool_not_granted:run_analysis_op",
                 }
 
+            if reasoning.analysis_ops >= op_budget:
+                caveats.append("op_budget_exceeded")
+                break
             res = execute_op(ws, op_id, oargs, out_dir=out_dir)
-            steps_run += 1
+            reasoning.analysis_ops += 1
+            if res.status == "ok" and op_id not in _NON_MUTATING_OPS:
+                reasoning.record_mutation(op_id)
+            else:
+                reasoning.record_observation()
             obs = res.as_observation()
             observations.append(obs)
             steps_trace.append(
                 {
-                    "step_id": f"iv-step-{steps_run}",
+                    "step_id": f"iv-step-{reasoning.op_count}",
                     "op_id": op_id,
+                    "args": oargs,
+                    "dataset": oargs.get("dataset"),
+                    "save_as": oargs.get("save_as"),
                     "status": res.status,
                     "error": res.error,
                     "thought": decision.get("thought"),
@@ -361,8 +610,42 @@ def run_analysis_brain(
     else:
         caveats.append("budget_exceeded")
 
-    _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats)
-    arts = list(ws.primary_artifacts or ws.artifact_paths)
+    _review_pending_charts()
+    if reasoning.phase == IVReasoningPhase.FINALIZE:
+        arts = list(ws.primary_artifacts or ws.artifact_paths)
+        post = assess_sufficiency(
+            brief,
+            row_count=int(profile.get("row_count", 0) or 0),
+            artifacts=arts,
+            chart_artifacts=ws.chart_artifacts,
+            excel_artifacts=ws.excel_artifacts,
+            headline_metrics=headline_metrics,
+            claimed_status=str((terminal or {}).get("status") or "complete"),
+            verify_artifact_files=True,
+            coverage_gaps=list(reasoning.verification.coverage_gaps),
+        )
+    else:
+        reasoning.advance_to(IVReasoningPhase.VERIFY)
+        post, arts = _verify_deliverable(
+            reasoning=reasoning,
+            ws=ws,
+            brief=brief,
+            out_dir=out_dir,
+            caveats=caveats,
+            row_count=int(profile.get("row_count", 0) or 0),
+            headline_metrics=headline_metrics,
+            claimed_status="partial"
+            if terminal is None
+            else str(terminal.get("status") or "complete"),
+            semantic_labels=[
+                *(output_column_semantics or []),
+                *[
+                    {"purpose": item.get("purpose")}
+                    for item in meta
+                    if isinstance(item, dict) and item.get("purpose")
+                ],
+            ],
+        )
     assembled = _assemble_response(
         terminal=terminal,
         artifacts=arts,
@@ -371,18 +654,16 @@ def run_analysis_brain(
         steps_trace=steps_trace,
         caveats=caveats,
         headline_metrics=headline_metrics,
-        steps_run=steps_run,
+        steps_run=reasoning.op_count,
         planner_tokens=planner.tokens,
     )
-    post = assess_sufficiency(
-        brief,
-        row_count=int(profile.get("row_count", 0) or 0),
-        artifacts=arts,
-        chart_artifacts=ws.chart_artifacts,
-        excel_artifacts=ws.excel_artifacts,
-        headline_metrics=assembled.get("headline_metrics") or headline_metrics,
-        claimed_status=str(assembled.get("action") or "partial"),
-    )
+    assembled["planner_turns"] = reasoning.planner_turns
+    assembled["reasoning_state"] = reasoning.for_prompt()
+    assembled["verification"] = reasoning.verification.model_dump(mode="json")
+    assembled["visual_reviews"] = visual_reviews
+    assembled["artifact_manifests"] = [
+        record.model_dump(mode="json") for record in ws.artifacts.values()
+    ]
     if post.force_feedback:
         fb_payload = insufficiency_data_feedback(
             brief,
@@ -391,7 +672,19 @@ def run_analysis_brain(
             artifacts=arts,
         )
         fb_payload["steps_trace"] = steps_trace
-        fb_payload["sandbox_steps"] = steps_run
+        fb_payload["sandbox_steps"] = reasoning.op_count
+        fb_payload["planner_turns"] = reasoning.planner_turns
+        fb_payload["reasoning_state"] = reasoning.for_prompt()
+        fb_payload["headline_metrics"] = headline_metrics
+        fb_payload["coverage"] = {
+            "diagnosis": "partial",
+            "gaps": list(post.gaps),
+        }
+        fb_payload["verification"] = reasoning.verification.model_dump(mode="json")
+        fb_payload["artifact_manifests"] = [
+            record.model_dump(mode="json") for record in ws.artifacts.values()
+        ]
+        fb_payload["visual_reviews"] = visual_reviews
         if caveats:
             fb_payload["caveats"] = list(dict.fromkeys([*(fb_payload.get("caveats") or []), *caveats]))[:8]
         if planner.tokens:
@@ -404,55 +697,210 @@ def run_analysis_brain(
     return assembled
 
 
+def _verify_deliverable(
+    *,
+    reasoning: IVReasoningState,
+    ws: DatasetWorkingSet,
+    brief: AnalysisBrief,
+    out_dir: str,
+    caveats: list[str],
+    row_count: int,
+    headline_metrics: dict[str, Any],
+    claimed_status: str,
+    semantic_labels: list[dict[str, Any] | str] | None = None,
+) -> tuple[Any, list[str]]:
+    """Run deterministic artifact and brief-coverage verification."""
+    for op_id in _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats):
+        reasoning.record_mutation(op_id)
+    if reasoning.phase != IVReasoningPhase.VERIFY:
+        reasoning.advance_to(IVReasoningPhase.VERIFY)
+
+    cov = execute_op(
+        ws,
+        "match_brief_coverage",
+        {
+            "brief": brief.model_dump(),
+            "semantic_labels": list(semantic_labels or []),
+        },
+        out_dir=out_dir,
+    )
+    reasoning.record_observation()
+    coverage_gaps: list[str] = []
+    if cov.status != "ok":
+        coverage_gaps.append("coverage_check_failed")
+    else:
+        coverage_gaps.extend(f"missing_metric:{name}" for name in cov.result.get("metrics_missing", []))
+        coverage_gaps.extend(
+            f"missing_dimension:{name}" for name in cov.result.get("dimensions_missing", [])
+        )
+        coverage_gaps.extend(
+            f"missing_filter:{name}" for name in cov.result.get("filters_missing", [])
+        )
+        if not cov.result.get("time_covered", True):
+            coverage_gaps.append("missing_time_evidence")
+        if cov.result.get("issue") == "empty_result":
+            coverage_gaps.append("empty_result")
+
+    arts = list(ws.primary_artifacts or ws.artifact_paths)
+    artifact_checks: dict[str, bool] = {}
+    verified_rows: dict[str, int] = {}
+    for record in ws.artifacts.values():
+        if record.path not in arts:
+            continue
+        checks: list[bool] = []
+        if record.kind == "excel" and record.sheet_map:
+            for sheet, source_ref in record.sheet_map.items():
+                result = execute_op(
+                    ws,
+                    "validate_export",
+                    {
+                        "artifact_id": record.artifact_id,
+                        "expected_dataset": source_ref,
+                        "sheet_name": sheet,
+                    },
+                    out_dir=out_dir,
+                )
+                reasoning.record_observation()
+                checks.append(result.status == "ok" and bool(result.result.get("valid")))
+                if result.status == "ok" and result.result.get("valid") and ws.has(source_ref):
+                    verified_rows[f"{record.filename}:{sheet}"] = len(ws.get(source_ref).frame())
+        elif record.kind in {"csv", "excel"} and record.source_refs:
+            source_ref = record.source_refs[0]
+            result = execute_op(
+                ws,
+                "validate_export",
+                {"artifact_id": record.artifact_id, "expected_dataset": source_ref},
+                out_dir=out_dir,
+            )
+            reasoning.record_observation()
+            checks.append(result.status == "ok" and bool(result.result.get("valid")))
+            if checks[-1] and ws.has(source_ref):
+                verified_rows[record.filename] = len(ws.get(source_ref).frame())
+        else:
+            checks.append(
+                Path(record.path).is_file()
+                and Path(record.path).stat().st_size > 0
+                and record.validation_status != "invalid"
+            )
+        artifact_checks[record.path] = bool(checks) and all(checks)
+    for path in arts:
+        artifact_checks.setdefault(
+            path, Path(path).is_file() and Path(path).stat().st_size > 0
+        )
+    if verified_rows:
+        headline_metrics["row_count"] = max(verified_rows.values())
+        headline_metrics["artifact_rows"] = verified_rows
+    check = assess_sufficiency(
+        brief,
+        row_count=row_count,
+        artifacts=arts,
+        chart_artifacts=ws.chart_artifacts,
+        excel_artifacts=ws.excel_artifacts,
+        headline_metrics=headline_metrics,
+        claimed_status=claimed_status,
+        verify_artifact_files=True,
+        coverage_gaps=coverage_gaps,
+    )
+
+    gap_text = " ".join(check.gaps).lower()
+    checked_items: list[str] = []
+    for item in reasoning.checklist:
+        checked_items.append(item.item_id)
+        requirement = item.requirement.lower()
+        blocked = (
+            (item.category == "metric" and f"missing_metric:{requirement}" in gap_text)
+            or (item.category == "dimension" and f"missing_dimension:{requirement}" in gap_text)
+            or (item.category == "filter" and "missing_filter:" in gap_text)
+            or (item.category == "time" and "missing_time_evidence" in gap_text)
+            or (item.category == "format" and any(gap.startswith("missing_") for gap in check.gaps))
+            or (item.category == "intent" and (not arts or check.force_feedback))
+        )
+        item.status = IVChecklistStatus.BLOCKED if blocked else IVChecklistStatus.SATISFIED
+        item.evidence = list(arts)[:3] if not blocked else list(check.gaps)[:3]
+
+    reasoning.record_verification(
+        passed=check.sufficient and bool(artifact_checks) and all(artifact_checks.values()),
+        artifact_checks=artifact_checks,
+        coverage_gaps=list(check.gaps),
+        checked_items=checked_items,
+    )
+    if coverage_gaps:
+        caveats.append("brief_coverage_gap")
+    return check, arts
+
+
 def _ensure_deliverable_exports(
     ws: DatasetWorkingSet,
     brief: AnalysisBrief,
     *,
     out_dir: str,
     caveats: list[str],
-) -> None:
-    """If the planner forgot to export, write CSV/Excel from the richest dataset."""
+) -> list[str]:
+    """Export every candidate deliverable; fallback is always marked partial."""
     if ws.artifact_paths:
-        return
+        return []
     refs = ws.refs()
     if not refs:
-        return
-    preferred = [r for r in refs if not r.startswith("q") or "_" in r] or refs
-    best_ref = preferred[-1]
-    best_n = -1
-    for ref in preferred:
+        return []
+    preferred = [r for r in refs if not r.startswith("q") or "_" in r]
+    candidates = preferred or refs
+    nonempty: list[tuple[str, int]] = []
+    for ref in candidates:
         try:
             n = len(ws.get(ref).frame())
         except Exception:  # noqa: BLE001
             continue
-        if n > best_n:
-            best_n = n
-            best_ref = ref
-    if best_n <= 0:
-        return
+        if n > 0:
+            nonempty.append((ref, n))
+    if not nonempty:
+        return []
+    exported: list[str] = []
     formats = {str(x).strip().lower() for x in (brief.output_format or []) if str(x).strip()}
-    want_excel = bool(formats & {"excel", "xlsx", "spreadsheet"})
-    csv_res = execute_op(
-        ws,
-        "export_csv",
-        {"dataset": best_ref, "filename": "analysis_result.csv", "primary": True},
-        out_dir=out_dir,
-    )
-    if csv_res.status != "ok":
-        caveats.append(f"auto_export_csv:{csv_res.error or 'error'}")
-    elif not want_excel:
-        caveats.append("auto_exported_csv")
+    want_excel = bool(formats & {"excel", "xlsx", "spreadsheet"}) or len(nonempty) > 1
+    want_csv = bool(formats & {"csv"}) or not want_excel
+    if want_csv:
+        for index, (ref, _) in enumerate(nonempty):
+            csv_res = execute_op(
+                ws,
+                "export_csv",
+                {
+                    "dataset": ref,
+                    "filename": "analysis_result.csv"
+                    if len(nonempty) == 1
+                    else f"analysis_{index + 1}_{ref}.csv",
+                    "primary": True,
+                },
+                out_dir=out_dir,
+            )
+            if csv_res.status != "ok":
+                caveats.append(f"auto_export_csv:{csv_res.error or 'error'}")
+            else:
+                exported.append("export_csv")
     if want_excel:
+        sheets: dict[str, str] = {}
+        used: set[str] = set()
+        for index, (ref, _) in enumerate(nonempty):
+            base = "".join(ch if ch.isalnum() or ch in " _-" else "_" for ch in ref)[:25] or f"data_{index + 1}"
+            name = base
+            suffix = 2
+            while name.lower() in used:
+                name = f"{base[:27]}_{suffix}"
+                suffix += 1
+            used.add(name.lower())
+            sheets[name] = ref
         x_res = execute_op(
             ws,
             "export_excel",
-            {"dataset": best_ref, "filename": "analysis_result.xlsx", "primary": True},
+            {"sheets": sheets, "filename": "analysis_result.xlsx", "primary": True},
             out_dir=out_dir,
         )
         if x_res.status != "ok":
             caveats.append(f"auto_export_excel:{x_res.error or 'error'}")
         else:
-            caveats.append("auto_exported_excel")
+            exported.append("export_excel")
+    if exported:
+        caveats.append("auto_export_fallback_partial")
+    return exported
 
 
 def _assemble_response(
@@ -479,7 +927,7 @@ def _assemble_response(
         caveats = caveats + list(fin.get("caveats") or [])
 
     has_success = bool(artifacts)
-    if not terminal and not has_success:
+    if not terminal:
         status = "partial"
     if any(c.startswith("planner_failed") for c in caveats) and not has_success:
         status = "partial"
@@ -504,8 +952,13 @@ def _assemble_response(
     if planner_tokens:
         payload["usage_tokens"] = planner_tokens
     payload["op_chain"] = [
-        {"op_id": s.get("op_id"), "status": s.get("status")}
+        {
+            "op_id": s.get("op_id"),
+            "args": dict(s.get("args") or {}),
+            "dataset": s.get("dataset"),
+            "save_as": s.get("save_as"),
+        }
         for s in steps_trace
-        if s.get("op_id")
+        if s.get("op_id") and s.get("status") == "ok"
     ]
     return payload

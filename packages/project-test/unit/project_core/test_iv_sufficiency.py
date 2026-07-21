@@ -43,6 +43,32 @@ def test_assess_sufficiency_ok_with_csv():
     assert r.sufficient and not r.force_feedback
 
 
+def test_assess_sufficiency_rejects_missing_artifact_file(tmp_path):
+    r = assess_sufficiency(
+        AnalysisBrief(intent="x"),
+        row_count=10,
+        artifacts=[str(tmp_path / "missing.csv")],
+        verify_artifact_files=True,
+    )
+    assert r.force_feedback
+    assert r.issue == "invalid_artifacts"
+
+
+def test_assess_sufficiency_rejects_coverage_gap_with_artifact(tmp_path):
+    artifact = tmp_path / "summary.csv"
+    artifact.write_text("value\n1\n", encoding="utf-8")
+    r = assess_sufficiency(
+        AnalysisBrief(intent="x", metrics=["requested_metric"]),
+        row_count=10,
+        artifacts=[str(artifact)],
+        headline_metrics={"other_metric": 1},
+        verify_artifact_files=True,
+        coverage_gaps=["missing_metric:requested_metric"],
+    )
+    assert r.force_feedback
+    assert "missing_metric:requested_metric" in r.gaps
+
+
 def test_assess_sufficiency_format_only_gap_is_partial_not_feedback():
     r = assess_sufficiency(
         AnalysisBrief(intent="x", output_format=["chart", "table"]),
