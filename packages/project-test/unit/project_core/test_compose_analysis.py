@@ -95,12 +95,22 @@ def test_hybrid_rank_prefers_embedding_overlap():
             "name": "vip",
             "intent_pattern": "doanh thu loyalty card",
             "embedding": [1.0, 0.0, 0.0],
+            "kind": "catalog_op_chain",
+            "compatibility_version": 2,
+            "script_template": "",
+            "dataset_contracts": [{"role": "primary"}],
+            "op_chain": [{"op_id": "head_rows", "args": {"dataset": "{{dataset.primary}}"}}],
         },
         {
             "tool_id": "t2",
             "name": "inventory",
             "intent_pattern": "tồn kho warehouse",
             "embedding": [0.0, 1.0, 0.0],
+            "kind": "catalog_op_chain",
+            "compatibility_version": 2,
+            "script_template": "",
+            "dataset_contracts": [{"role": "primary"}],
+            "op_chain": [{"op_id": "head_rows", "args": {"dataset": "{{dataset.primary}}"}}],
         },
     ]
     ranked = hybrid_rank_candidates(
@@ -122,7 +132,7 @@ def test_select_recipe_stub_picks_top_candidate():
     assert "stub" in rationale
 
 
-def test_registry_mcp_descriptors_and_invoke(monkeypatch, tmp_path):
+def test_registry_rejects_legacy_script_staging(monkeypatch, tmp_path):
     monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
     class FakeCol:
         def __init__(self):
@@ -149,28 +159,16 @@ def test_registry_mcp_descriptors_and_invoke(monkeypatch, tmp_path):
 
     col = FakeCol()
     reg = AnalysisToolRegistry(col)
-    tid = reg.stage_from_run(
-        name="vip_sum",
-        intent="doanh thu VIP",
-        script="df=pd.read_parquet(path)\ndf.to_csv(out/'x.csv')",
-        trace_id="tr-1",
-        datasets=[],
-        artifacts=[],
-        metrics={},
-    )
-    reg.promote(tid)
-    desc = reg.list_mcp_tool_descriptors()
-    assert desc and desc[0]["tool_id"] == tid
-
-    ds = tmp_path / "artifacts" / "d.parquet"
-    ds.parent.mkdir(parents=True, exist_ok=True)
-    import pandas as pd
-
-    pd.DataFrame({"AMOUNT": [1, 2]}).to_parquet(ds)
-    out = tmp_path / "artifacts" / "out"
-    monkeypatch.setenv("ARTIFACTS_DIR", str(tmp_path / "artifacts"))
-    result = reg.invoke_tool(tid, dataset_path=str(ds), output_dir=str(out))
-    assert result.get("status") == "ok"
+    with pytest.raises(ValueError, match="catalog_op_chain"):
+        reg.stage_from_run(
+            name="vip_sum",
+            intent="doanh thu VIP",
+            script="df=pd.read_parquet(path)\ndf.to_csv(out/'x.csv')",
+            trace_id="tr-1",
+            datasets=[],
+            artifacts=[],
+            metrics={},
+        )
 
 
 def test_decompose_heuristic_unchanged_with_stub():
@@ -207,7 +205,7 @@ def test_catalog_recipe_strips_observations_and_requires_verified_export():
         intent="generic analysis",
         script="",
         trace_id="trace",
-        datasets=[],
+        datasets=[{"role": "primary", "required_columns": ["AMOUNT"]}],
         artifacts=["result.csv"],
         metrics={"row_count": 2},
         steps=[
@@ -215,14 +213,26 @@ def test_catalog_recipe_strips_observations_and_requires_verified_export():
             {
                 "op_id": "export_csv",
                 "status": "ok",
-                "args": {"dataset": "selected", "filename": "result.csv"},
+                "output": "export",
+                "args": {"dataset": "{{dataset.primary}}", "filename": "result.csv"},
                 "dataset": "selected",
             },
+            {
+                "op_id": "validate_export",
+                "args": {"artifact_id": "{{output.export.artifact_id}}"},
+            },
         ],
-        verification={"status": "passed", "revision": 2},
+        verification={
+            "status": "passed",
+            "revision": 2,
+            "replay_verified": True,
+        },
     )
     record = col.find_one({"tool_id": tool_id})
-    assert [step["op_id"] for step in record["op_chain"]] == ["export_csv"]
+    assert [step["op_id"] for step in record["op_chain"]] == [
+        "export_csv",
+        "validate_export",
+    ]
     assert "status" not in record["op_chain"][0]
     registry.promote(tool_id)
     assert col.find_one({"tool_id": tool_id})["status"] == "promoted"

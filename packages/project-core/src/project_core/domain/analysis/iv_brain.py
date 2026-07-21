@@ -64,6 +64,20 @@ _NON_MUTATING_OPS = {
 }
 
 
+def _apply_dataset_bindings(value: Any, bindings: dict[str, str]) -> Any:
+    """Replace only exact dataset-role references inside structured op arguments."""
+    if isinstance(value, str):
+        return bindings.get(value, value)
+    if isinstance(value, list):
+        return [_apply_dataset_bindings(item, bindings) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _apply_dataset_bindings(item, bindings)
+            for key, item in value.items()
+        }
+    return value
+
+
 class AnalysisPlanner:
     """One LLM turn: decide the next op or a terminal action."""
 
@@ -312,6 +326,11 @@ def run_analysis_brain(
             "intent_pattern": c.get("intent_pattern"),
             "score": c.get("score"),
             "steps": c.get("steps") or c.get("op_chain"),
+            "dataset_contracts": c.get("dataset_contracts") or [],
+            "dataset_bindings": c.get("dataset_bindings") or {},
+            "compatibility_status": c.get("compatibility_status", "unknown"),
+            "rejection_reasons": c.get("rejection_reasons") or [],
+            "verification_contract": c.get("verification_contract") or {},
         }
         for c in (recipe_candidates or [])
     ]
@@ -442,6 +461,7 @@ def run_analysis_brain(
                 brief=brief,
                 out_dir=out_dir,
                 caveats=caveats,
+                steps_trace=steps_trace,
                 row_count=int(profile.get("row_count", 0) or 0),
                 headline_metrics=verification_metrics,
                 claimed_status=claimed,
@@ -531,20 +551,78 @@ def run_analysis_brain(
             # Recipe chain: execute listed ops sequentially as one budgeted step group
             if op.get("kind") == "recipe" or (op.get("tool_id") and op.get("steps")):
                 chain = op.get("steps") or []
+                selected_candidate: dict[str, Any] = {}
                 for cand in recipe_candidates or []:
                     if cand.get("tool_id") == op.get("tool_id"):
+                        selected_candidate = cand
                         chain = cand.get("steps") or cand.get("op_chain") or chain
                         break
+                if selected_candidate.get("compatibility_status") == "incompatible":
+                    reasons = list(selected_candidate.get("rejection_reasons") or [])
+                    caveats.append(
+                        "recipe_incompatible:"
+                        + ",".join(str(reason) for reason in reasons[:3])
+                    )
+                    observations.append(
+                        {
+                            "tool_id": op.get("tool_id"),
+                            "status": "rejected",
+                            "rejection_reasons": reasons,
+                        }
+                    )
+                    continue
+                bindings = dict(selected_candidate.get("dataset_bindings") or {})
                 for step_op in chain:
                     if reasoning.analysis_ops >= op_budget:
                         caveats.append("op_budget_exceeded")
                         break
                     oid = str(step_op.get("op_id") or "")
-                    oargs = dict(step_op.get("args") or {})
+                    oargs = _apply_dataset_bindings(
+                        dict(step_op.get("args") or {}), bindings
+                    )
                     if step_op.get("dataset") and "dataset" not in oargs:
-                        oargs["dataset"] = step_op["dataset"]
+                        oargs["dataset"] = bindings.get(
+                            str(step_op["dataset"]), step_op["dataset"]
+                        )
                     if step_op.get("save_as"):
                         oargs["save_as"] = step_op["save_as"]
+                    oargs, arg_repairs = normalize_op_args(oid, oargs)
+                    missing_args = missing_required_args(oid, oargs)
+                    if (
+                        oid not in list_op_ids()
+                        or missing_args
+                        or not context_policy.can_invoke_tool(
+                            permissions, "IV", "run_analysis_op"
+                        )
+                    ):
+                        reason = (
+                            f"unknown_op:{oid}"
+                            if oid not in list_op_ids()
+                            else f"missing_args:{missing_args}"
+                            if missing_args
+                            else "tool_not_granted:run_analysis_op"
+                        )
+                        observations.append(
+                            {
+                                "tool_id": op.get("tool_id"),
+                                "op_id": oid,
+                                "status": "rejected",
+                                "error": reason,
+                            }
+                        )
+                        steps_trace.append(
+                            {
+                                "step_id": f"iv-step-{reasoning.op_count}",
+                                "tool_id": op.get("tool_id"),
+                                "op_id": oid,
+                                "args": oargs,
+                                "status": "skipped",
+                                "error": reason,
+                                "reuse": True,
+                            }
+                        )
+                        caveats.append(f"recipe_step_regenerate:{oid}")
+                        break
                     res = execute_op(ws, oid, oargs, out_dir=out_dir)
                     reasoning.analysis_ops += 1
                     if res.status == "ok" and oid not in _NON_MUTATING_OPS:
@@ -561,6 +639,9 @@ def run_analysis_brain(
                             "save_as": oargs.get("save_as"),
                             "status": res.status,
                             "error": res.error,
+                            "arg_repairs": arg_repairs,
+                            "tool_id": op.get("tool_id"),
+                            "reuse": True,
                             "thought": decision.get("thought"),
                         }
                     )
@@ -684,6 +765,7 @@ def run_analysis_brain(
             brief=brief,
             out_dir=out_dir,
             caveats=caveats,
+            steps_trace=steps_trace,
             row_count=int(profile.get("row_count", 0) or 0),
             headline_metrics=headline_metrics,
             claimed_status="partial"
@@ -762,6 +844,7 @@ def _verify_deliverable(
     brief: AnalysisBrief,
     out_dir: str,
     caveats: list[str],
+    steps_trace: list[dict[str, Any]],
     row_count: int,
     headline_metrics: dict[str, Any],
     claimed_status: str,
@@ -769,8 +852,18 @@ def _verify_deliverable(
     mapped_requirement_ids: set[str] | None = None,
 ) -> tuple[Any, list[str]]:
     """Run deterministic artifact and brief-coverage verification."""
-    for op_id in _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats):
-        reasoning.record_mutation(op_id)
+    for exported_step in _ensure_deliverable_exports(
+        ws, brief, out_dir=out_dir, caveats=caveats
+    ):
+        reasoning.record_mutation(str(exported_step["op_id"]))
+        steps_trace.append(
+            {
+                "step_id": f"iv-step-{reasoning.op_count}",
+                **exported_step,
+                "status": "ok",
+                "auto_generated": True,
+            }
+        )
     if reasoning.phase != IVReasoningPhase.VERIFY:
         reasoning.advance_to(IVReasoningPhase.VERIFY)
 
@@ -861,6 +954,20 @@ def _verify_deliverable(
                     out_dir=out_dir,
                 )
                 reasoning.record_observation()
+                steps_trace.append(
+                    {
+                        "step_id": f"iv-step-{reasoning.op_count}",
+                        "op_id": "validate_export",
+                        "args": {
+                            "artifact_id": record.artifact_id,
+                            "expected_dataset": source_ref,
+                            "sheet_name": sheet,
+                        },
+                        "status": result.status,
+                        "error": result.error,
+                        "verification_step": True,
+                    }
+                )
                 checks.append(result.status == "ok" and bool(result.result.get("valid")))
                 if result.status == "ok" and result.result.get("valid") and ws.has(source_ref):
                     verified_rows[f"{record.filename}:{sheet}"] = len(ws.get(source_ref).frame())
@@ -873,6 +980,19 @@ def _verify_deliverable(
                 out_dir=out_dir,
             )
             reasoning.record_observation()
+            steps_trace.append(
+                {
+                    "step_id": f"iv-step-{reasoning.op_count}",
+                    "op_id": "validate_export",
+                    "args": {
+                        "artifact_id": record.artifact_id,
+                        "expected_dataset": source_ref,
+                    },
+                    "status": result.status,
+                    "error": result.error,
+                    "verification_step": True,
+                }
+            )
             checks.append(result.status == "ok" and bool(result.result.get("valid")))
             if checks[-1] and ws.has(source_ref):
                 verified_rows[record.filename] = len(ws.get(source_ref).frame())
@@ -935,7 +1055,7 @@ def _ensure_deliverable_exports(
     *,
     out_dir: str,
     caveats: list[str],
-) -> list[str]:
+) -> list[dict[str, Any]]:
     """Export every candidate deliverable; fallback is always marked partial."""
     if ws.artifact_paths:
         return []
@@ -980,28 +1100,29 @@ def _ensure_deliverable_exports(
         return []
     nonempty = _enrich_required_identifier_columns(ws, nonempty, brief)
     nonempty.sort(key=lambda item: (item[1], item[0]))
-    exported: list[str] = []
+    exported: list[dict[str, Any]] = []
     formats = {str(x).strip().lower() for x in (brief.output_format or []) if str(x).strip()}
     want_excel = bool(formats & {"excel", "xlsx", "spreadsheet"}) or len(nonempty) > 1
     want_csv = bool(formats & {"csv"}) or not want_excel
     if want_csv:
         for index, (ref, _, _) in enumerate(nonempty):
+            csv_args = {
+                "dataset": ref,
+                "filename": "analysis_result.csv"
+                if len(nonempty) == 1
+                else f"analysis_{index + 1}_{ref}.csv",
+                "primary": True,
+            }
             csv_res = execute_op(
                 ws,
                 "export_csv",
-                {
-                    "dataset": ref,
-                    "filename": "analysis_result.csv"
-                    if len(nonempty) == 1
-                    else f"analysis_{index + 1}_{ref}.csv",
-                    "primary": True,
-                },
+                csv_args,
                 out_dir=out_dir,
             )
             if csv_res.status != "ok":
                 caveats.append(f"auto_export_csv:{csv_res.error or 'error'}")
             else:
-                exported.append("export_csv")
+                exported.append({"op_id": "export_csv", "args": csv_args})
     if want_excel:
         sheets: dict[str, str] = {}
         for name, (ref, _, _) in zip(
@@ -1010,16 +1131,17 @@ def _ensure_deliverable_exports(
             strict=True,
         ):
             sheets[name] = ref
+        excel_args = {"sheets": sheets, "filename": "analysis_result.xlsx", "primary": True}
         x_res = execute_op(
             ws,
             "export_excel",
-            {"sheets": sheets, "filename": "analysis_result.xlsx", "primary": True},
+            excel_args,
             out_dir=out_dir,
         )
         if x_res.status != "ok":
             caveats.append(f"auto_export_excel:{x_res.error or 'error'}")
         else:
-            exported.append("export_excel")
+            exported.append({"op_id": "export_excel", "args": excel_args})
     return exported
 
 

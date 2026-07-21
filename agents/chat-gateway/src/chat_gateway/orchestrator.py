@@ -16,7 +16,11 @@ from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.clarification.resolver import apply_clarification_reply
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationReply, ClarificationRequest
-from project_core.domain.contracts.feedback import SatisfactionSignal
+from project_core.domain.contracts.feedback import (
+    DomainEvidence,
+    DomainRuleCandidate,
+    SatisfactionSignal,
+)
 from project_core.domain.contracts.pipeline import ChatResponse
 from project_core.domain.contracts.workflow import AnalysisOutcome, WorkflowStatus
 from project_core.domain.errors.codes import (
@@ -29,7 +33,7 @@ from project_core.domain.feedback.domain_rule_store import DomainRuleStore
 from project_core.domain.feedback.loop import CaseStudyIndexer, FeedbackLoop
 from project_core.domain.feedback.store import BehavioralSignal
 from project_core.domain.memory.session_bundle import SessionBundle, TranscriptTurn
-from project_core.domain.retrieval.mongo_vector import HybridMongoRetriever, MongoVectorRetriever
+from project_core.domain.retrieval.mongo_vector import HybridMongoRetriever
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.state import new_workflow, resume_analysis, start_analysis
 from project_core.domain.time import utc_now
@@ -240,6 +244,12 @@ class ChatOrchestrator:
             )
         request = ClarificationRequest.model_validate(bundle.clarification)
         brief = bundle.workflow.brief or request.partial_brief
+        self._stage_reusable_clarification_facts(
+            request=request,
+            reply=reply,
+            user=user,
+            trace_id=reply.analysis_id,
+        )
         brief = apply_clarification_reply(brief, reply, request)
         bundle.workflow.brief = brief
         resume_analysis(bundle.workflow)
@@ -260,14 +270,101 @@ class ChatOrchestrator:
             session_budget=session_budget,
         )
 
-    def confirm_domain_rule(self, rule_id: str, *, confirmed: bool, user: dict[str, Any]) -> dict[str, str]:
+    def stage_domain_rule(
+        self,
+        candidate: DomainRuleCandidate,
+        *,
+        trace_id: str,
+        user: dict[str, Any],
+    ) -> dict[str, str]:
         if self.domain_rule_store is None:
             return {"status": "no_store"}
-        if confirmed:
-            self.domain_rule_store.confirm(rule_id, confirmed_by=user["sub"])
-        else:
-            self.domain_rule_store.reject(rule_id)
+        actor_id = str(user["sub"])
+        role = self._domain_rule_role(user)
+        tenant_id = str(user.get("tenant_id") or "")
+        scope = candidate.scope
+        if role == "requester":
+            scope = "user"
+        elif role == "domain_owner" and scope == "global":
+            scope = "tenant"
+        evidence = [
+            item.model_copy(
+                update={
+                    "source_kind": "user_statement",
+                    "actor_id": actor_id,
+                    "trace_id": item.trace_id or trace_id,
+                    "confidence": 1.0,
+                    "independent_group": f"user:{actor_id}",
+                }
+            )
+            for item in candidate.evidence
+        ]
+        if not evidence and candidate.statement.strip():
+            evidence = [
+                DomainEvidence(
+                    source_kind="user_statement",
+                    source_ref="domain_rules_api",
+                    quote=candidate.statement,
+                    actor_id=actor_id,
+                    trace_id=trace_id,
+                    schema_links=list(candidate.schema_links),
+                    confidence=1.0,
+                    independent_group=f"user:{actor_id}",
+                )
+            ]
+        staged = candidate.model_copy(
+            update={
+                "scope": scope,
+                "actor_id": actor_id,
+                "tenant_id": tenant_id,
+                "authority": role,
+                "evidence": evidence,
+            }
+        )
+        rule_id = self.domain_rule_store.stage_candidate(staged, trace_id=trace_id)
+        return {"status": "ok", "rule_id": rule_id}
+
+    def list_domain_rules(
+        self,
+        *,
+        user: dict[str, Any],
+        status: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        if self.domain_rule_store is None:
+            return []
+        return self.domain_rule_store.list_rules(
+            actor_id=str(user["sub"]),
+            tenant_id=str(user.get("tenant_id") or ""),
+            role=self._domain_rule_role(user),
+            status=status,
+            limit=limit,
+        )
+
+    def review_domain_rule(
+        self,
+        rule_id: str,
+        *,
+        action: str,
+        user: dict[str, Any],
+    ) -> dict[str, str]:
+        if self.domain_rule_store is None:
+            return {"status": "no_store"}
+        self.domain_rule_store.review(
+            rule_id,
+            action=action,
+            actor_id=str(user["sub"]),
+            role=self._domain_rule_role(user),
+            tenant_id=str(user.get("tenant_id") or ""),
+        )
         return {"status": "ok"}
+
+    def confirm_domain_rule(self, rule_id: str, *, confirmed: bool, user: dict[str, Any]) -> dict[str, str]:
+        return self.review_domain_rule(
+            rule_id,
+            action="confirm" if confirmed else "reject",
+            user=user,
+        )
 
     def attach_external_sources(self, session_id: str, sources: list[dict[str, Any]]) -> None:
         bundle = self.stm.load_session(session_id)
@@ -313,6 +410,38 @@ class ChatOrchestrator:
                 weight=0.3,
             ),
         )
+
+    def _stage_reusable_clarification_facts(
+        self,
+        *,
+        request: ClarificationRequest,
+        reply: ClarificationReply,
+        user: dict[str, Any],
+        trace_id: str,
+    ) -> None:
+        if self.domain_rule_store is None:
+            return
+        actor_id = str(user["sub"])
+        tenant_id = str(user.get("tenant_id") or "")
+        authority = self._domain_rule_role(user)
+        for candidate in self.clarify.reusable_candidates_from_reply(
+            request=request,
+            reply=reply,
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            authority=authority,
+            trace_id=trace_id,
+        ):
+            self.domain_rule_store.stage_candidate(candidate, trace_id=trace_id)
+
+    @staticmethod
+    def _domain_rule_role(user: dict[str, Any]) -> str:
+        role = str(user.get("role") or "").casefold()
+        if role in {"admin", "system_admin"}:
+            return "admin"
+        if role in {"domain_owner", "domain_admin"}:
+            return "domain_owner"
+        return "requester"
 
     def _build_permissions(self, actor_id: str, role: str, store_ids: list[int] | None) -> Any:
         perm_set = None
@@ -646,7 +775,7 @@ class ChatOrchestrator:
                 session_budget,
                 bundle,
             )
-        except BudgetExceededError as exc:
+        except BudgetExceededError:
             bundle.workflow.budget_spent = session_budget.trace_budget.spent
             self.stm.save_workflow(session_id, bundle.workflow)
             return ChatResponse(

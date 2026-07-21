@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -42,11 +43,54 @@ class ProbeRequest(BaseModel):
         return value
 
 
+class DomainEvidence(BaseModel):
+    """Auditable evidence for a reusable declarative domain fact."""
+
+    evidence_id: str = ""
+    source_kind: Literal[
+        "user_statement",
+        "clarification",
+        "data_observation",
+        "dictionary",
+        "case_study",
+        "external_document",
+        "agent_inference",
+    ] = "data_observation"
+    source_ref: str = ""
+    quote: str = ""
+    actor_id: str = ""
+    trace_id: str = ""
+    schema_links: list[dict[str, str]] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    independent_group: str = ""
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class DomainRuleCandidate(BaseModel):
     rule_id: str = ""
-    scope: str = ""
+    fact_type: Literal["definition", "formula", "classification", "relationship", "constraint"] = (
+        "definition"
+    )
+    scope: Literal["user", "tenant", "global"] = "user"
+    actor_id: str = ""
+    tenant_id: str = ""
     statement: str = ""
     evidence_trace_ids: list[str] = Field(default_factory=list)
+    evidence: list[DomainEvidence] = Field(default_factory=list)
+    schema_links: list[dict[str, str]] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    authority: Literal["requester", "domain_owner", "admin", "system"] = "requester"
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    supersedes_rule_id: str | None = None
+
+    @field_validator("scope", mode="before")
+    @classmethod
+    def normalize_legacy_scope(cls, value: Any) -> str:
+        text = str(value or "").strip().lower()
+        if text == "general":
+            return "global"
+        return text or "user"
 
 
 class DataFeedback(BaseModel):

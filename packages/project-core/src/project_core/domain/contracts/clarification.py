@@ -19,6 +19,12 @@ class ClarificationQuestion(BaseModel):
     options: list[ClarificationOption]
     allow_multiple: bool = False
     maps_to_brief_field: str
+    reusable_fact: bool = False
+    fact_type: Literal[
+        "definition", "formula", "classification", "relationship", "constraint"
+    ] = "definition"
+    fact_scope: Literal["user", "tenant", "global"] = "user"
+    schema_links: list[dict[str, str]] = Field(default_factory=list)
 
 
 class ClarificationRequest(BaseModel):

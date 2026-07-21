@@ -43,6 +43,8 @@ def build_schema_retrieve_payload(
         query_text = query if query is not None else str(payload.get("query") or "")
         columns_in = list(payload.get("columns") or [])
         tables_in = list(payload.get("tables") or [])
+        cases_in = list(payload.get("case_studies") or [])
+        case_audit = dict(payload.get("case_study_audit") or {})
         candidates = list(payload.get("candidate_tables") or [])
         semantic_keys = list(payload.get("candidate_semantic_keys") or [])
         phase = payload.get("phase")
@@ -51,6 +53,8 @@ def build_schema_retrieve_payload(
         query_text = query or ""
         columns_in = []
         tables_in = []
+        cases_in = []
+        case_audit = {}
         candidates = []
         semantic_keys = []
         phase = "legacy" if retrieval_payload else None
@@ -74,6 +78,21 @@ def build_schema_retrieve_payload(
         for t in tables_in
         if isinstance(t, dict) or t is not None
     ]
+    cases = [
+        {
+            "case_id": case.get("case_id")
+            or (case.get("provenance") or {}).get("case_id"),
+            "score": case.get("score"),
+            "links": list(case.get("links") or [])[:12],
+            "scope": case.get("scope")
+            or (case.get("provenance") or {}).get("scope"),
+            "source_trace_id": case.get("source_trace_id")
+            or (case.get("provenance") or {}).get("source_trace_id"),
+            "text_preview": _preview(case.get("text")),
+        }
+        for case in cases_in
+        if isinstance(case, dict)
+    ]
 
     out: dict[str, Any] = {
         "actor_id": actor_id,
@@ -84,8 +103,11 @@ def build_schema_retrieve_payload(
         "query": _preview(query_text, limit=240),
         "n_columns": len(columns),
         "n_tables": len(tables),
+        "n_case_studies": len(cases),
         "columns": columns,
         "tables": tables,
+        "case_studies": cases,
+        "case_study_audit": case_audit,
         "candidate_tables": candidates,
         "candidate_semantic_keys": semantic_keys,
     }

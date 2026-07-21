@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -31,14 +31,25 @@ class CaseStudyIndexer:
         headline_metrics: dict[str, Any],
         artifact_paths: list[str],
         actor_id: str,
-        scope: str = "global",
+        scope: str = "actor",
         links: list[dict[str, str]] | None = None,
+        schema_version: str | None = None,
+        topology: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         brief_data = brief.model_dump()
-        text = f"{brief.intent} metrics={headline_metrics} artifacts={artifact_paths}"
+        brief_template = parameterize_brief_values(brief_data)
+        text = " ".join(
+            str(part)
+            for part in (
+                brief_template.get("intent"),
+                f"metrics={','.join(str(v) for v in brief_template.get('metrics') or [])}",
+                f"outputs={','.join(str(v) for v in brief_template.get('output_format') or [])}",
+            )
+            if part
+        )
         return {
             "case_id": str(uuid4()),
-            "brief_template": parameterize_brief_values(brief_data),
+            "brief_template": brief_template,
             "sql_template": [parameterize_sql(s) for s in approved_sql],
             "text": text,
             "links": links or [],
@@ -50,7 +61,9 @@ class CaseStudyIndexer:
             "analysis_id": analysis_id,
             "actor_id": actor_id,
             "output_patterns": brief.output_format or [],
-            "created_at": datetime.utcnow(),
+            "schema_version": schema_version,
+            "topology": dict(topology or {}),
+            "created_at": datetime.now(UTC),
         }
 
     def stage(self, record: dict[str, Any], *, embedding: list[float] | None = None) -> str:
@@ -62,13 +75,13 @@ class CaseStudyIndexer:
     def promote(self, case_id: str) -> None:
         self.collection.update_one(
             {"case_id": case_id},
-            {"$set": {"status": "promoted", "promote_score": 1.0, "promoted_at": datetime.utcnow()}},
+            {"$set": {"status": "promoted", "promote_score": 1.0, "promoted_at": datetime.now(UTC)}},
         )
 
     def demote(self, case_id: str) -> None:
         self.collection.update_one(
             {"case_id": case_id},
-            {"$set": {"status": "demoted", "demoted_at": datetime.utcnow()}},
+            {"$set": {"status": "demoted", "demoted_at": datetime.now(UTC)}},
         )
 
     def find_by_trace(self, trace_id: str) -> dict[str, Any] | None:
@@ -99,13 +112,12 @@ class FeedbackLoop:
 
     def on_pipeline_complete(self, trace_id: str, outcome: str, trace_artifacts: dict[str, Any]) -> None:
         if not is_case_study_eligible(outcome):
-            if is_negative_example(outcome) and self.retriever:
-                brief = trace_artifacts.get("brief")
-                if brief:
-                    self.retriever.index(
-                        [f"negative:{brief.intent if hasattr(brief, 'intent') else brief}"],
-                        metadata=[{"issue": outcome, "trace_id": trace_id}],
-                    )
+            if is_negative_example(outcome) and self.audit:
+                self.audit.log(
+                    "case_study_rejected",
+                    trace_id=trace_id,
+                    payload={"reason": "negative_outcome", "outcome": outcome},
+                )
             return
         brief = trace_artifacts.get("brief")
         approved_sql = trace_artifacts.get("approved_sql") or []
@@ -131,7 +143,10 @@ class FeedbackLoop:
             headline_metrics=trace_artifacts.get("headline_metrics") or {},
             artifact_paths=trace_artifacts.get("artifact_paths") or [],
             actor_id=trace_artifacts.get("actor_id", "system"),
+            scope=trace_artifacts.get("case_scope") or "actor",
             links=links,
+            schema_version=trace_artifacts.get("schema_version"),
+            topology=trace_artifacts.get("topology") or trace_artifacts.get("shard_plan"),
         )
         embedding = None
         if self.embed_fn:
@@ -165,7 +180,14 @@ class FeedbackLoop:
             if not tool:
                 return
             if signal.sentiment == "positive" and signal.confidence >= 0.75:
-                self.tool_registry.promote(tool["tool_id"])
+                try:
+                    self.tool_registry.promote(tool["tool_id"])
+                except ValueError:
+                    # Positive feedback affects confidence but cannot bypass
+                    # recipe-v2 source/replay verification.
+                    self.tool_registry.bump_promote_score(
+                        tool["tool_id"], signal.confidence
+                    )
             elif signal.sentiment == "negative" and signal.confidence >= 0.75:
                 self.tool_registry.demote(tool["tool_id"])
 
@@ -194,11 +216,18 @@ class FeedbackLoop:
         actor_id: str,
         *,
         brief: AnalysisBrief | None = None,
+        schema_version: str | None = None,
+        topology: dict[str, Any] | None = None,
+        trace_id: str | None = None,
     ) -> dict[str, Any] | list[Any]:
-        if not self.retriever:
+        if not self.retriever or agent != "II":
             return {}
-        include_negative = agent == "II"
-        filters: dict[str, Any] = {"actor_id": actor_id, "include_negative": include_negative}
+        filters: dict[str, Any] = {
+            "actor_id": actor_id,
+            "include_case_studies": True,
+            "schema_version": schema_version,
+            "topology": dict(topology or {}),
+        }
         top_k = 20
         if hasattr(self.retriever, "retrieve_hierarchical"):
             from project_core.domain.retrieval.query_builder import (
@@ -211,5 +240,15 @@ class FeedbackLoop:
             result = self.retriever.retrieve_hierarchical(
                 enriched, top_k=top_k, filters=filters, facets=facets or None
             )
-            return result.to_payload()
+            payload = result.to_payload()
+            if self.audit:
+                self.audit.log(
+                    "case_study_retrieve",
+                    trace_id=trace_id,
+                    payload={
+                        "actor_id": actor_id,
+                        **dict(payload.get("case_study_audit") or {}),
+                    },
+                )
+            return payload
         return self.retriever.retrieve(query, top_k=5, filters=filters)

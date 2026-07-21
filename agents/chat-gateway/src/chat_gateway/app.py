@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from project_core.config.env import load_project_env
 from project_core.domain.contracts.clarification import ClarificationReply
-from project_core.domain.contracts.feedback import FeedbackRecord
+from project_core.domain.contracts.feedback import DomainRuleCandidate, FeedbackRecord
 from project_core.domain.contracts.pipeline import ChatResponse
 from project_core.domain.errors.codes import AgentUnavailableError, PermissionsUnavailableError
 from project_core.ingest.attachments import ingest_file
@@ -65,6 +65,15 @@ class FeedbackRequest(BaseModel):
 class DomainRuleConfirmRequest(BaseModel):
     rule_id: str
     confirmed: bool = True
+
+
+class DomainRuleStageRequest(BaseModel):
+    trace_id: str
+    candidate: DomainRuleCandidate
+
+
+class DomainRuleReviewRequest(BaseModel):
+    action: str
 
 
 class DevLoginRequest(BaseModel):
@@ -191,7 +200,51 @@ def confirm_domain_rule(
     body: DomainRuleConfirmRequest,
     user: dict[str, Any] = Depends(current_user),
 ) -> dict[str, str]:
-    return get_orchestrator().confirm_domain_rule(body.rule_id, confirmed=body.confirmed, user=user)
+    try:
+        return get_orchestrator().confirm_domain_rule(body.rule_id, confirmed=body.confirmed, user=user)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="domain_rule_not_found") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="domain_rule_review_forbidden") from exc
+
+
+@app.post("/domain-rules/candidates")
+def stage_domain_rule(
+    body: DomainRuleStageRequest,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, str]:
+    return get_orchestrator().stage_domain_rule(body.candidate, trace_id=body.trace_id, user=user)
+
+
+@app.get("/domain-rules")
+def list_domain_rules(
+    status: str | None = None,
+    limit: int = 50,
+    user: dict[str, Any] = Depends(current_user),
+) -> list[dict[str, Any]]:
+    if status not in {None, "candidate", "confirmed", "rejected"}:
+        raise HTTPException(status_code=400, detail="invalid_domain_rule_status")
+    return get_orchestrator().list_domain_rules(
+        user=user,
+        status=status,
+        limit=min(max(limit, 1), 200),
+    )
+
+
+@app.post("/domain-rules/{rule_id}/review")
+def review_domain_rule(
+    rule_id: str,
+    body: DomainRuleReviewRequest,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, str]:
+    if body.action not in {"confirm", "reject", "stale"}:
+        raise HTTPException(status_code=400, detail="invalid_domain_rule_review_action")
+    try:
+        return get_orchestrator().review_domain_rule(rule_id, action=body.action, user=user)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="domain_rule_not_found") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="domain_rule_review_forbidden") from exc
 
 
 @app.post("/feedback")

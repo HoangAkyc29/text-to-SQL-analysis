@@ -30,12 +30,12 @@
     "issue": "empty_result | identifier_mismatch | probe_success_needs_fact | grain",
     "summary": "Vietnamese explanation",
     "diagnosis": "solvable | needs_probe | impossible | needs_user_clarify",
-    "suggested_intent_fix": "wider filters or probe SKU",
+    "suggested_intent_fix": "the evidence gap Agent II should resolve",
     "probe_requests": [
-      {"table": "SKU_DEF", "purpose": "sku_lookup"}
+      {"table": "<dictionary-grounded table>", "purpose": "<evidence needed>"}
     ],
     "expected_vs_observed": [
-      {"aspect": "row_count", "expected": "rows for SKU 123456", "observed": "0 main, 3 probe"}
+      {"aspect": "row_count", "expected": "<expected evidence>", "observed": "<observed evidence>"}
     ]
   }
 }
@@ -46,9 +46,9 @@ Required fields: `issue`, `summary`, `diagnosis` (one of four literals).
 
 ## Identifier mismatch
 
-When `main_rows == 0` but product probe returns rows:
+When the main result is empty but an identifier-resolution probe returns rows:
 - Issue = `identifier_mismatch`
-- Do not claim zero sales — ask II to fix SKU resolution.
+- Do not claim a zero metric — ask II to resolve the identifier path.
 
 ## Probe success needs fact
 

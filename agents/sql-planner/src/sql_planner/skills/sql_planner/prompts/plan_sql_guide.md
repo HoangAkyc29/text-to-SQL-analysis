@@ -16,7 +16,7 @@ Pipeline calls you twice per SQL attempt:
     "db_error_feedback": {},
     "risk_feedback": {
       "query_index": 0,
-      "purpose": "qty_by_product_period",
+      "purpose": "metric_by_dimension",
       "concerns": ["ambiguous_fact_join_grain"],
       "issue": "...",
       "suggestion": "...",
@@ -27,10 +27,10 @@ Pipeline calls you twice per SQL attempt:
     "probe_mode": false,
     "table_samples": [
       {
-        "table": "STRANS",
-        "data_source": "db2",
-        "columns": ["STK_ID", "TRANS_NUM", "SKU_ID", "AMOUNT"],
-        "rows": [{"STK_ID": "10001", "TRANS_NUM": "...", "SKU_ID": "...", "AMOUNT": 0}],
+        "table": "<selected table>",
+        "data_source": "<selected database>",
+        "columns": ["<column_a>", "<column_b>"],
+        "rows": [{"<column_a>": "<sample value>", "<column_b>": "<sample value>"}],
         "row_count": 5
       }
     ]
@@ -39,11 +39,11 @@ Pipeline calls you twice per SQL attempt:
   "schema_context": { "tables": [], "domain_definitions_excerpt": "...", "logical_tables": [] },
   "retrieval_context": {
     "phase": "hierarchical",
-    "columns": [{"semantic_key": "amount_bill_header", "text": "...", "score": 0.82, "tables": [], "facts_excerpt": "..."}],
-    "tables": [{"table_ref": "db2:strans", "text": "...", "score": 0.75, "join_hints": []}],
+    "columns": [{"semantic_key": "<retrieved semantic key>", "text": "...", "score": 0.82, "tables": [], "facts_excerpt": "..."}],
+    "tables": [{"table_ref": "<database:table>", "text": "...", "score": 0.75, "join_hints": []}],
     "case_studies": [{"text": "...", "score": 0.7, "links": []}],
-    "candidate_tables": ["db2:strans", "db2:transhdr"],
-    "candidate_semantic_keys": ["sku_id", "amount_bill_header", "trans_code"]
+    "candidate_tables": ["<database:table>"],
+    "candidate_semantic_keys": ["<semantic key>"]
   }
 }
 ```
@@ -76,8 +76,8 @@ Do **not** emit `action: "select_tables"` in this phase.
   "target_db": "db2",
   "reasoning": "short explanation",
   "attempt": 1,
-  "schema_tables_used": ["STRANS", "TRANSHDR"],
-  "semantic_keys_used": ["sku_id", "amount_bill_header", "trans_code"]
+  "schema_tables_used": ["<selected table>"],
+  "semantic_keys_used": ["<retrieved semantic key>"]
 }
 ```
 
@@ -184,17 +184,21 @@ For every **textual / code** predicate that would have been absolute equality:
 {
   "action": "clarify",
   "clarification_request": {
-    "reason": "missing_vip_definition | missing_time_range | ambiguous_product | ...",
+    "reason": "missing_business_definition | missing_time_range | ambiguous_identifier | ...",
     "partial_brief": { "...current brief..." },
     "questions": [
       {
-        "id": "vip_card_prefix",
-        "prompt": "VIP được định nghĩa thế nào?",
+        "id": "<question_id>",
+        "prompt": "<specific information needed from the user>",
         "options": [
-          {"id": "prefix_e", "label": "Thẻ bắt đầu E", "brief_value": {"filters": {"card_prefix": "E"}}},
+          {"id": "<choice>", "label": "<user-facing choice>", "brief_value": {"filters": {"<brief_key>": "<value>"}}},
           {"id": "unknown", "label": "Không chắc — khám phá dữ liệu", "brief_value": {"exploration_mode": true, "user_knowledge_level": "unknown"}}
         ],
-        "maps_to_brief_field": "filters.card_prefix"
+        "maps_to_brief_field": "filters.<brief_key>",
+        "reusable_fact": false,
+        "fact_type": "definition",
+        "fact_scope": "user",
+        "schema_links": []
       }
     ]
   }
@@ -202,9 +206,16 @@ For every **textual / code** predicate that would have been absolute equality:
 ```
 
 Emit `clarify` on attempt 1 when:
-- Required business definition is missing and not `exploration_mode` (VIP tier, bill validity rule, product id kind, store scope, etc.).
+- A required business definition is missing and not `exploration_mode`.
 - Multiple plausible grains/filters and guessing would change the answer set.
 - Informal user codes without technical terms — prefer clarify over assuming expert.
+
+Set `reusable_fact: true` only when the question asks for a reusable declarative
+domain meaning rather than a value that applies only to the current request.
+Such a question must include grounded `schema_links` from the retrieved
+dictionary context. Keep `fact_scope: user` unless the authenticated reviewer
+promotes it later. Never place the resulting business fact or ready-made SQL in
+this guide.
 
 ## Probe-once-then-fact (mandatory)
 

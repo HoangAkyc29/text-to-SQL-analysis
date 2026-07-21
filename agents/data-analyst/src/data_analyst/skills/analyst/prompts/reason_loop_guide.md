@@ -70,7 +70,7 @@ Use a recipe when `recipe_candidates` has a high score and `steps` match the int
     "diagnosis": "solvable|needs_probe|impossible|needs_user_clarify",
     "summary": "Vietnamese explanation",
     "suggested_intent_fix": "what Agent II should change",
-    "probe_requests": [{"table": "SKU_DEF", "purpose": "sku_lookup"}],
+    "probe_requests": [{"table": "<dictionary-grounded table>", "purpose": "<evidence needed>"}],
     "expected_vs_observed": [{"aspect": "row_count", "expected": "...", "observed": "..."}]
   }
 }
@@ -79,8 +79,14 @@ Use a recipe when `recipe_candidates` has a high score and `steps` match the int
 Use `data_feedback` when SQL result data cannot answer the brief (you cannot write SQL). Leave `suggested_sql` empty.
 
 ```json
-{"decision": "suggest_clarify", "clarification_request": {"source_agent": "IV", "reason": "...", "questions": []}}
+{"decision": "suggest_clarify", "clarification_request": {"source_agent": "IV", "reason": "...", "questions": [{"id": "...", "prompt": "...", "options": [], "maps_to_brief_field": "...", "reusable_fact": false, "fact_type": "definition", "fact_scope": "user", "schema_links": []}]}}
 ```
+
+Mark a clarification as `reusable_fact: true` only for a reusable declarative
+meaning, never for a request-specific filter/value. Reusable facts require
+schema links grounded in the supplied dictionary/RAG context. The answer is
+only evidence; runtime scope, conflict and confirmation gates decide whether
+it becomes usable knowledge.
 
 ```json
 {"decision": "impossible", "impossible_reason": "short_code", "insight_vi": "..."}

@@ -704,7 +704,8 @@ def test_auto_export_deduplicates_sheets_and_restores_identifier_text(tmp_path):
         out_dir=str(out),
         caveats=[],
     )
-    assert exported == ["export_excel"]
+    assert [step["op_id"] for step in exported] == ["export_excel"]
+    assert set(exported[0]["args"]["sheets"]) == {"Summary", "Details"}
     workbook = load_workbook(out / "analysis_result.xlsx", data_only=True)
     assert workbook.sheetnames == ["Summary", "Details"]
     assert workbook["Summary"]["B2"].value == "00123"

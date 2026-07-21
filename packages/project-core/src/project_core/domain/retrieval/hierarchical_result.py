@@ -17,6 +17,7 @@ class HierarchicalRetrievalResult:
         facets: list[str] | None = None,
         query: str | None = None,
         top_k: int | None = None,
+        case_study_audit: dict[str, Any] | None = None,
     ) -> None:
         self.columns = columns
         self.tables = tables
@@ -26,6 +27,7 @@ class HierarchicalRetrievalResult:
         self.facets = list(facets or [])
         self.query = query or ""
         self.top_k = top_k
+        self.case_study_audit = dict(case_study_audit or {})
 
     def to_payload(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -37,6 +39,7 @@ class HierarchicalRetrievalResult:
             "candidate_semantic_keys": self.candidate_semantic_keys,
             "facets": self.facets,
             "query": self.query,
+            "case_study_audit": self.case_study_audit,
         }
         if self.top_k is not None:
             out["top_k"] = self.top_k

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import re
 from typing import Any
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 COSINE_WEIGHT = 0.7
 KEYWORD_WEIGHT = 0.3
 _MAX_REFS_PER_COLUMN = 2
+_DEFAULT_CASE_MIN_SCORE = 0.35
 
 
 def _tokenize(text: str) -> set[str]:
@@ -75,10 +77,68 @@ def _schema_filters(filters: dict[str, Any]) -> dict[str, Any]:
     out = {
         k: v
         for k, v in filters.items()
-        if k not in {"actor_id", "include_negative", "facets", "queries"}
+        if k
+        not in {
+            "actor_id",
+            "include_case_studies",
+            "schema_version",
+            "topology",
+            "facets",
+            "queries",
+        }
     }
     out["apply_actor_filter"] = False
     return out
+
+
+def _normalized_refs(links: list[Any]) -> tuple[set[str], set[str]]:
+    columns: set[str] = set()
+    tables: set[str] = set()
+    for link in links or []:
+        if not isinstance(link, dict):
+            continue
+        ref = str(link.get("ref") or "").strip().lower()
+        if not ref:
+            continue
+        if link.get("chunk_group") == "column":
+            columns.add(ref)
+        elif link.get("chunk_group") == "table":
+            tables.add(ref)
+    return columns, tables
+
+
+def _topology_dbs(topology: dict[str, Any] | None) -> set[str]:
+    data = topology or {}
+    dbs = {str(v).lower() for v in (data.get("target_dbs") or []) if str(v).strip()}
+    if data.get("target_db"):
+        dbs.add(str(data["target_db"]).lower())
+    if data.get("needs_db1"):
+        dbs.add("db1")
+    if data.get("needs_db2"):
+        dbs.add("db2")
+    return dbs
+
+
+def _configured_case_min_score() -> float:
+    raw = os.getenv("CASE_STUDY_MIN_SCORE")
+    if raw is None:
+        return _DEFAULT_CASE_MIN_SCORE
+    try:
+        return float(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid CASE_STUDY_MIN_SCORE=%r", raw)
+        return _DEFAULT_CASE_MIN_SCORE
+
+
+def _sanitize_case_text(text: Any) -> str:
+    value = " ".join(str(text or "").split())
+    if re.search(
+        r"\b(?:SELECT|INSERT|UPDATE|DELETE|MERGE)\b.+\b(?:FROM|INTO|SET)\b",
+        value,
+        flags=re.IGNORECASE,
+    ):
+        return "Promoted case study; use provenance and schema links for support."
+    return value
 
 
 def _stem(ref: str) -> str:
@@ -211,12 +271,20 @@ class MongoVectorRetriever(Retriever):
         skip_status_filter: bool = False,
         scan_limit: int = 500,
         embedder: EmbeddingClient | None = None,
+        min_score: float | None = None,
     ) -> None:
         self.db = db
         self.collection = db[collection_name]
         self.embedder = embedder or EmbeddingClient()
         self.skip_status_filter = skip_status_filter
         self.scan_limit = scan_limit
+        self.is_case_collection = collection_name == "case_studies"
+        self.min_score = (
+            float(min_score)
+            if min_score is not None
+            else _configured_case_min_score()
+        )
+        self.last_retrieval_audit: dict[str, Any] = {}
 
     def index(self, documents: list[str], *, metadata: list[dict[str, Any]] | None = None) -> None:
         meta = metadata or [{} for _ in documents]
@@ -233,19 +301,30 @@ class MongoVectorRetriever(Retriever):
         queries: list[str] | None = None,
     ) -> list[RetrievedChunk]:
         filters = filters or {}
+        if self.is_case_collection and not filters.get("include_case_studies", True):
+            self.last_retrieval_audit = {
+                "considered": 0,
+                "accepted": 0,
+                "rejected": {"agent_not_supported": 1},
+                "score_threshold": self.min_score,
+            }
+            return []
         qlist = [q for q in (queries or []) if (q or "").strip()]
         if not qlist:
             qlist = [query or ""]
         query_vecs = self.embedder.embed(qlist)
         mongo_filter: dict[str, Any] = {}
         if not self.skip_status_filter:
-            mongo_filter["status"] = {"$in": ["promoted", "staged"]}
+            mongo_filter["status"] = "promoted"
 
         apply_actor = filters.get("apply_actor_filter")
         if apply_actor is None:
             apply_actor = not self.skip_status_filter
         if apply_actor and filters.get("actor_id"):
-            mongo_filter["$or"] = [{"scope": "global"}, {"actor_id": filters["actor_id"]}]
+            mongo_filter["$or"] = [
+                {"scope": "global"},
+                {"scope": "actor", "actor_id": filters["actor_id"]},
+            ]
 
         if filters.get("chunk_group"):
             mongo_filter["chunk_group"] = filters["chunk_group"]
@@ -259,11 +338,68 @@ class MongoVectorRetriever(Retriever):
         boost_tables = {str(t).lower() for t in (filters.get("boost_tables") or [])}
         link_refs = {str(x).lower() for x in (filters.get("link_refs") or [])}
         link_bonus = float(filters.get("link_overlap_bonus") or 0.15)
+        compatible_refs = {str(x).lower() for x in (filters.get("compatible_link_refs") or [])}
+        compatible_tables = {str(x).lower() for x in (filters.get("compatible_table_refs") or [])}
+        require_schema = bool(filters.get("require_schema_compatibility"))
+        require_topology = bool(filters.get("require_topology_compatibility"))
+        expected_schema = str(filters.get("schema_version") or "").strip()
+        expected_dbs = _topology_dbs(filters.get("topology"))
+        threshold = float(filters.get("min_score", self.min_score if self.is_case_collection else 0.0))
+        rejection_counts: dict[str, int] = {}
+        rejected_candidates: list[dict[str, str]] = []
+
+        def reject(doc: dict[str, Any], reason: str) -> None:
+            rejection_counts[reason] = rejection_counts.get(reason, 0) + 1
+            if len(rejected_candidates) < 20:
+                rejected_candidates.append(
+                    {"case_id": str(doc.get("case_id") or ""), "reason": reason}
+                )
 
         scored: list[RetrievedChunk] = []
         for doc in docs:
-            if filters.get("include_negative") and doc.get("status") == "demoted":
-                continue
+            if self.is_case_collection:
+                scope = str(doc.get("scope") or "")
+                actor_id = str(filters.get("actor_id") or "")
+                if scope not in {"global", "actor"}:
+                    reject(doc, "invalid_scope")
+                    continue
+                if scope == "actor" and (not actor_id or doc.get("actor_id") != actor_id):
+                    reject(doc, "actor_scope_mismatch")
+                    continue
+                doc_schema = str(doc.get("schema_version") or "").strip()
+                if expected_schema and not doc_schema:
+                    reject(doc, "missing_schema_version")
+                    continue
+                if expected_schema and doc_schema != expected_schema:
+                    reject(doc, "schema_version_mismatch")
+                    continue
+                column_refs, table_refs = _normalized_refs(doc.get("links") or [])
+                all_refs = column_refs | table_refs
+                if require_schema and not compatible_refs:
+                    reject(doc, "missing_retrieval_schema_context")
+                    continue
+                if compatible_refs and not all_refs:
+                    reject(doc, "missing_schema_links")
+                    continue
+                if compatible_refs and all_refs.isdisjoint(compatible_refs):
+                    reject(doc, "schema_mismatch")
+                    continue
+                if require_topology and not compatible_tables:
+                    reject(doc, "missing_retrieval_topology_context")
+                    continue
+                if require_topology and not table_refs and not _topology_dbs(doc.get("topology")):
+                    reject(doc, "missing_topology")
+                    continue
+                if compatible_tables and table_refs and table_refs.isdisjoint(compatible_tables):
+                    reject(doc, "topology_mismatch")
+                    continue
+                doc_dbs = _topology_dbs(doc.get("topology"))
+                if expected_dbs and not doc_dbs and not table_refs:
+                    reject(doc, "missing_topology")
+                    continue
+                if expected_dbs and not doc_dbs.issubset(expected_dbs):
+                    reject(doc, "topology_mismatch")
+                    continue
             emb = doc.get("embedding") or []
             facet_scores: list[float] = []
             for qtext, qvec in zip(qlist, query_vecs, strict=True):
@@ -280,15 +416,49 @@ class MongoVectorRetriever(Retriever):
             for link in doc.get("links") or []:
                 if str(link.get("ref", "")).lower() in link_refs:
                     score += link_bonus
+            if score < threshold:
+                reject(doc, "below_score_threshold")
+                continue
             scored.append(
                 RetrievedChunk(
-                    text=doc.get("text", ""),
+                    text=_sanitize_case_text(doc.get("text", ""))
+                    if self.is_case_collection
+                    else doc.get("text", ""),
                     score=score,
                     source=chunk_id,
-                    metadata={k: v for k, v in doc.items() if k not in {"embedding", "text"}},
+                    metadata=(
+                        {
+                            key: doc.get(key)
+                            for key in (
+                                "case_id",
+                                "analysis_id",
+                                "source_trace_id",
+                                "scope",
+                                "schema_version",
+                                "links",
+                                "topology",
+                            )
+                            if doc.get(key) is not None
+                        }
+                        if self.is_case_collection
+                        else {k: v for k, v in doc.items() if k not in {"embedding", "text"}}
+                    ),
                 )
             )
         scored.sort(key=lambda c: c.score, reverse=True)
+        self.last_retrieval_audit = {
+            "considered": len(docs),
+            "accepted": min(len(scored), top_k),
+            "rejected": rejection_counts,
+            "rejections": rejected_candidates,
+            "score_threshold": threshold,
+            "policy": {
+                "status": "promoted" if self.is_case_collection else None,
+                "actor_id_supplied": bool(filters.get("actor_id")),
+                "schema_compatibility_required": require_schema,
+                "topology_compatibility_required": require_topology,
+            },
+        }
         return scored[:top_k]
 
 
@@ -358,11 +528,34 @@ class HierarchicalSchemaRetriever:
         ordered = demote_candidate_tables(candidate_tables, query_blob=query_blob)
 
         link_refs = list(semantic_keys) + ordered
-        case_chunks = self.case_retriever.retrieve(
-            query,
-            top_k=max(1, top_k // 3),
-            filters={**filters, "link_refs": link_refs, "link_overlap_bonus": 0.2, "apply_actor_filter": True},
-            queries=facet_list,
+        topology_filter = dict(filters.get("topology") or {})
+        if not _topology_dbs(topology_filter):
+            topology_filter["target_dbs"] = sorted(
+                {
+                    ref.split(":", 1)[0]
+                    for ref in ordered
+                    if ":" in ref and ref.split(":", 1)[0] in {"db1", "db2"}
+                }
+            )
+        case_chunks = (
+            self.case_retriever.retrieve(
+                query,
+                top_k=max(1, top_k // 3),
+                filters={
+                    **filters,
+                    "link_refs": link_refs,
+                    "compatible_link_refs": link_refs,
+                    "compatible_table_refs": ordered,
+                    "require_schema_compatibility": True,
+                    "require_topology_compatibility": True,
+                    "topology": topology_filter,
+                    "link_overlap_bonus": 0.2,
+                    "apply_actor_filter": True,
+                },
+                queries=facet_list,
+            )
+            if filters.get("include_case_studies", True)
+            else []
         )
 
         def _col_item(c: RetrievedChunk) -> dict[str, Any]:
@@ -394,10 +587,27 @@ class HierarchicalSchemaRetriever:
             }
 
         def _case_item(c: RetrievedChunk) -> dict[str, Any]:
+            links = [
+                {
+                    "chunk_group": str(link.get("chunk_group") or ""),
+                    "ref": str(link.get("ref") or "").lower(),
+                }
+                for link in (c.metadata.get("links") or [])
+                if isinstance(link, dict)
+                and link.get("chunk_group") in {"column", "table"}
+                and str(link.get("ref") or "").strip()
+            ]
             return {
                 "text": c.text,
                 "score": round(c.score, 4),
-                "links": c.metadata.get("links") or [],
+                "links": links,
+                "provenance": {
+                    "case_id": c.metadata.get("case_id"),
+                    "analysis_id": c.metadata.get("analysis_id"),
+                    "source_trace_id": c.metadata.get("source_trace_id"),
+                    "scope": c.metadata.get("scope"),
+                    "schema_version": c.metadata.get("schema_version"),
+                },
             }
 
         return HierarchicalRetrievalResult(
@@ -409,6 +619,7 @@ class HierarchicalSchemaRetriever:
             facets=facet_list,
             query=query,
             top_k=top_k,
+            case_study_audit=dict(self.case_retriever.last_retrieval_audit),
         )
 
     def retrieve(self, query: str, *, top_k: int = 5, filters: dict[str, Any] | None = None) -> list[RetrievedChunk]:

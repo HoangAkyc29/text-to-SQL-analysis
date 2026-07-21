@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import pytest
+from unittest.mock import MagicMock
 
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.feedback import FeedbackRecord, SatisfactionSignal
+from project_core.domain.feedback.loop import CaseStudyIndexer, FeedbackLoop
 from project_core.domain.feedback.store import BehavioralSignal
 
 pytestmark = pytest.mark.unit
@@ -30,11 +32,31 @@ def test_on_pipeline_complete_stages_success(feedback_loop):
     case = feedback_loop.indexer.find_by_trace("trace-1")
     assert case is not None
     assert case["status"] in {"staged", "promoted"}
+    assert case["scope"] == "actor"
+    assert case["actor_id"] == "u1"
 
 
 def test_on_pipeline_complete_skips_impossible(feedback_loop, fake_mongo_collection):
     feedback_loop.on_pipeline_complete("t2", "impossible", {"brief": AnalysisBrief(intent="x")})
     assert feedback_loop.indexer.find_by_trace("t2") is None
+
+
+def test_negative_outcome_is_not_indexed_as_retrievable_case(fake_mongo_collection):
+    retriever = MagicMock()
+    loop = FeedbackLoop(indexer=CaseStudyIndexer(fake_mongo_collection), retriever=retriever)
+
+    loop.on_pipeline_complete("t-negative", "empty", {"brief": AnalysisBrief(intent="x")})
+
+    retriever.index.assert_not_called()
+    assert loop.indexer.find_by_trace("t-negative") is None
+
+
+def test_case_studies_are_only_exposed_to_agent_ii(fake_mongo_collection):
+    retriever = MagicMock()
+    loop = FeedbackLoop(indexer=CaseStudyIndexer(fake_mongo_collection), retriever=retriever)
+
+    assert loop.retrieve_context("IV", "query", "u1") == {}
+    retriever.retrieve.assert_not_called()
 
 
 def test_on_user_feedback_promotes(feedback_loop):

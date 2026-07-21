@@ -32,6 +32,20 @@ def test_build_schema_retrieve_payload_compacts_hits():
             ],
             "candidate_tables": ["db2:strans", "db2:transhdr"],
             "candidate_semantic_keys": ["gift_qty", "bill_amount"],
+            "case_studies": [
+                {
+                    "case_id": "case-1",
+                    "score": 0.81,
+                    "text": "sanitized case pattern",
+                    "links": [{"chunk_group": "table", "ref": "db2:strans"}],
+                    "scope": "actor",
+                    "source_trace_id": "trace-old",
+                }
+            ],
+            "case_study_audit": {
+                "selected": ["case-1"],
+                "rejected": [{"case_id": "case-2", "reason": "scope_mismatch"}],
+            },
         },
         miss=False,
     )
@@ -43,6 +57,9 @@ def test_build_schema_retrieve_payload_compacts_hits():
     assert len(payload["columns"][0]["text_preview"]) <= 160
     assert "…" in payload["columns"][0]["text_preview"]
     assert payload["candidate_tables"] == ["db2:strans", "db2:transhdr"]
+    assert payload["n_case_studies"] == 1
+    assert payload["case_studies"][0]["case_id"] == "case-1"
+    assert payload["case_study_audit"]["selected"] == ["case-1"]
     assert payload["miss"] is False
     assert "text" not in payload["columns"][0]
 

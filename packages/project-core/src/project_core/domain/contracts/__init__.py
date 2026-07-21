@@ -6,7 +6,18 @@ from project_core.domain.contracts.clarification import (
     ClarificationReply,
     ClarificationRequest,
 )
-from project_core.domain.contracts.feedback import DataFeedback, FeedbackRecord, SatisfactionSignal
+from project_core.domain.contracts.feedback import (
+    DataFeedback,
+    DomainEvidence,
+    DomainRuleCandidate,
+    FeedbackRecord,
+    SatisfactionSignal,
+)
+from project_core.domain.contracts.analysis_plan import (
+    RecipeCandidate,
+    RecipeDatasetContract,
+    RecipeVerificationContract,
+)
 from project_core.domain.contracts.datasets import (
     ArtifactRecord,
     DatasetManifest,
@@ -58,6 +69,8 @@ __all__ = [
     "DataFeedback",
     "DatasetManifest",
     "DatasetManifestEntry",
+    "DomainEvidence",
+    "DomainRuleCandidate",
     "ExtractedDataset",
     "FeedbackRecord",
     "IntentSlice",
@@ -77,6 +90,9 @@ __all__ = [
     "PlotReviewResult",
     "PlotSourceConsistency",
     "QueryResultFile",
+    "RecipeCandidate",
+    "RecipeDatasetContract",
+    "RecipeVerificationContract",
     "SatisfactionSignal",
     "TechnicalSummary",
     "WorkflowState",

@@ -92,12 +92,9 @@ def _select_llm(
 
 
 def candidate_to_step(candidate: RecipeCandidate, params: dict[str, Any]) -> RecipeStep:
-    if candidate.steps:
-        step = candidate.steps[0].model_copy()
-        step.params = {**step.params, **params}
-        step.source_tool_id = candidate.tool_id
-        step.status = "reuse"
-        return step
+    steps = candidate_to_steps(candidate, params)
+    if steps:
+        return steps[0]
     return RecipeStep(
         step_id=f"{candidate.tool_id}-main",
         name=candidate.name,
@@ -107,3 +104,33 @@ def candidate_to_step(candidate: RecipeCandidate, params: dict[str, Any]) -> Rec
         param_schema=candidate.param_schema,
         status="reuse",
     )
+
+
+def candidate_to_steps(
+    candidate: RecipeCandidate, params: dict[str, Any]
+) -> list[RecipeStep]:
+    """Preserve the full reusable catalog chain instead of truncating to step one."""
+    source_steps = candidate.steps
+    if candidate.op_chain:
+        source_steps = [
+            RecipeStep(
+                step_id=f"{candidate.tool_id}-op-{index}-{raw.get('op_id', 'unknown')}",
+                name=str(raw.get("op_id") or "catalog_op"),
+                op_id=str(raw.get("op_id") or ""),
+                args=dict(raw.get("args") or {}),
+                dataset=raw.get("dataset"),
+                save_as=raw.get("save_as"),
+                source_tool_id=candidate.tool_id,
+                status="reuse",
+            )
+            for index, raw in enumerate(candidate.op_chain)
+            if isinstance(raw, dict) and raw.get("op_id")
+        ]
+    out: list[RecipeStep] = []
+    for source in source_steps:
+        step = source.model_copy(deep=True)
+        step.params = {**step.params, **params}
+        step.source_tool_id = candidate.tool_id
+        step.status = "reuse"
+        out.append(step)
+    return out

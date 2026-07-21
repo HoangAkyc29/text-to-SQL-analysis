@@ -21,6 +21,8 @@ _PERSISTED_EVENT_TYPES = frozenset(
         "agent_iii_review",
         "agent_iv_analyze",
         "workflow_timing",
+        "case_study_retrieve",
+        "case_study_rejected",
     }
 )
 
@@ -126,6 +128,7 @@ class AuditLogger:
         coverage: dict[str, Any] | None = None,
         artifact_manifests: list[dict[str, Any]] | None = None,
         headline_metrics: dict[str, Any] | None = None,
+        recipe_reuse: dict[str, Any] | None = None,
     ) -> str:
         event_id = str(uuid4())
         self.log(
@@ -151,6 +154,7 @@ class AuditLogger:
                     for item in (artifact_manifests or [])[:20]
                 ],
                 "headline_metrics": dict(headline_metrics or {}),
+                "recipe_reuse": dict(recipe_reuse or {}),
             },
         )
         return event_id

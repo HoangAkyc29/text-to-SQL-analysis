@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
+from project_core.domain.analysis.ops.registry import missing_required_args, normalize_op_args
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.analysis_plan import AnalysisPlan, ExecutionCoverage
 from project_core.domain.contracts.brief import AnalysisBrief
@@ -32,7 +33,7 @@ def analyze_datasets(
     domain_rules_excerpt: str = "",
 ) -> dict[str, Any]:
     """Run a fixed op-chain fallback and return IV action payload with coverage."""
-    del analysis_tools, analysis_plan, execution_plan, domain_rules_excerpt  # unused in op fallback
+    del analysis_tools, analysis_plan, execution_plan
     paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
     paths, meta = _merge_external_paths(brief, paths, query_meta or [])
     row_counts = {i: int(q.get("row_count", 0)) for i, q in enumerate(manifest.get("queries", []))}
@@ -71,20 +72,26 @@ def analyze_datasets(
     new_op_chains: list[dict[str, Any]] = []
 
     # Prefer recipe tool-chains when present
-    chain = _pick_recipe_chain(recipe_candidates or [])
+    chain, recipe_bindings = _pick_recipe_chain(recipe_candidates or [])
     if not chain:
         chain = _default_op_chain(brief, ws)
+        recipe_bindings = {}
 
     for step in chain:
         if steps_run >= max_steps:
             gaps.append("budget_exceeded")
             break
         op_id = str(step.get("op_id") or "")
-        args = dict(step.get("args") or {})
+        args = _apply_dataset_bindings(dict(step.get("args") or {}), recipe_bindings)
         if step.get("dataset") and "dataset" not in args:
-            args["dataset"] = step["dataset"]
+            args["dataset"] = recipe_bindings.get(str(step["dataset"]), step["dataset"])
         if step.get("save_as"):
             args["save_as"] = step["save_as"]
+        args, _ = normalize_op_args(op_id, args)
+        missing = missing_required_args(op_id, args)
+        if missing:
+            gaps.append(f"{op_id}:missing_args:{missing}")
+            continue
         res = execute_op(ws, op_id, args, out_dir=out_dir)
         steps_run += 1
         if res.status != "ok":
@@ -97,9 +104,16 @@ def analyze_datasets(
         ref = ws.refs()[0]
         formats = {str(x).lower() for x in (brief.output_format or [])}
         if "excel" in formats or "xlsx" in formats:
-            execute_op(ws, "export_excel", {"dataset": ref, "filename": "analysis.xlsx"}, out_dir=out_dir)
+            export_op = "export_excel"
+            export_args = {"dataset": ref, "filename": "analysis.xlsx"}
         else:
-            execute_op(ws, "export_csv", {"dataset": ref, "filename": f"{ref}.csv"}, out_dir=out_dir)
+            export_op = "export_csv"
+            export_args = {"dataset": ref, "filename": f"{ref}.csv"}
+        export_result = execute_op(ws, export_op, export_args, out_dir=out_dir)
+        if export_result.status == "ok":
+            new_op_chains.append({"op_id": export_op, "args": export_args})
+        else:
+            gaps.append(f"{export_op}:{export_result.error or 'error'}")
         steps_run += 1
 
     if "chart" in {str(x).lower() for x in (brief.output_format or [])} and ws.refs():
@@ -144,14 +158,20 @@ def analyze_datasets(
         "coverage": coverage.model_dump(),
         "new_steps": [],
         "op_chain": new_op_chains,
+        "domain_grounding_available": bool(domain_rules_excerpt.strip()),
     }
     return payload
 
 
-def _pick_recipe_chain(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _pick_recipe_chain(
+    candidates: list[dict[str, Any]], *, min_score: float = 0.35
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
     best: list[dict[str, Any]] = []
+    best_bindings: dict[str, str] = {}
     best_score = -1.0
     for c in candidates:
+        if c.get("compatibility_status") != "compatible":
+            continue
         steps = c.get("steps") or c.get("op_chain") or []
         if not steps:
             continue
@@ -160,10 +180,27 @@ def _pick_recipe_chain(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]
             if not any(s.get("op_id") for s in steps if isinstance(s, dict)):
                 continue
         score = float(c.get("score") or 0)
-        if score > best_score:
+        if score >= min_score and score > best_score:
             best_score = score
             best = [s for s in steps if isinstance(s, dict) and s.get("op_id")]
-    return best
+            best_bindings = {
+                str(role): str(ref)
+                for role, ref in (c.get("dataset_bindings") or {}).items()
+            }
+    return best, best_bindings
+
+
+def _apply_dataset_bindings(value: Any, bindings: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        return bindings.get(value, value)
+    if isinstance(value, list):
+        return [_apply_dataset_bindings(item, bindings) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _apply_dataset_bindings(item, bindings)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _default_op_chain(brief: AnalysisBrief, ws: DatasetWorkingSet) -> list[dict[str, Any]]:

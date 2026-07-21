@@ -16,7 +16,8 @@ from project_core.config.loader import load_project_config
 from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.analysis.decomposer import decompose_brief
 from project_core.domain.analysis.execution_composer import build_execution_plan
-from project_core.domain.analysis.recipe_matcher import rank_candidates
+from project_core.domain.analysis.ops import list_op_ids
+from project_core.domain.analysis.recipe_retriever import hybrid_rank_candidates
 from project_core.domain.feedback.risk_rejection import append_risk_rejection, build_risk_rejection_record
 from project_core.domain.sql.topology_guard import (
     is_soft_data_feedback_issue,
@@ -155,8 +156,6 @@ class SupermarketAnalysisPipeline:
         inbox: dict[str, Any] = {}
         needs_clarification: ClarificationRequest | None = None
         domain_excerpt = ""
-        if self.domain_rule_store is not None:
-            domain_excerpt = self.domain_rule_store.excerpt_for_agents()
 
         iv_llm_enabled = bool(getattr(self.cfg.pipeline, "iv_llm_enabled", False))
         # When Agent IV is the LLM analysis brain it decomposes/plans its own
@@ -247,6 +246,24 @@ class SupermarketAnalysisPipeline:
                             meta = self.column_catalog.get(str(sk))
                             if meta:
                                 column_priority.extend(meta.display_names)
+            if self.domain_rule_store is not None:
+                fact_links = [
+                    {"chunk_group": "table", "ref": str(ref)}
+                    for ref in candidate_tables
+                ]
+                fact_links.extend(
+                    {"chunk_group": "column", "ref": str(key)}
+                    for key in (
+                        retrieval_payload.get("candidate_semantic_keys") or []
+                        if isinstance(retrieval_payload, dict)
+                        else []
+                    )
+                )
+                domain_excerpt = self.domain_rule_store.excerpt_for_agents(
+                    actor_id=permissions.actor_id,
+                    role=permissions.role,
+                    schema_links=fact_links,
+                )
 
             table_filter: list[str] | None = None
             if candidate_tables:
@@ -1014,6 +1031,51 @@ class SupermarketAnalysisPipeline:
             analysis_tools: list[dict[str, Any]] = promoted_tools
             recipe_candidates: list[dict[str, Any]] = []
             candidates_by_subtask: dict[str, list] = {}
+            query_meta_by_index = {
+                int(item.get("query_index", index) or 0): item
+                for index, item in enumerate(query_meta)
+                if isinstance(item, dict)
+            }
+            raw_recipe_roles = [
+                str(
+                    query_meta_by_index.get(index, {}).get("role")
+                    or "primary"
+                )
+                for index in range(len(query_files))
+            ]
+            recipe_role_counts = {
+                role: raw_recipe_roles.count(role) for role in set(raw_recipe_roles)
+            }
+            recipe_datasets: list[dict[str, Any]] = []
+            for index, query_file in enumerate(query_files):
+                meta = query_meta_by_index.get(index, {})
+                role = raw_recipe_roles[index]
+                purpose = str(meta.get("purpose") or "")
+                if recipe_role_counts[role] > 1:
+                    suffix = re.sub(
+                        r"[^a-zA-Z0-9_.-]+",
+                        "_",
+                        purpose or str(index),
+                    ).strip("_")
+                    role = f"{role}_{suffix or index}"
+                recipe_datasets.append(
+                    {
+                        "ref": f"q{index}",
+                        "path": query_file.path,
+                        "format": query_file.format,
+                        "row_count": query_file.row_count,
+                        "columns": list(query_file.columns),
+                        "role": role,
+                        "purpose": purpose or None,
+                        "source_kind": "sql",
+                    }
+                )
+            recipe_params = {
+                **dict(brief.filters or {}),
+                "metrics": list(brief.metrics or []),
+                "dimensions": list(brief.dimensions or []),
+            }
+            available_recipe_ops = set(list_op_ids())
 
             def _function_allowed(tool_id: str) -> bool:
                 # Recipes without a tool_id are inline steps (not a promoted
@@ -1025,18 +1087,52 @@ class SupermarketAnalysisPipeline:
                 # Agent IV brain plans its own steps; give it flat recipe
                 # candidates ranked against the intent (no pre-built exec plan).
                 if self.analysis_tool_registry:
-                    ranked = self.analysis_tool_registry.find_candidates(brief.intent, top_k=5)
+                    ranked = self.analysis_tool_registry.find_candidates(
+                        brief.intent,
+                        top_k=5,
+                        datasets=recipe_datasets,
+                        params=recipe_params,
+                        available_ops=available_recipe_ops,
+                    )
                 else:
-                    ranked = rank_candidates(brief.intent, promoted_tools, top_k=5)
+                    ranked = hybrid_rank_candidates(
+                        brief.intent,
+                        promoted_tools,
+                        top_k=5,
+                        datasets=recipe_datasets,
+                        params=recipe_params,
+                        available_ops=available_recipe_ops,
+                        min_score=0.2,
+                    )
                 ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
                 recipe_candidates = [c.model_dump() for c in ranked]
             else:
                 if brief.plan:
                     for subtask in brief.plan.subtasks:
                         if self.analysis_tool_registry:
-                            ranked = self.analysis_tool_registry.find_candidates(subtask.intent, top_k=5)
+                            ranked = self.analysis_tool_registry.find_candidates(
+                                subtask.intent,
+                                top_k=5,
+                                datasets=recipe_datasets,
+                                params={
+                                    **recipe_params,
+                                    **dict(subtask.filters or {}),
+                                },
+                                available_ops=available_recipe_ops,
+                            )
                         else:
-                            ranked = rank_candidates(subtask.intent, promoted_tools, top_k=5)
+                            ranked = hybrid_rank_candidates(
+                                subtask.intent,
+                                promoted_tools,
+                                top_k=5,
+                                datasets=recipe_datasets,
+                                params={
+                                    **recipe_params,
+                                    **dict(subtask.filters or {}),
+                                },
+                                available_ops=available_recipe_ops,
+                                min_score=0.2,
+                            )
                         ranked = [c for c in ranked if _function_allowed(getattr(c, "tool_id", ""))]
                         candidates_by_subtask[subtask.id] = ranked
                         for c in ranked:
@@ -1109,6 +1205,34 @@ class SupermarketAnalysisPipeline:
                 coverage=dict(iv_parsed.coverage or {}),
                 artifact_manifests=list(iv_parsed.artifact_manifests or []),
                 headline_metrics=dict(iv_parsed.headline_metrics or {}),
+                recipe_reuse={
+                    "candidates": [
+                        {
+                            "tool_id": item.get("tool_id"),
+                            "score": item.get("score"),
+                            "compatibility_status": item.get("compatibility_status"),
+                            "rejection_reasons": list(
+                                item.get("rejection_reasons") or []
+                            )[:6],
+                            "dataset_bindings": dict(
+                                item.get("dataset_bindings") or {}
+                            ),
+                        }
+                        for item in recipe_candidates[:10]
+                    ],
+                    "executed_steps": [
+                        {
+                            "tool_id": item.get("tool_id"),
+                            "op_id": item.get("op_id"),
+                            "status": item.get("status"),
+                            "reuse": bool(item.get("reuse")),
+                            "error": item.get("error"),
+                        }
+                        for item in (iv_parsed.steps_trace or [])
+                        if isinstance(item, dict)
+                        and (item.get("tool_id") or item.get("reuse"))
+                    ][:20],
+                },
             )
             self._append_timed_step(
                 workflow,
@@ -1257,7 +1381,15 @@ class SupermarketAnalysisPipeline:
                     inbox["probe_mode"] = True
                 if self.domain_rule_store and fb.confirmed_rules:
                     for rule in fb.confirmed_rules:
-                        self.domain_rule_store.stage_candidate(rule, trace_id=trace_id)
+                        scoped_rule = rule.model_copy(
+                            update={
+                                "actor_id": rule.actor_id or permissions.actor_id,
+                                "scope": rule.scope or "user",
+                            }
+                        )
+                        self.domain_rule_store.stage_candidate(
+                            scoped_rule, trace_id=trace_id
+                        )
                 continue
 
             if iv_action == "suggest_clarify":
@@ -1357,32 +1489,61 @@ class SupermarketAnalysisPipeline:
                     op_chain = list(getattr(iv_parsed, "op_chain", None) or [])
                     if not op_chain and iv_parsed.steps_trace:
                         op_chain = [
-                            {"op_id": s.get("op_id"), "args": {}}
+                            {
+                                "op_id": s.get("op_id"),
+                                "args": dict(s.get("args") or {}),
+                                **(
+                                    {"dataset": s.get("dataset")}
+                                    if s.get("dataset") is not None
+                                    else {}
+                                ),
+                                **(
+                                    {"save_as": s.get("save_as")}
+                                    if s.get("save_as") is not None
+                                    else {}
+                                ),
+                            }
                             for s in iv_parsed.steps_trace
                             if isinstance(s, dict) and s.get("op_id") and s.get("status") == "ok"
                         ]
-                    if op_chain:
-                        self.analysis_tool_registry.stage_op_chain(
-                            name=f"analysis_{trace_id[:8]}",
-                            intent=brief.intent,
-                            op_chain=op_chain,
-                            trace_id=trace_id,
-                            datasets=[q.model_dump() for q in query_files],
-                            artifacts=artifact_paths,
-                            metrics=summary.headline_metrics,
-                        )
-                    else:
-                        for step_raw in iv_parsed.new_steps:
-                            from project_core.domain.contracts.analysis_plan import RecipeStep
-
-                            step = RecipeStep.model_validate(step_raw)
-                            # Prefer op steps; skip legacy script-only when empty template
-                            if getattr(step, "script_template", None):
-                                self.analysis_tool_registry.stage_step(
-                                    step=step,
-                                    intent=brief.intent,
-                                    trace_id=trace_id,
+                    source_verification = dict(iv_parsed.verification or {})
+                    if (
+                        op_chain
+                        and source_verification.get("status") == "passed"
+                        and artifact_paths
+                    ):
+                        try:
+                            tool_id = self.analysis_tool_registry.stage_op_chain(
+                                name=f"analysis_{trace_id[:8]}",
+                                intent=brief.intent,
+                                op_chain=op_chain,
+                                trace_id=trace_id,
+                                datasets=recipe_datasets,
+                                artifacts=artifact_paths,
+                                metrics=summary.headline_metrics,
+                                verification=source_verification,
+                            )
+                            replay = self.analysis_tool_registry.invoke_tool(
+                                tool_id,
+                                datasets=recipe_datasets,
+                                output_dir=str(out_dir / "_recipe_replay" / tool_id),
+                                params=recipe_params,
+                            )
+                            if replay.get("status") == "ok":
+                                self.analysis_tool_registry.promote(tool_id)
+                            else:
+                                logger.info(
+                                    "recipe replay rejected tool_id=%s reasons=%s",
+                                    tool_id,
+                                    replay.get("rejection_reasons")
+                                    or replay.get("error"),
                                 )
+                        except (KeyError, TypeError, ValueError) as exc:
+                            logger.info(
+                                "recipe capture skipped trace=%s reason=%s",
+                                trace_id,
+                                exc,
+                            )
                 if self.feedback_loop is not None:
                     self.feedback_loop.on_pipeline_complete(
                         trace_id,

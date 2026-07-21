@@ -20,10 +20,10 @@ Decide whether the user's **transcript** already answers the MCQ from Agent II, 
   "action": "resolve_from_transcript | ask_user",
   "answers": [
     {
-      "question_id": "vip_card_prefix",
-      "selected_option_id": "prefix_e",
+      "question_id": "<question_id from request>",
+      "selected_option_id": "<option_id from request>",
       "other_text": null,
-      "evidence": "user said card starts with E"
+      "evidence": "<verbatim supporting user statement>"
     }
   ],
   "confidence": 0.85,
@@ -36,11 +36,10 @@ Decide whether the user's **transcript** already answers the MCQ from Agent II, 
 
 ## Resolution hints
 
-| Question theme | Transcript signals |
-|----------------|-------------------|
-| VIP definition | "thẻ E", "prefix E", "tier VIP", "không chắc" → exploration |
-| Document / TRANS_CODE | User names a document code or code meaning from transcript |
-| Points rule | spoken points conversion formulas in transcript |
-| Time range | explicit months/quarters in transcript |
+- Resolve only when the transcript clearly states the requested definition,
+  identifier meaning, formula, scope, or time range.
+- Preserve the user's exact supporting statement in `evidence`.
+- If the user says they are unsure, keep the clarification unresolved or select
+  the request's exploration option.
 
 Map `selected_option_id` to an option `id` from `request.questions[].options` when possible; otherwise `other_text`.

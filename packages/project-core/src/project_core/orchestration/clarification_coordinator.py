@@ -6,6 +6,7 @@ from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.clarification.resolver import apply_clarification_reply
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationReply, ClarificationRequest
+from project_core.domain.contracts.feedback import DomainEvidence, DomainRuleCandidate
 from project_core.domain.contracts.pipeline import ChatResponse, PipelineResult
 from project_core.domain.memory.session_bundle import SessionBundle, TranscriptTurn
 
@@ -46,6 +47,80 @@ class ClarificationCoordinator:
         brief.exploration_mode = True
         brief.user_knowledge_level = "unknown"
         return brief
+
+    def reusable_candidates_from_reply(
+        self,
+        *,
+        request: ClarificationRequest,
+        reply: ClarificationReply,
+        actor_id: str,
+        tenant_id: str = "",
+        authority: str = "requester",
+        trace_id: str,
+    ) -> list[DomainRuleCandidate]:
+        """Extract only clarification answers explicitly mapped as reusable facts.
+
+        Ordinary brief mappings are ignored unless the question explicitly
+        declares ``reusable_fact`` and concrete schema links. The legacy
+        ``domain_facts.<table>.<column>`` marker remains accepted for old
+        clarification payloads.
+        """
+        questions = {question.id: question for question in request.questions}
+        candidates: list[DomainRuleCandidate] = []
+        for answer in reply.answers:
+            question = questions.get(answer.question_id)
+            if question is None:
+                continue
+            parts = question.maps_to_brief_field.split(".")
+            legacy_fact_mapping = len(parts) >= 3 and parts[0] == "domain_facts"
+            if not question.reusable_fact and not legacy_fact_mapping:
+                continue
+            schema_links = list(question.schema_links)
+            if legacy_fact_mapping and not schema_links:
+                schema_links = [{"table": parts[1], "column": parts[2]}]
+            if not schema_links:
+                continue
+            option = next(
+                (item for item in question.options if item.id == answer.selected_option_id),
+                None,
+            )
+            statement = (answer.other_text or (option.label if option else "")).strip()
+            original_quote = (answer.evidence or statement).strip()
+            if not statement or not original_quote:
+                continue
+            evidence = DomainEvidence(
+                source_kind="clarification",
+                source_ref=f"clarification:{answer.question_id}",
+                quote=original_quote,
+                actor_id=actor_id,
+                trace_id=trace_id,
+                schema_links=schema_links,
+                confidence=1.0,
+                independent_group=f"clarification:{actor_id}",
+            )
+            requested_scope = question.fact_scope
+            scope = (
+                "user"
+                if authority == "requester"
+                else requested_scope
+                if authority == "admin"
+                else "tenant"
+            )
+            candidates.append(
+                DomainRuleCandidate(
+                    fact_type=question.fact_type,
+                    scope=scope,
+                    actor_id=actor_id,
+                    tenant_id=tenant_id,
+                    statement=statement,
+                    evidence_trace_ids=[trace_id],
+                    evidence=[evidence],
+                    schema_links=schema_links,
+                    confidence=1.0,
+                    authority=authority,  # type: ignore[arg-type]
+                )
+            )
+        return candidates
 
     def on_pipeline_clarify(
         self,

@@ -27,6 +27,23 @@ class RecipeParam(BaseModel):
     enum: list[str] = Field(default_factory=list)
 
 
+class RecipeDatasetContract(BaseModel):
+    role: str
+    required_columns: list[str] = Field(default_factory=list)
+    optional_columns: list[str] = Field(default_factory=list)
+    dtypes: dict[str, str] = Field(default_factory=dict)
+    grain: list[str] = Field(default_factory=list)
+    source_kind: str | None = None
+
+
+class RecipeVerificationContract(BaseModel):
+    required_ops: list[str] = Field(default_factory=lambda: ["validate_export"])
+    require_primary_artifact: bool = True
+    require_current_revision: bool = True
+    source_run_verified: bool = False
+    replay_verified: bool = False
+
+
 class RecipeStep(BaseModel):
     """Legacy script step and/or catalog op step.
 
@@ -66,6 +83,14 @@ class RecipeCandidate(BaseModel):
     op_chain: list[dict[str, Any]] = Field(default_factory=list)
     script_template: str = ""
     param_schema: list[RecipeParam] = Field(default_factory=list)
+    dataset_contracts: list[RecipeDatasetContract] = Field(default_factory=list)
+    verification_contract: RecipeVerificationContract = Field(
+        default_factory=RecipeVerificationContract
+    )
+    compatibility_version: int = 2
+    compatibility_status: Literal["compatible", "incompatible", "unknown"] = "unknown"
+    rejection_reasons: list[str] = Field(default_factory=list)
+    dataset_bindings: dict[str, str] = Field(default_factory=dict)
 
 
 class ExecutionStepPlan(BaseModel):
