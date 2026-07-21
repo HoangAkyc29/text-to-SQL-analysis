@@ -73,6 +73,27 @@ class IVReasoningState(BaseModel):
                 category="intent",
             )
         ]
+        if brief.requirements:
+            items.extend(
+                IVChecklistItem(
+                    item_id=item.requirement_id,
+                    requirement=f"{item.key}={item.value}",
+                    category="format" if item.kind == "output" else item.kind,
+                )
+                for item in brief.blocking_requirements()
+            )
+            if brief.chart_spec and not any(
+                item.category == "format" and item.requirement == "chart_spec"
+                for item in items
+            ):
+                items.append(
+                    IVChecklistItem(
+                        item_id="chart_spec",
+                        requirement="chart_spec",
+                        category="format",
+                    )
+                )
+            return cls(checklist=items)
         items.extend(
             IVChecklistItem(
                 item_id=f"metric:{idx}",

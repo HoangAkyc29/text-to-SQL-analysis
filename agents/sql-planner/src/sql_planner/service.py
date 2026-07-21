@@ -62,7 +62,7 @@ class SqlPlannerService(SupermarketAgentService):
                     chunks = self.retrieve(brief.intent, top_k=5)
                     retrieval_context = [c.text for c in chunks]
 
-        if inbox.get("data_feedback"):
+        if inbox.get("data_feedback") and not inbox.get("feedback_applied"):
             brief = apply_data_feedback(brief, inbox["data_feedback"])
 
         # Test harness only. Production/ops must keep ALLOW_LLM_STUB=0.

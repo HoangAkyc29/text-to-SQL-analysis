@@ -15,6 +15,18 @@ class TimeRange(BaseModel):
     grain: str | None = None
 
 
+class BriefRequirement(BaseModel):
+    """One auditable obligation extracted from the user's request."""
+
+    requirement_id: str
+    kind: Literal["metric", "dimension", "filter", "time", "ranking", "output"]
+    key: str
+    source: Literal["explicit", "inferred"] = "explicit"
+    required: bool = True
+    evidence_quote: str = ""
+    value: Any = None
+
+
 class AnalysisBrief(BaseModel):
     intent: str = ""
     metrics: list[str] = Field(default_factory=list)
@@ -29,6 +41,50 @@ class AnalysisBrief(BaseModel):
     retrieval_facets: list[str] = Field(default_factory=list)
     external_sources: list[ExternalSource] = Field(default_factory=list)
     plan: AnalysisPlan | None = None
+    requirements: list[BriefRequirement] = Field(default_factory=list)
+
+    def blocking_requirements(self, kind: str | None = None) -> list[BriefRequirement]:
+        """Return explicit must-have requirements; preserve legacy callers."""
+        selected = [
+            item
+            for item in self.requirements
+            if item.required and item.source == "explicit" and (kind is None or item.kind == kind)
+        ]
+        if self.requirements or kind is None:
+            return selected
+        # Briefs created directly by tests/internal callers predate requirement
+        # provenance. Their declared fields remain blocking for compatibility.
+        if kind == "metric":
+            return [
+                BriefRequirement(
+                    requirement_id=f"metric:{index}",
+                    kind="metric",
+                    key=str(value),
+                    value=value,
+                )
+                for index, value in enumerate(self.metrics)
+            ]
+        if kind == "dimension":
+            return [
+                BriefRequirement(
+                    requirement_id=f"dimension:{index}",
+                    kind="dimension",
+                    key=str(value),
+                    value=value,
+                )
+                for index, value in enumerate(self.dimensions)
+            ]
+        if kind == "filter":
+            return [
+                BriefRequirement(
+                    requirement_id=f"filter:{key}",
+                    kind="filter",
+                    key=str(key),
+                    value=value,
+                )
+                for key, value in self.filters.items()
+            ]
+        return []
 
 
 class IntentSlice(BaseModel):

@@ -97,6 +97,27 @@ REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
     "get_lineage": (),
 }
 
+ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
+    "cast_column": {
+        "column": ("column_name", "columns"),
+        "to": ("dtype", "target_type", "type"),
+    },
+    "groupby_agg": {
+        "by": ("group_by", "groupby"),
+        "aggs": ("aggregations", "aggregate"),
+    },
+    "sort_rows": {"by": ("columns", "sort_by")},
+    "top_n_per_group": {
+        "partition_by": ("group_by", "partition", "by"),
+        "order_by": ("sort_by", "order", "column"),
+    },
+    "window_rank": {
+        "partition_by": ("group_by", "partition"),
+        "order_by": ("sort_by", "order", "column"),
+    },
+    "plot_chart": {"x": ("x_column",), "y": ("y_column", "value_column")},
+}
+
 MUTATING_OPS = {
     "select_columns", "rename_columns", "drop_columns", "cast_column",
     "add_column_expr", "fill_null", "drop_null", "filter_rows", "sort_rows",
@@ -114,6 +135,7 @@ class OpSpec:
     required_args: tuple[str, ...] = ()
     mutates_working_set: bool = False
     output_kind: str = "observation"
+    arg_aliases: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def for_prompt(self) -> dict[str, Any]:
         return {
@@ -126,6 +148,9 @@ class OpSpec:
             },
             "mutates_working_set": self.mutates_working_set,
             "output_kind": self.output_kind,
+            "accepted_arg_aliases": {
+                key: list(value) for key, value in self.arg_aliases.items()
+            },
         }
 
 
@@ -136,6 +161,7 @@ OP_SPECS: dict[str, OpSpec] = {
         required_args=REQUIRED_ARGS.get(op_id, ()),
         mutates_working_set=op_id in MUTATING_OPS,
         output_kind="artifact" if op_id.startswith("export_") or op_id == "plot_chart" else "observation",
+        arg_aliases=ARG_ALIASES.get(op_id, {}),
     )
     for op_id, description in OP_CATALOG.items()
 }
@@ -159,6 +185,44 @@ def list_op_ids() -> list[str]:
     return sorted(HANDLERS.keys())
 
 
+def normalize_op_args(op_id: str, args: dict[str, Any] | None) -> tuple[dict[str, Any], list[str]]:
+    """Canonicalize common planner aliases before schema validation."""
+    normalized = dict(args or {})
+    repairs: list[str] = []
+    for canonical, aliases in ARG_ALIASES.get(op_id, {}).items():
+        if normalized.get(canonical) is not None:
+            continue
+        for alias in aliases:
+            if normalized.get(alias) is None:
+                continue
+            value = normalized[alias]
+            if canonical == "column" and isinstance(value, list) and len(value) == 1:
+                value = value[0]
+            normalized[canonical] = value
+            repairs.append(f"{alias}->{canonical}")
+            break
+    return normalized, repairs
+
+
+def missing_required_args(op_id: str, args: dict[str, Any] | None) -> list[str]:
+    normalized, _ = normalize_op_args(op_id, args)
+    spec = OP_SPECS.get(op_id)
+    missing = [
+        name
+        for name in (spec.required_args if spec else ())
+        if normalized.get(name) is None
+    ]
+    if op_id == "export_excel" and not normalized.get("dataset") and not normalized.get("sheets"):
+        missing.append("dataset_or_sheets")
+    if (
+        op_id == "inspect_excel"
+        and not normalized.get("source_ref")
+        and not normalized.get("artifact_id")
+    ):
+        missing.append("source_ref_or_artifact_id")
+    return missing
+
+
 def execute_op(
     ws: DatasetWorkingSet,
     op_id: str,
@@ -167,20 +231,28 @@ def execute_op(
     out_dir: str | Path,
 ) -> OpResult:
     """Validate op_id and run handler. Never executes free-form scripts."""
-    args = dict(args or {})
+    args, repairs = normalize_op_args(op_id, args)
     if op_id not in HANDLERS:
         return OpResult(op_id=op_id, status="error", error=f"unknown_op:{op_id}")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     ws.set_output_root(out)
-    spec = OP_SPECS.get(op_id)
-    missing = [name for name in (spec.required_args if spec else ()) if name not in args]
-    if op_id == "export_excel" and not args.get("dataset") and not args.get("sheets"):
-        missing.append("dataset_or_sheets")
-    if op_id == "inspect_excel" and not args.get("source_ref") and not args.get("artifact_id"):
-        missing.append("source_ref_or_artifact_id")
+    missing = missing_required_args(op_id, args)
     if missing:
-        return OpResult(op_id=op_id, status="error", error=f"missing_args:{missing}")
+        spec = OP_SPECS.get(op_id)
+        return OpResult(
+            op_id=op_id,
+            status="error",
+            result={
+                "required_args": list(spec.required_args if spec else ()),
+                "received_args": sorted(args),
+                "accepted_arg_aliases": {
+                    key: list(value)
+                    for key, value in ARG_ALIASES.get(op_id, {}).items()
+                },
+            },
+            error=f"missing_args:{missing}",
+        )
     # Inject save_as from top-level if provided alongside args
     try:
         raw = HANDLERS[op_id](ws, args, out)
@@ -190,7 +262,10 @@ def execute_op(
         return OpResult(op_id=op_id, status="error", error=f"op_failed:{exc}")
     if isinstance(raw, dict) and raw.get("error"):
         return OpResult(op_id=op_id, status="error", result=raw, error=str(raw["error"]))
-    return OpResult(op_id=op_id, status="ok", result=raw if isinstance(raw, dict) else {"value": raw})
+    result = raw if isinstance(raw, dict) else {"value": raw}
+    if repairs:
+        result = {**result, "arg_repairs": repairs}
+    return OpResult(op_id=op_id, status="ok", result=result)
 
 
 def catalog_for_prompt() -> list[dict[str, Any]]:

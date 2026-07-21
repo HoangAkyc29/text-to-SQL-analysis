@@ -67,7 +67,7 @@ def test_communication_IV_to_II_data_feedback_inbox(pipeline_factory, workflow_s
         {
             "II": [
                 {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT, QTY FROM STRANS WHERE TRANS_CODE = '113'"]},
             ],
             "III": [{"verdict": "approve"}, {"verdict": "approve"}],
             "IV": [

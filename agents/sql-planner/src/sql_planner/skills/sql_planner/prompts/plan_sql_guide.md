@@ -64,7 +64,12 @@ Do **not** emit `action: "select_tables"` in this phase.
   "action": "plan_sql",
   "sql_queries": ["SELECT TOP 50000 ...", "..."],
   "query_meta": [
-    {"role": "main|probe", "purpose": "vip_revenue|inventory|...", "subtask_id": "st-optional"},
+    {
+      "role": "main|probe",
+      "purpose": "descriptive_snake_case",
+      "subtask_id": "st-optional",
+      "requirement_ids": ["metric:0", "filter:0"]
+    },
     "..."
   ],
   "target_dbs": ["db2", "db1"],
@@ -92,6 +97,12 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 ## Rules (topology / policy only)
 
 - `len(sql_queries)` == `len(target_dbs)` == `len(query_meta)` (≤ 6).
+- Every `query_meta[]` must list the exact `brief.requirements[].requirement_id` values evidenced by that query. Inferred optional requirements must not displace explicit required ones.
+- On retry, `inbox.retry_directive` is authoritative:
+  - Change only queries serving `must_fix_requirement_ids`; preserve already satisfied deliverables.
+  - Each `required_evidence[]` entry states which user-visible evidence columns or ranking keys must be projected.
+  - The new plan must materially differ from `prior_plan_fingerprint`; resubmitting the same predicates/projections is rejected before execution.
+  - Never answer a missing-value-evidence gap by merely renaming an internal key. Project the requested value or a runtime-grounded mapping between that value and the internal key.
 - Default fact queries on **db2** with **bare** names (`STRANS`, `PMTRANS`, `TRANSHDR`). **Do not** write `STRANS_YYYYMM` when `target_db=db2` or when `shard_plan.needs_db2` covers the range and `needs_db1` is false.
 - Use **db1** monthly shards (`STRANS_YYYYMM` / `PMTRANS_YYYYMM`) **only** when `shard_plan.needs_db1` — prefer exactly `shard_plan.shards`; never invent a month past `shard_plan.archive_newest_ym` / `table_naming.archive_newest_ym`.
 - Master lookups (SKU, barcode, card) → **db2** bare names.

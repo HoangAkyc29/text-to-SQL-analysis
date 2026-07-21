@@ -1,18 +1,11 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from pydantic import ValidationError
 
-from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved, ProbeRequest
-
-_PURPOSE_TABLE: dict[str, str] = {
-    "sku_lookup": "SKU_DEF",
-    "product_lookup": "SKU_DEF",
-    "barcode_lookup": "BARCODE",
-    "bill_lookup": "TRANSHDR",
-    "fact_lookup": "STRANS",
-}
+from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved
 
 
 def coerce_data_feedback(raw: dict[str, Any]) -> DataFeedback:
@@ -47,12 +40,16 @@ def coerce_data_feedback(raw: dict[str, Any]) -> DataFeedback:
             continue
         pr = dict(p)
         if not pr.get("table"):
-            purpose = str(pr.get("purpose") or "")
-            pr["table"] = _PURPOSE_TABLE.get(purpose, "SKU_DEF")
+            # Table selection must be grounded by Agent II from runtime schema,
+            # never inferred from a purpose-to-table recipe in core code.
+            continue
         if not pr.get("purpose"):
             pr["purpose"] = "lookup"
-        # Never invent SQL recipes for Agent II — empty suggested_sql means II must write probes.
-        pr.setdefault("suggested_sql", "")
+        # Production never forwards ready-made SQL from IV to Agent II.
+        if os.getenv("ALLOW_LLM_STUB") != "1":
+            pr["suggested_sql"] = ""
+        else:
+            pr.setdefault("suggested_sql", "")
         fixed_probes.append(pr)
     data["probe_requests"] = fixed_probes
 

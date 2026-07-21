@@ -24,7 +24,11 @@ def apply_data_feedback(brief: AnalysisBrief, feedback: DataFeedback | dict[str,
     if feedback.suggested_intent_fix and not data.get("intent"):
         data["intent"] = feedback.suggested_intent_fix
     elif feedback.suggested_intent_fix:
-        data["intent"] = f"{data['intent']} | {feedback.suggested_intent_fix}"
+        current_parts = {
+            part.strip() for part in str(data["intent"]).split("|") if part.strip()
+        }
+        if feedback.suggested_intent_fix.strip() not in current_parts:
+            data["intent"] = f"{data['intent']} | {feedback.suggested_intent_fix}"
 
     if feedback.issue in {"identifier_mismatch", "empty_result", "grain", "probe_success_needs_fact"}:
         data.setdefault("probe_hints", [])

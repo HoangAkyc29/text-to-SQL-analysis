@@ -1,4 +1,4 @@
-from project_core.domain.contracts.brief import AnalysisBrief, IntentSlice, TechnicalSummary
+from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement, IntentSlice, TechnicalSummary
 from project_core.domain.contracts.clarification import (
     ClarificationBridgeResult,
     ClarificationOption,
@@ -48,6 +48,7 @@ __all__ = [
     "AnalysisBrief",
     "AnalysisOutcome",
     "ArtifactRecord",
+    "BriefRequirement",
     "ChatResponse",
     "ClarificationBridgeResult",
     "ClarificationOption",

@@ -12,7 +12,7 @@ from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.analysis_plan import AnalysisPlan, ExecutionCoverage
 from project_core.domain.contracts.brief import AnalysisBrief
-from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved, ProbeRequest
+from project_core.domain.contracts.feedback import DataFeedback, ExpectedVsObserved
 
 logger = logging.getLogger(__name__)
 
@@ -281,7 +281,6 @@ def _probe_success_needs_fact_feedback(
             expected_vs_observed=[
                 ExpectedVsObserved(aspect="probe", expected="fact rows", observed=observed)
             ],
-            probe_requests=[ProbeRequest(table="STRANS", purpose="fact_after_probe")],
         ).model_dump(),
     }
 
@@ -305,7 +304,6 @@ def _identifier_mismatch_feedback(
             expected_vs_observed=[
                 ExpectedVsObserved(aspect="product_code", expected=str(product_code), observed=observed)
             ],
-            probe_requests=[ProbeRequest(table="SKU_DEF", purpose="sku_lookup")],
         ).model_dump(),
     }
 
@@ -326,8 +324,5 @@ def _empty_feedback(brief: AnalysisBrief, product_code: Any) -> dict[str, Any]:
                     observed="0",
                 )
             ],
-            probe_requests=(
-                [ProbeRequest(table="SKU_DEF", purpose="sku_lookup")] if product_code else []
-            ),
         ).model_dump(),
     }

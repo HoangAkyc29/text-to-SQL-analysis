@@ -29,7 +29,7 @@ def test_pipeline_success_happy_path(pipeline_factory, workflow_state, hq_permis
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
     assert invoker.agents_called() == ["II", "II", "III", "IV"]
     assert invoker.calls[0]["metadata"].get("mode") == "select_tables"
     assert invoker.calls[1]["metadata"].get("mode") == "plan_sql"
@@ -111,7 +111,7 @@ def test_pipeline_risk_reject_then_retry(pipeline_factory, workflow_state, hq_pe
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
     plan_calls = [
         c
         for c in invoker.calls
@@ -184,7 +184,7 @@ def test_pipeline_risk_reject_accumulates_multi_query(pipeline_factory, workflow
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
     plan_calls = [
         c
         for c in invoker.calls
@@ -204,7 +204,7 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
         {
             "II": [
                 {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
-                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT FROM STRANS WHERE TRANS_CODE = '113'"]},
+                {"action": "plan_sql", "sql_queries": ["SELECT TOP 10 SKU_ID, AMOUNT, QTY FROM STRANS WHERE TRANS_CODE = '113'"]},
             ],
             "III": [{"verdict": "approve"}, {"verdict": "approve"}],
             "IV": [
@@ -218,7 +218,7 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
         workflow=workflow_state,
         permissions=hq_permissions,
     )
-    assert result.outcome == AnalysisOutcome.SUCCESS.value
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
     ii_calls = [c for c in invoker.calls if c["agent"] == "II"]
     assert len(ii_calls) == 4  # select+plan per attempt
     plan_calls = [c for c in ii_calls if c["metadata"].get("mode") == "plan_sql"]
@@ -227,6 +227,85 @@ def test_pipeline_IV_data_feedback_loop(pipeline_factory, workflow_state, hq_per
         samples = pc["payload"].get("inbox", {}).get("table_samples")
         assert samples, "table_samples must be attached before every plan_sql (incl. IV retry)"
     assert "data_feedback" in str(plan_calls[1]["payload"].get("inbox", {})) or plan_calls[1]["payload"].get("attempt") == 2
+
+
+def test_pipeline_skips_duplicate_sql_plan_before_execution(
+    pipeline_factory,
+    workflow_state,
+    hq_permissions,
+):
+    repeated = {
+        "action": "plan_sql",
+        "sql_queries": ["SELECT TOP 10 SKU_ID FROM STRANS"],
+        "query_meta": [
+            {
+                "role": "main",
+                "purpose": "detail",
+                "requirement_ids": ["filter:0"],
+            }
+        ],
+        "target_dbs": ["db2"],
+    }
+    changed = {
+        "action": "plan_sql",
+        "sql_queries": ["SELECT TOP 10 SKU_ID, SKU_CODE FROM STRANS"],
+        "query_meta": [
+            {
+                "role": "main",
+                "purpose": "detail_with_evidence",
+                "requirement_ids": ["filter:0"],
+            }
+        ],
+        "target_dbs": ["db2"],
+    }
+    invoker = ScriptedAgentInvoker(
+        {
+            "II": [repeated, repeated, changed],
+            "III": [{"verdict": "approve"}, {"verdict": "approve"}],
+            "IV": [
+                {
+                    "action": "data_feedback",
+                    "data_feedback": {
+                        "needs_sql_retry": True,
+                        "issue": "insufficient_deliverable",
+                        "summary": "missing filter evidence",
+                        "diagnosis": "solvable",
+                        "missing_for_brief": [
+                            {
+                                "brief_field": "missing_filter:item_code",
+                                "reason": "not projected",
+                            }
+                        ],
+                    },
+                    "coverage": {"gaps": ["missing_filter:item_code"]},
+                },
+                {
+                    "action": "partial",
+                    "headline_metrics": {"rows": 1},
+                    "coverage": {"gaps": []},
+                },
+            ],
+        }
+    )
+    sql = StubSqlGateway()
+    result = pipeline_factory(invoker, sql).run(
+        brief=AnalysisBrief(intent="detail"),
+        workflow=workflow_state,
+        permissions=hq_permissions,
+    )
+    assert result.outcome == AnalysisOutcome.PARTIAL.value
+    assert len(sql.executed) == 2
+    plan_calls = [
+        call
+        for call in invoker.calls
+        if call["agent"] == "II" and call["metadata"].get("mode") == "plan_sql"
+    ]
+    assert len(plan_calls) == 3
+    assert plan_calls[2]["payload"]["inbox"]["retry_directive"]["duplicate_plan"] is True
+    assert any(
+        "duplicate_plan_skipped" in str(step.summary)
+        for step in result.workflow_steps
+    )
 
 
 def test_pipeline_best_effort_after_soft_feedback_exhaust(pipeline_factory, workflow_state, hq_permissions):

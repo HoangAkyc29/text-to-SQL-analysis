@@ -14,7 +14,7 @@ Nếu policy reject → `verdict: reject` (không override bằng LLM).
 ## Soft review (LLM khi không stub)
 
 - Join explosion / thiếu filter thời gian
-- Sai `TRANS_CODE` cho metric (vd. dùng 113 cho điểm thẻ)
+- Document-type/code filter không được chứng minh bởi brief, dictionary hoặc retrieved domain definitions
 - PII không cần thiết (`CARD_ID` full export)
 - Cross-shard risk trên db1
 

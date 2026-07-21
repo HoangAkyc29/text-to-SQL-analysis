@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,7 @@ from platform_core.service.base import DecisionContext
 
 from project_core.config.loader import load_project_config
 from project_core.domain.clarification.bridge import ClarificationBridge
-from project_core.domain.contracts.brief import AnalysisBrief
+from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.brief.templates import brief_templates_excerpt
 from project_core.domain.errors.codes import LLMProviderError
@@ -47,6 +48,146 @@ def _downgrade_knowledge_if_informal(text: str, brief_data: dict[str, Any] | Non
     return brief_data
 
 
+def _normalize_requirement_provenance(
+    text: str,
+    brief_data: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Keep inferred fields usable, but only quoted user asks are blocking."""
+    if not brief_data:
+        return brief_data
+
+    def _norm(value: Any) -> str:
+        return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+    normalized_text = _norm(text)
+    supplied: dict[tuple[str, str], BriefRequirement] = {}
+    ranking: list[BriefRequirement] = []
+    for raw in brief_data.get("requirements") or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            item = BriefRequirement.model_validate(raw)
+        except Exception:  # noqa: BLE001
+            continue
+        quote = _norm(item.evidence_quote)
+        is_explicit = bool(quote and quote in normalized_text and item.source == "explicit")
+        item = item.model_copy(
+            update={
+                "source": "explicit" if is_explicit else "inferred",
+                "required": bool(item.required and is_explicit),
+            }
+        )
+        if item.kind == "ranking":
+            ranking.append(item)
+        else:
+            supplied[(item.kind, _norm(item.key))] = item
+
+    generated: list[BriefRequirement] = []
+
+    def _append(kind: str, key: str, value: Any, index: int) -> None:
+        lookup = (kind, _norm(key))
+        existing = supplied.get(lookup)
+        if existing is not None:
+            generated.append(existing.model_copy(update={"value": value}))
+            return
+        generated.append(
+            BriefRequirement(
+                requirement_id=f"{kind}:{index}",
+                kind=kind,
+                key=str(key),
+                source="inferred",
+                required=False,
+                value=value,
+            )
+        )
+
+    for index, value in enumerate(brief_data.get("metrics") or []):
+        _append("metric", str(value), value, index)
+    for index, value in enumerate(brief_data.get("dimensions") or []):
+        _append("dimension", str(value), value, index)
+    for index, (key, value) in enumerate((brief_data.get("filters") or {}).items()):
+        _append("filter", str(key), value, index)
+    time_range = brief_data.get("time_range") or {}
+    if time_range.get("start") or time_range.get("end") or time_range.get("grain"):
+        _append("time", "time_range", dict(time_range), 0)
+    for index, value in enumerate(brief_data.get("output_format") or []):
+        _append("output", str(value), value, index)
+    generated.extend(ranking)
+
+    explicit_time_dimension = next(
+        (
+            item
+            for item in generated
+            if item.kind == "dimension"
+            and _norm(item.key) in {"time", "date", "period"}
+            and item.source == "explicit"
+            and item.required
+        ),
+        None,
+    )
+    date_mentions = list(
+        re.finditer(r"\b\d{1,4}[-/]\d{1,2}[-/]\d{1,4}\b", text)
+    )
+    time_evidence = (
+        explicit_time_dimension.evidence_quote
+        if explicit_time_dimension is not None
+        else text[date_mentions[0].start() : date_mentions[1].end()]
+        if len(date_mentions) >= 2
+        else ""
+    )
+    if time_evidence:
+        generated = [
+            item.model_copy(
+                update={
+                    "source": "explicit",
+                    "required": True,
+                    "evidence_quote": time_evidence,
+                }
+            )
+            if item.kind == "time" and item.source == "inferred"
+            else item
+            for item in generated
+        ]
+
+    if not any(item.kind == "ranking" for item in generated):
+        ranking_match = re.search(
+            r"(?P<quote>(?:top|list|danh\s+sách)\s*(?P<limit>\d+)"
+            r"[^.!?\n]{0,80}?(?:gần\s+nhất|latest|most\s+recent|recent))",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if ranking_match:
+            partition_candidates = [
+                item.key
+                for item in generated
+                if item.kind == "dimension"
+                and item.source == "explicit"
+                and _norm(item.key) not in {"time", "date", "period", "transaction"}
+            ]
+            generated.append(
+                BriefRequirement(
+                    requirement_id="ranking:0",
+                    kind="ranking",
+                    key="top_n",
+                    source="explicit",
+                    required=True,
+                    evidence_quote=ranking_match.group("quote").strip(),
+                    value={
+                        "limit": int(ranking_match.group("limit")),
+                        "partition_by": partition_candidates[0]
+                        if len(partition_candidates) == 1
+                        else None,
+                        "order_by": "time",
+                        "direction": "desc",
+                    },
+                )
+            )
+
+    result = dict(brief_data)
+    result["requirements"] = [item.model_dump(mode="json") for item in generated]
+    return result
+
+
 class ConversationalRouterService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         mode = (ctx.request.metadata or {}).get("mode", "ingress")
@@ -63,7 +204,31 @@ class ConversationalRouterService(SupermarketAgentService):
         route = "analysis" if any(k in lowered for k in _ANALYSIS_HINTS) else "chitchat"
         brief: AnalysisBrief | None = None
         if route == "analysis":
-            brief = AnalysisBrief(intent=text, metrics=["revenue"], output_format=["table"])
+            metric = (
+                "inventory"
+                if any(token in lowered for token in ("tồn kho", "inventory"))
+                else "revenue"
+                if any(token in lowered for token in ("doanh thu", "revenue"))
+                else None
+            )
+            brief = AnalysisBrief(
+                intent=text,
+                metrics=[metric] if metric else [],
+                output_format=["table"],
+                requirements=[
+                    BriefRequirement(
+                        requirement_id="metric:0",
+                        kind="metric",
+                        key=metric,
+                        source="explicit",
+                        required=True,
+                        evidence_quote=text,
+                        value=metric,
+                    )
+                ]
+                if metric
+                else [],
+            )
             if external_sources:
                 from project_core.domain.contracts.external_source import ExternalSource
 
@@ -136,6 +301,7 @@ class ConversationalRouterService(SupermarketAgentService):
         payload = self._parse_json_payload(result, fallback_text=text, external_sources=external_sources)
         if payload.get("brief"):
             payload["brief"] = _downgrade_knowledge_if_informal(text, payload["brief"])
+            payload["brief"] = _normalize_requirement_provenance(text, payload["brief"])
         if satisfaction:
             payload["satisfaction_signal"] = satisfaction
         return self.json_response(ctx, payload, usage_tokens=result.usage_tokens)

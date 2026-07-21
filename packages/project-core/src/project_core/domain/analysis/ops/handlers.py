@@ -1041,11 +1041,49 @@ def op_bundle_deliverables(ws: DatasetWorkingSet, args: dict[str, Any], out_dir:
 
 def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     brief = args.get("brief") or {}
-    metrics = [str(m).lower() for m in (brief.get("metrics") or [])]
-    dimensions = [str(d).lower() for d in (brief.get("dimensions") or [])]
-    filter_values = dict(brief.get("filters") or {})
+    requirements = [
+        item
+        for item in (brief.get("requirements") or [])
+        if isinstance(item, dict)
+        and item.get("source") == "explicit"
+        and bool(item.get("required", True))
+    ]
+    if requirements:
+        metrics = [
+            str(item.get("key") or "").lower()
+            for item in requirements
+            if item.get("kind") == "metric"
+        ]
+        dimensions = [
+            str(item.get("key") or "").lower()
+            for item in requirements
+            if item.get("kind") == "dimension"
+        ]
+        filter_values = {
+            str(item.get("key") or "").lower(): item.get("value")
+            for item in requirements
+            if item.get("kind") == "filter"
+        }
+        time_requirements = [
+            item for item in requirements if item.get("kind") == "time"
+        ]
+        ranking_requirements = [
+            item for item in requirements if item.get("kind") == "ranking"
+        ]
+        time_range = (
+            dict(time_requirements[0].get("value") or {})
+            if time_requirements
+            else {}
+        )
+    else:
+        metrics = [str(m).lower() for m in (brief.get("metrics") or [])]
+        dimensions = [str(d).lower() for d in (brief.get("dimensions") or [])]
+        filter_values = {
+            str(key).lower(): value for key, value in (brief.get("filters") or {}).items()
+        }
+        time_range = brief.get("time_range") or {}
+        ranking_requirements = []
     filters = [str(k).lower() for k in filter_values]
-    time_range = brief.get("time_range") or {}
     all_cols: set[str] = set()
     total_rows = 0
     frames: list[pd.DataFrame] = []
@@ -1085,6 +1123,7 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
         "item": "product",
         "plu": "product",
         "trans": "transaction",
+        "tran": "transaction",
         "transaction": "transaction",
         "bill": "transaction",
         "invoice": "transaction",
@@ -1105,7 +1144,8 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
     }
 
     def _tokens(value: str) -> set[str]:
-        raw = re.findall(r"[a-z0-9]+", value.lower())
+        expanded = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value)
+        raw = re.findall(r"[a-z0-9]+", expanded.lower())
         out: set[str] = set()
         for token in raw:
             if token in {"min", "max", "total", "minimum", "maximum"}:
@@ -1142,11 +1182,15 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
 
     m_found, m_missing = _present(metrics)
     d_found, d_missing = _present(dimensions)
-    f_found, f_missing = _present(filters)
+    f_found: list[str] = []
+    f_missing: list[str] = []
 
     def _normalize_code(value: Any) -> str:
         text = re.sub(r"\D", "", str(value))
         return text.lstrip("0") or "0"
+
+    def _norm_scalar(value: Any) -> str:
+        return re.sub(r"\s+", " ", str(value).strip().lower())
 
     def _filter_has_value_evidence(name: str, expected: Any) -> bool:
         needed = _tokens(name)
@@ -1170,7 +1214,7 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
             for frame in frames:
                 for column in frame.columns:
                     column_tokens = _tokens(str(column))
-                    if not ({"amount", "transaction"} & column_tokens):
+                    if "amount" not in column_tokens:
                         continue
                     numeric = pd.to_numeric(frame[column], errors="coerce").dropna()
                     if not numeric.empty and bool((numeric >= float(expected)).all()):
@@ -1189,17 +1233,114 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
                     ).any():
                         return True
             return False
-        return False
+        expected_values = expected if isinstance(expected, list) else [expected]
+        wanted = {_norm_scalar(value) for value in expected_values}
+        seen: set[str] = set()
+        for frame in frames:
+            for column in frame.columns:
+                column_tokens = _tokens(str(column))
+                if not (needed & column_tokens) and name not in str(column).lower():
+                    continue
+                seen.update(
+                    _norm_scalar(value)
+                    for value in frame[column].dropna().astype(str).head(5_000)
+                )
+        return bool(wanted) and wanted.issubset(seen)
 
-    for name in list(f_missing):
+    for name in filters:
         if _filter_has_value_evidence(name, filter_values.get(name)):
-            f_missing.remove(name)
             f_found.append(name)
+        else:
+            f_missing.append(name)
 
     needs_time = bool(time_range.get("start") or time_range.get("end") or time_range.get("grain"))
     time_columns = [label for label, tokens in zip(evidence_labels, evidence_tokens, strict=True) if "time" in tokens]
-    time_ok = not needs_time or bool(time_columns)
-    ok = total_rows > 0 and not m_missing and not d_missing and not f_missing and time_ok
+    time_ok = not needs_time
+    if needs_time:
+        start = pd.to_datetime(time_range.get("start"), errors="coerce")
+        end = pd.to_datetime(time_range.get("end"), errors="coerce")
+        raw_end = str(time_range.get("end") or "")
+        if not pd.isna(end) and "T" not in raw_end and " " not in raw_end:
+            end = end + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+        for frame in frames:
+            for column in frame.columns:
+                if "time" not in _tokens(str(column)):
+                    continue
+                values = pd.to_datetime(frame[column], errors="coerce").dropna()
+                if values.empty:
+                    continue
+                after_start = True if pd.isna(start) else bool((values >= start).all())
+                before_end = True if pd.isna(end) else bool((values <= end).all())
+                if after_start and before_end:
+                    time_ok = True
+                    break
+            if time_ok:
+                break
+
+    ranking_found: list[str] = []
+    ranking_missing: list[str] = []
+    for item in ranking_requirements:
+        requirement_id = str(item.get("requirement_id") or item.get("key") or "ranking")
+        value = item.get("value") or {}
+        limit = int(value.get("limit") or 0) if isinstance(value, dict) else 0
+        partition_key = str(value.get("partition_by") or "") if isinstance(value, dict) else ""
+        order_key = str(value.get("order_by") or "") if isinstance(value, dict) else ""
+        direction = str(value.get("direction") or "desc").lower() if isinstance(value, dict) else "desc"
+        passed = False
+        if limit > 0:
+            partition_tokens = _tokens(partition_key)
+            order_tokens = _tokens(order_key)
+            for frame in frames:
+                partition_columns = [
+                    str(column)
+                    for column in frame.columns
+                    if partition_tokens and partition_tokens.issubset(_tokens(str(column)))
+                ]
+                order_columns = [
+                    str(column)
+                    for column in frame.columns
+                    if order_tokens and order_tokens.issubset(_tokens(str(column)))
+                ]
+                if not order_columns:
+                    continue
+                partition_column = partition_columns[0] if partition_columns else None
+                groups = (
+                    [group for _, group in frame.groupby(partition_column, dropna=False)]
+                    if partition_column
+                    else [frame]
+                )
+                if not groups or any(len(group) > limit for group in groups):
+                    continue
+                ordered = True
+                for group in groups:
+                    comparable = group[order_columns].dropna()
+                    if comparable.empty:
+                        ordered = False
+                        break
+                    expected_order = comparable.sort_values(
+                        by=order_columns,
+                        ascending=direction != "desc",
+                        kind="stable",
+                    )
+                    if list(comparable.index) != list(expected_order.index):
+                        ordered = False
+                        break
+                if ordered:
+                    passed = True
+                    break
+        if passed:
+            ranking_found.append(requirement_id)
+        else:
+            ranking_missing.append(requirement_id)
+
+    ok = (
+        total_rows > 0
+        and not m_missing
+        and not d_missing
+        and not f_missing
+        and time_ok
+        and not ranking_missing
+    )
     return {
         "ok": ok,
         "total_rows": total_rows,
@@ -1213,6 +1354,8 @@ def op_match_brief_coverage(ws: DatasetWorkingSet, args: dict[str, Any], out_dir
         "time_required": needs_time,
         "time_columns": sorted(time_columns),
         "time_covered": time_ok,
+        "ranking_found": ranking_found,
+        "ranking_missing": ranking_missing,
         "issue": None if ok else ("empty_result" if total_rows <= 0 else "insufficient_deliverable"),
     }
 

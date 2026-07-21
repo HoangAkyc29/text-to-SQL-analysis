@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -171,6 +173,8 @@ class SupermarketAnalysisPipeline:
         # Best partial across II↔III↔IV retries; used when the loop exhausts
         # without a complete answer.
         best_effort: dict[str, Any] | None = None
+        seen_plan_fingerprints: dict[str, int] = {}
+        current_plan_fingerprint = ""
         max_attempts = self.cfg.pipeline.max_sql_retries
 
         for sql_attempt in range(1, max_attempts + 1):
@@ -195,6 +199,7 @@ class SupermarketAnalysisPipeline:
             workflow.sql_attempt = sql_attempt
             if inbox.get("data_feedback"):
                 brief = apply_data_feedback(brief, inbox["data_feedback"])
+                inbox["feedback_applied"] = True
 
             budget.record("II")
             retrieval_payload: dict[str, Any] | list[Any] = {}
@@ -512,6 +517,44 @@ class SupermarketAnalysisPipeline:
             query_meta: list[dict[str, Any]] = list(ii_parsed.query_meta)
             target_dbs: list[str] = list(ii_parsed.target_dbs)
             default_db = ii_parsed.target_db or "db2"
+            current_plan_fingerprint = _sql_plan_fingerprint(
+                sql_queries,
+                target_dbs,
+                query_meta,
+                default_db=default_db,
+            )
+            first_seen_attempt = seen_plan_fingerprints.get(current_plan_fingerprint)
+            if first_seen_attempt is not None:
+                retry_directive = dict(inbox.get("retry_directive") or {})
+                retry_directive.update(
+                    {
+                        "retry_target": "agent_ii",
+                        "duplicate_plan": True,
+                        "must_change_plan": True,
+                        "prior_plan_fingerprint": current_plan_fingerprint,
+                        "first_seen_attempt": first_seen_attempt,
+                        "instruction": (
+                            "The SQL plan is materially unchanged. Re-plan only the queries "
+                            "covering missing requirements; do not resubmit this fingerprint."
+                        ),
+                    }
+                )
+                inbox["retry_directive"] = retry_directive
+                workflow.steps.append(
+                    WorkflowStep(
+                        step_id=str(uuid4()),
+                        trace_id=trace_id,
+                        analysis_id=workflow.active_analysis_id or trace_id,
+                        step_type=WorkflowStepType.DATA_FEEDBACK,
+                        sql_attempt=sql_attempt,
+                        summary=(
+                            "duplicate_plan_skipped:"
+                            f"{current_plan_fingerprint[:12]}:first={first_seen_attempt}"
+                        ),
+                    )
+                )
+                continue
+            seen_plan_fingerprints[current_plan_fingerprint] = sql_attempt
 
             profiles: list[ResultProfile] = []
             query_files: list[QueryResultFile] = []
@@ -1153,11 +1196,22 @@ class SupermarketAnalysisPipeline:
                     )
                 row_total = sum(int(getattr(q, "row_count", 0) or 0) for q in query_files)
                 has_rows = row_total > 0
+                retry_directive = _build_retry_directive(
+                    feedback=fb,
+                    coverage=dict(iv_parsed.coverage or {}),
+                    brief=brief,
+                    profiles=profiles,
+                    query_meta=query_meta,
+                    sql_attempt=sql_attempt,
+                    plan_fingerprint=current_plan_fingerprint,
+                )
+                inbox["retry_directive"] = retry_directive
                 soft_solvable = (
                     fb.needs_sql_retry
                     and fb.diagnosis == "solvable"
                     and is_soft_data_feedback_issue(fb.issue)
                     and (has_rows or arts)
+                    and retry_directive["retry_target"] == "agent_ii"
                 )
                 partial_summary = TechnicalSummary(
                     outcome=AnalysisOutcome.PARTIAL.value,
@@ -1175,6 +1229,20 @@ class SupermarketAnalysisPipeline:
                         summary=partial_summary,
                         sql_attempt=sql_attempt,
                         insight=bool(iv_parsed.insight_vi or iv_parsed.explanation_vi),
+                    )
+                if (
+                    retry_directive["retry_target"] == "terminal_partial"
+                    and (has_rows or arts)
+                ):
+                    partial_summary.caveats = [
+                        *partial_summary.caveats,
+                        "retry_routed:terminal_partial",
+                    ][:8]
+                    return self._finish(
+                        trace_id,
+                        workflow,
+                        AnalysisOutcome.PARTIAL,
+                        partial_summary,
                     )
                 if soft_solvable and sql_attempt >= max_attempts:
                     caveats = list(partial_summary.caveats)
@@ -1657,6 +1725,159 @@ def _write_artifact_manifest(
         encoding="utf-8",
     )
     manifest_temp.replace(manifest_path)
+
+
+def _sql_plan_fingerprint(
+    sql_queries: list[str],
+    target_dbs: list[str],
+    query_meta: list[dict[str, Any]],
+    *,
+    default_db: str = "db2",
+) -> str:
+    """Stable identity for loop detection; ignores formatting-only SQL changes."""
+
+    def _normalize_sql(value: str) -> str:
+        without_block_comments = re.sub(r"/\*.*?\*/", " ", str(value), flags=re.DOTALL)
+        without_line_comments = re.sub(r"--[^\r\n]*", " ", without_block_comments)
+        return " ".join(without_line_comments.lower().split())
+
+    payload = [
+        {
+            "sql": _normalize_sql(sql),
+            "target_db": target_dbs[index] if index < len(target_dbs) else default_db,
+        }
+        for index, sql in enumerate(sql_queries)
+    ]
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _build_retry_directive(
+    *,
+    feedback: DataFeedback,
+    coverage: dict[str, Any],
+    brief: AnalysisBrief,
+    profiles: list[ResultProfile],
+    query_meta: list[dict[str, Any]],
+    sql_attempt: int,
+    plan_fingerprint: str,
+) -> dict[str, Any]:
+    """Route a retry and state exactly which evidence the next plan must add."""
+    gaps = [
+        str(item)
+        for item in (
+            coverage.get("gaps")
+            or [entry.brief_field for entry in feedback.missing_for_brief]
+            or [feedback.issue]
+        )
+        if str(item).strip()
+    ]
+    sql_gap_prefixes = {
+        "empty_result",
+        "identifier_mismatch",
+        "missing_metric",
+        "missing_dimension",
+        "missing_filter",
+        "missing_time",
+        "missing_time_evidence",
+        "missing_ranking",
+        "unmapped_requirement",
+        "insufficient_deliverable",
+        "grain",
+        "probe_success_needs_fact",
+        "needs_sql_retry",
+    }
+    terminal_gap_prefixes = {
+        "invalid_artifacts",
+        "missing_artifacts",
+        "missing_chart",
+        "missing_excel",
+        "visual_review_not_passed",
+    }
+    gap_prefixes = {gap.split(":", 1)[0] for gap in gaps}
+    retry_target = (
+        "agent_ii"
+        if gap_prefixes & sql_gap_prefixes
+        or (
+            feedback.needs_sql_retry
+            and feedback.diagnosis == "solvable"
+            and not gap_prefixes.issubset(terminal_gap_prefixes)
+        )
+        else "terminal_partial"
+    )
+
+    blocking = {
+        item.requirement_id: item
+        for item in brief.blocking_requirements()
+    }
+    must_fix_ids: set[str] = set()
+    evidence_actions: list[dict[str, Any]] = []
+    for gap in gaps:
+        prefix, _, detail = gap.partition(":")
+        requirement = blocking.get(detail)
+        if requirement is None:
+            kind = (
+                "time"
+                if prefix == "missing_time_evidence"
+                else prefix.removeprefix("missing_")
+            )
+            requirement = next(
+                (
+                    item
+                    for item in blocking.values()
+                    if item.kind == kind and (not detail or item.key == detail)
+                ),
+                None,
+            )
+        if requirement is not None:
+            must_fix_ids.add(requirement.requirement_id)
+            action = "project direct evidence for this requirement"
+            if requirement.kind == "filter":
+                action = (
+                    "project a user-facing evidence column containing the requested values "
+                    "or an explicit requested-value-to-internal-key mapping"
+                )
+            elif requirement.kind == "ranking":
+                action = (
+                    "project partition and ordering columns, apply the requested per-group "
+                    "limit, and return deterministic order"
+                )
+            elif requirement.kind == "time":
+                action = "project the time evidence column and constrain every returned row"
+            evidence_actions.append(
+                {
+                    "requirement_id": requirement.requirement_id,
+                    "kind": requirement.kind,
+                    "key": requirement.key,
+                    "value": requirement.value,
+                    "required_change": action,
+                }
+            )
+
+    return {
+        "retry_target": retry_target,
+        "reason": feedback.issue,
+        "gaps": gaps,
+        "must_fix_requirement_ids": sorted(must_fix_ids),
+        "required_evidence": evidence_actions,
+        "prior_plan_fingerprint": plan_fingerprint,
+        "prior_result_profiles": [
+            {
+                "row_count": int(profile.row_count or 0),
+                "columns": [str(column.name) for column in (profile.columns or [])],
+            }
+            for profile in profiles
+        ],
+        "prior_query_coverage": [
+            {
+                "purpose": str(item.get("purpose") or ""),
+                "requirement_ids": list(item.get("requirement_ids") or []),
+            }
+            for item in query_meta
+        ],
+        "attempt": sql_attempt,
+        "must_change_plan": retry_target == "agent_ii",
+    }
 
 
 def _terminal_on_exhausted(workflow: WorkflowState) -> tuple[AnalysisOutcome, TechnicalSummary] | None:

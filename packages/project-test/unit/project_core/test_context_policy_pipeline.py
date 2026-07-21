@@ -116,3 +116,89 @@ def test_false_future_date_reject_uses_authoritative_clock():
         )
         is False
     )
+
+
+def test_retry_directive_routes_missing_value_and_ranking_evidence():
+    from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement
+    from project_core.domain.contracts.feedback import DataFeedback, MissingForBrief
+    from project_core.domain.contracts.pipeline import ColumnStat, ResultProfile
+    from project_core.orchestration.pipeline import _build_retry_directive
+
+    brief = AnalysisBrief(
+        requirements=[
+            BriefRequirement(
+                requirement_id="filter:0",
+                kind="filter",
+                key="item_code",
+                source="explicit",
+                required=True,
+                value=["A-1"],
+            ),
+            BriefRequirement(
+                requirement_id="ranking:0",
+                kind="ranking",
+                key="top_n",
+                source="explicit",
+                required=True,
+                value={
+                    "limit": 2,
+                    "partition_by": "item",
+                    "order_by": "time",
+                    "direction": "desc",
+                },
+            ),
+        ]
+    )
+    feedback = DataFeedback(
+        issue="insufficient_deliverable",
+        summary="missing evidence",
+        missing_for_brief=[
+            MissingForBrief(
+                brief_field="missing_filter:item_code",
+                reason="not present",
+            ),
+            MissingForBrief(
+                brief_field="missing_ranking:ranking:0",
+                reason="not present",
+            ),
+        ],
+    )
+    directive = _build_retry_directive(
+        feedback=feedback,
+        coverage={
+            "gaps": [
+                "missing_filter:item_code",
+                "missing_ranking:ranking:0",
+            ]
+        },
+        brief=brief,
+        profiles=[
+            ResultProfile(
+                row_count=4,
+                columns=[ColumnStat(name="internal_item_id")],
+            )
+        ],
+        query_meta=[{"purpose": "detail", "requirement_ids": ["ranking:0"]}],
+        sql_attempt=1,
+        plan_fingerprint="abc",
+    )
+    assert directive["retry_target"] == "agent_ii"
+    assert directive["must_fix_requirement_ids"] == ["filter:0", "ranking:0"]
+    assert directive["prior_result_profiles"][0]["columns"] == ["internal_item_id"]
+    assert directive["must_change_plan"] is True
+
+
+def test_sql_plan_fingerprint_ignores_formatting_only_changes():
+    from project_core.orchestration.pipeline import _sql_plan_fingerprint
+
+    first = _sql_plan_fingerprint(
+        ["SELECT  value\nFROM source"],
+        ["db2"],
+        [{"role": "main", "purpose": "metric", "requirement_ids": ["metric:0"]}],
+    )
+    second = _sql_plan_fingerprint(
+        [" select VALUE from SOURCE "],
+        ["db2"],
+        [{"purpose": "renamed_metric", "role": "main", "requirement_ids": ["metric:1"]}],
+    )
+    assert first == second

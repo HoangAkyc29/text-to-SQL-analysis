@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class BriefAlignment(BaseModel):
@@ -31,6 +32,14 @@ class ProbeRequest(BaseModel):
     # Agent II writes probe SQL itself (no recipe injection).
     suggested_sql: str = ""
     priority: int = 1
+
+    @field_validator("suggested_sql")
+    @classmethod
+    def strip_production_sql_recipe(cls, value: str) -> str:
+        """SQL suggestions are permitted only inside the explicit stub gate."""
+        if os.getenv("ALLOW_LLM_STUB") != "1":
+            return ""
+        return value
 
 
 class DomainRuleCandidate(BaseModel):

@@ -24,7 +24,11 @@ from project_core.domain.analysis.iv_sufficiency import (
     insufficiency_data_feedback,
 )
 from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op, list_op_ids
-from project_core.domain.analysis.ops.registry import catalog_for_prompt
+from project_core.domain.analysis.ops.registry import (
+    catalog_for_prompt,
+    missing_required_args,
+    normalize_op_args,
+)
 from project_core.domain.analysis.query_role_classifier import classify_query_roles
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.iv_reasoning import (
@@ -108,8 +112,18 @@ def run_analysis_brain(
     max_planner_turns: int | None = None,
 ) -> dict[str, Any]:
     """Bounded LLM loop that only invokes catalog ops (never free-form scripts)."""
-    paths = [q.get("path") for q in manifest.get("queries", []) if q.get("path")]
-    paths, meta = _merge_external_paths(brief, paths, query_meta or [])
+    manifest_queries = [q for q in manifest.get("queries", []) if q.get("path")]
+    paths = [q["path"] for q in manifest_queries]
+    planned_meta = query_meta or []
+    aligned_meta: list[dict[str, Any]] = []
+    for ordinal, query in enumerate(manifest_queries):
+        query_index = int(query.get("query_index", ordinal) or 0)
+        aligned_meta.append(
+            dict(planned_meta[query_index])
+            if query_index < len(planned_meta)
+            else {"role": "main"}
+        )
+    paths, meta = _merge_external_paths(brief, paths, aligned_meta)
     # Rebuild manifest paths after external merge
     queries = []
     for i, p in enumerate(paths):
@@ -120,19 +134,20 @@ def run_analysis_brain(
                 "ref": f"q{i}",
                 "role": m.get("role"),
                 "purpose": m.get("purpose"),
-                "row_count": (manifest.get("queries") or [{}])[i].get("row_count")
-                if i < len(manifest.get("queries") or [])
+                "row_count": manifest_queries[i].get("row_count")
+                if i < len(manifest_queries)
                 else None,
+                "requirement_ids": list(m.get("requirement_ids") or []),
             }
         )
     row_counts = {
-        i: int((manifest.get("queries") or [{}])[i].get("row_count", 0) or 0)
-        if i < len(manifest.get("queries") or [])
+        i: int(manifest_queries[i].get("row_count", 0) or 0)
+        if i < len(manifest_queries)
         else 0
         for i in range(len(paths))
     }
     # Prefer explicit row counts from merged query entries when present
-    for i, q in enumerate(manifest.get("queries") or []):
+    for i, q in enumerate(manifest_queries):
         if i < len(paths) and q.get("row_count") is not None:
             row_counts[i] = int(q.get("row_count") or 0)
 
@@ -298,6 +313,7 @@ def run_analysis_brain(
     ]
 
     terminal: dict[str, Any] | None = None
+    invalid_op_counts: dict[str, int] = {}
     while reasoning.planner_turns < planner_budget:
         state = {
             "brief": brief.model_dump(),
@@ -433,6 +449,12 @@ def run_analysis_brain(
                         if isinstance(item, dict) and item.get("purpose")
                     ],
                 ],
+                mapped_requirement_ids={
+                    str(requirement_id)
+                    for item in meta
+                    if isinstance(item, dict) and item.get("role") != "probe"
+                    for requirement_id in (item.get("requirement_ids") or [])
+                },
             )
             headline_metrics.update(verification_metrics)
             if check.force_feedback:
@@ -563,6 +585,7 @@ def run_analysis_brain(
                     oargs["dataset"] = f"q{int(op['dataset_index'])}"
                 if op.get("save_as"):
                     oargs["save_as"] = op["save_as"]
+            oargs, arg_repairs = normalize_op_args(op_id, oargs)
 
             if not context_policy.can_invoke_tool(permissions, "IV", "run_analysis_op"):
                 return {
@@ -576,16 +599,22 @@ def run_analysis_brain(
                     "impossible_reason": "tool_not_granted:run_analysis_op",
                 }
 
-            if reasoning.analysis_ops >= op_budget:
+            missing_args = missing_required_args(op_id, oargs)
+            if not missing_args and reasoning.analysis_ops >= op_budget:
                 caveats.append("op_budget_exceeded")
                 break
             res = execute_op(ws, op_id, oargs, out_dir=out_dir)
-            reasoning.analysis_ops += 1
-            if res.status == "ok" and op_id not in _NON_MUTATING_OPS:
-                reasoning.record_mutation(op_id)
+            if missing_args:
+                reasoning.record_observation()
             else:
+                reasoning.analysis_ops += 1
+            if not missing_args and res.status == "ok" and op_id not in _NON_MUTATING_OPS:
+                reasoning.record_mutation(op_id)
+            elif not missing_args:
                 reasoning.record_observation()
             obs = res.as_observation()
+            if arg_repairs:
+                obs["arg_repairs"] = arg_repairs
             observations.append(obs)
             steps_trace.append(
                 {
@@ -596,11 +625,29 @@ def run_analysis_brain(
                     "save_as": oargs.get("save_as"),
                     "status": res.status,
                     "error": res.error,
+                    "arg_repairs": arg_repairs,
                     "thought": decision.get("thought"),
                 }
             )
             if res.status != "ok":
-                caveats.append(f"{op_id}:{res.error or 'error'}")
+                if missing_args:
+                    invalid_key = json.dumps(
+                        {"op_id": op_id, "args": oargs},
+                        sort_keys=True,
+                        default=str,
+                    )
+                    invalid_op_counts[invalid_key] = invalid_op_counts.get(invalid_key, 0) + 1
+                    if invalid_op_counts[invalid_key] >= 2:
+                        steps_trace[-1]["repair_action"] = (
+                            "abandon_schema_invalid_op_and_verify"
+                        )
+                        terminal = {
+                            "status": "complete",
+                            "reason": "schema_invalid_optional_op_abandoned",
+                        }
+                        break
+                else:
+                    caveats.append(f"{op_id}:{res.error or 'error'}")
             elif obs.get("empty_after_op"):
                 caveats.append("empty_after_op")
             continue
@@ -645,6 +692,12 @@ def run_analysis_brain(
                     if isinstance(item, dict) and item.get("purpose")
                 ],
             ],
+            mapped_requirement_ids={
+                str(requirement_id)
+                for item in meta
+                if isinstance(item, dict) and item.get("role") != "probe"
+                for requirement_id in (item.get("requirement_ids") or [])
+            },
         )
     assembled = _assemble_response(
         terminal=terminal,
@@ -708,6 +761,7 @@ def _verify_deliverable(
     headline_metrics: dict[str, Any],
     claimed_status: str,
     semantic_labels: list[dict[str, Any] | str] | None = None,
+    mapped_requirement_ids: set[str] | None = None,
 ) -> tuple[Any, list[str]]:
     """Run deterministic artifact and brief-coverage verification."""
     for op_id in _ensure_deliverable_exports(ws, brief, out_dir=out_dir, caveats=caveats):
@@ -726,6 +780,16 @@ def _verify_deliverable(
     )
     reasoning.record_observation()
     coverage_gaps: list[str] = []
+    blocking_ids = {
+        item.requirement_id
+        for item in brief.blocking_requirements()
+        if item.kind != "output"
+    }
+    if blocking_ids:
+        coverage_gaps.extend(
+            f"unmapped_requirement:{requirement_id}"
+            for requirement_id in sorted(blocking_ids - set(mapped_requirement_ids or set()))
+        )
     if cov.status != "ok":
         coverage_gaps.append("coverage_check_failed")
     else:
@@ -735,6 +799,9 @@ def _verify_deliverable(
         )
         coverage_gaps.extend(
             f"missing_filter:{name}" for name in cov.result.get("filters_missing", [])
+        )
+        coverage_gaps.extend(
+            f"missing_ranking:{name}" for name in cov.result.get("ranking_missing", [])
         )
         if not cov.result.get("time_covered", True):
             coverage_gaps.append("missing_time_evidence")

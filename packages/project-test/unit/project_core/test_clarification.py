@@ -77,6 +77,10 @@ def test_apply_clarification_reply_updates_brief():
     )
     updated = apply_clarification_reply(brief, reply, request)
     assert updated.filters.get("card_prefix") == "E"
+    requirement = updated.requirements[0]
+    assert requirement.key == "card_prefix"
+    assert requirement.source == "explicit"
+    assert requirement.required is True
 
 
 def test_enforce_clarify_source_II_only():

@@ -9,8 +9,8 @@ Choose **only** the logical tables needed for the brief. Do **not** write SQL, W
 ```json
 {
   "action": "select_tables",
-  "selected_tables": ["SKU_DEF", "STRANS", "TRANSHDR"],
-  "selected_target_dbs": ["db2", "db2", "db2"],
+  "selected_tables": ["<logical_table_from_schema_context>"],
+  "selected_target_dbs": ["db2"],
   "reasoning": "short why these tables"
 }
 ```
@@ -23,7 +23,7 @@ Rules:
 - For historical fact tables (`STRANS` / `PMTRANS`), set `selected_target_dbs` to `db1` when `shard_plan.needs_db1`. Physical `_YYYYMM` names are chosen later in `plan_sql` from `shard_plan.shards` — do **not** invent suffixes here. db2 always uses bare logical names.
 - On retry: if `shard_plan.needs_db2` and not `needs_db1`, keep `selected_target_dbs` on **db2** for fact tables even if prior risk text claimed “historical”. Do **not** flip to db1 from vague feedback alone.
 - If omitted, pipeline still infers from `shard_plan`.
-- Prefer grain-correct set: resolve product → master (`SKU_DEF`/`BARCODE`); bill/sale lines → `STRANS` (± `TRANSHDR`); payments → `PMTRANS`; loyalty card → `CSCARD` / `CRDTRANS`.
+- Choose tables by matching brief requirements to dictionary grain, columns, joins, and retrieved domain definitions. Do not use a fixed use-case-to-table recipe from this guide.
 - Do **not** invent tables. Do **not** emit `plan_sql` / `probe_sql` / `sql_queries` in this phase.
 - Still allowed: `action: "clarify"` or `action: "impossible"` with the usual fields when the brief cannot be scoped to tables.
 

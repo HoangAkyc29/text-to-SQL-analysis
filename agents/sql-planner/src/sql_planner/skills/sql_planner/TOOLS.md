@@ -24,23 +24,12 @@ Prefix MCP: `sql_*` (executed by pipeline, not Agent II directly).
 
 Mỗi query trong plan phải có `target_dbs[i]` tương ứng.
 
-## Bảng thường dùng (db2 unless noted)
+## Grounding policy
 
-| Use case | Tables |
-|----------|--------|
-| Doanh thu / dòng hàng | `STRANS`, `TRANSHDR` — mã `TRANS_CODE` theo domain/RAG, không hardcode trong skill |
-| Thanh toán / VIP | `PMTRANS`, `CSCARD`, `TRANSHDR` / `TRANSHDR_ARC` |
-| Điểm thẻ | `CRDTRANS` / `CRDTRANS_ARC` (+ công thức nghiệp vụ từ case study / column facts nếu retrieve được) |
-| Master SKU | `SKU_DEF`, `BARCODE`, `PLU` |
-| Tồn kho | `STK_DTL`, `INV_HDR` |
-| Lịch sử shard db1 | `STRANS_YYYYMM`, `PMTRANS_YYYYMM` — chỉ khi `needs_db1`; suffix động tới `archive_newest_ym` |
-| Fact gần / live db2 | `STRANS`, `PMTRANS`, `TRANSHDR` — **không** hậu tố tháng |
-
-## Product lookup
-
-Khi `brief.filters.product_code` / `sku`:
-1. Probe `SKU_DEF`, `BARCODE` trên db2.
-2. Main query filter `STRANS.SKU_ID` — không filter barcode trực tiếp trên fact nếu chưa resolve.
+- Select logical tables only from `schema_context`, dictionary retrieval, and `inbox.table_samples`.
+- Resolve grain, columns, joins, codes, and predicates from those runtime sources; this file contains no use-case recipes.
+- db2 uses bare logical names. db1 monthly physical names are allowed only from `shard_plan.shards`.
+- Every planned query must list the `brief.requirements[].requirement_id` values it supports in `query_meta[].requirement_ids`.
 
 ## Decomposed brief
 

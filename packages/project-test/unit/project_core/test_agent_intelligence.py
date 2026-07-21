@@ -81,7 +81,7 @@ def test_probe_only_plan_triggers_needs_fact(tmp_path):
     assert payload["data_feedback"]["issue"] == "probe_success_needs_fact"
 
 
-def test_coerce_data_feedback_adds_table():
+def test_coerce_data_feedback_drops_ungrounded_probe():
     from project_core.domain.analysis.feedback_coerce import coerce_data_feedback
 
     fb = coerce_data_feedback(
@@ -92,8 +92,20 @@ def test_coerce_data_feedback_adds_table():
             "expected_vs_observed": {"expected": "rows", "observed": "0"},
         }
     )
-    assert fb.probe_requests[0].table == "SKU_DEF"
+    assert fb.probe_requests == []
     assert len(fb.expected_vs_observed) == 1
+
+
+def test_probe_request_strips_suggested_sql_in_production(monkeypatch):
+    from project_core.domain.contracts.feedback import ProbeRequest
+
+    monkeypatch.setenv("ALLOW_LLM_STUB", "0")
+    request = ProbeRequest(
+        table="runtime_selected_table",
+        purpose="resolve_identifier",
+        suggested_sql="SELECT value FROM somewhere",
+    )
+    assert request.suggested_sql == ""
 
 
 def test_normalize_brief_filters_maps_min_transaction():
@@ -102,3 +114,19 @@ def test_normalize_brief_filters_maps_min_transaction():
     brief = AnalysisBrief(intent="gifts", filters={"min_transaction_value": 600000})
     updated = normalize_brief_filters(brief)
     assert updated.filters["min_bill_value"] == 600000
+
+
+def test_apply_data_feedback_is_idempotent_for_same_intent_fix():
+    from project_core.domain.brief.merge import apply_data_feedback
+    from project_core.domain.contracts.feedback import DataFeedback
+
+    brief = AnalysisBrief(intent="analyze metric")
+    feedback = DataFeedback(
+        issue="insufficient_deliverable",
+        summary="retry",
+        suggested_intent_fix="analyze metric",
+    )
+    once = apply_data_feedback(brief, feedback)
+    twice = apply_data_feedback(once, feedback)
+    assert once.intent == "analyze metric"
+    assert twice.intent == "analyze metric"
