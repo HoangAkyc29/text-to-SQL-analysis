@@ -188,6 +188,64 @@ def _normalize_requirement_provenance(
     return result
 
 
+def _deterministic_synthesis(summary: dict[str, Any]) -> dict[str, Any]:
+    """Render only verified pipeline facts; never ask an LLM to invent prose."""
+    outcome = str(summary.get("outcome") or "partial")
+    metrics = dict(summary.get("headline_metrics") or {})
+    artifacts = [str(item) for item in (summary.get("artifact_urls") or [])]
+    verification = dict(summary.get("verification") or {})
+    coverage = dict(summary.get("coverage") or {})
+    gaps = [str(item) for item in (coverage.get("gaps") or [])]
+    row_count = int(metrics.get("row_count") or 0)
+    if not row_count and isinstance(metrics.get("artifact_rows"), dict):
+        row_count = max(
+            (int(value or 0) for value in metrics["artifact_rows"].values()),
+            default=0,
+        )
+
+    sentences: list[str] = []
+    if outcome == "success":
+        if verification.get("status") == "passed":
+            sentences.append(
+                "Phân tích đã hoàn tất và kết quả đầu ra đã vượt qua kiểm tra dữ liệu."
+            )
+        else:
+            sentences.append("Phân tích đã hoàn tất.")
+    elif outcome == "partial":
+        sentences.append("Phân tích đã hoàn thành một phần.")
+    elif outcome == "empty":
+        sentences.append("Không tìm thấy dữ liệu phù hợp với các điều kiện đã yêu cầu.")
+    elif outcome == "policy_blocked":
+        sentences.append("Yêu cầu chưa thể thực hiện do giới hạn quyền truy cập dữ liệu.")
+    else:
+        sentences.append("Phân tích chưa thể hoàn tất.")
+
+    if row_count > 0 and outcome in {"success", "partial"}:
+        sentences.append(f"Kết quả chi tiết gồm {row_count} dòng dữ liệu.")
+
+    if outcome == "partial" and gaps:
+        readable: list[str] = []
+        for gap in gaps[:4]:
+            prefix, _, detail = gap.partition(":")
+            label = {
+                "missing_filter": "bằng chứng bộ lọc",
+                "missing_ranking": "kiểm tra xếp hạng",
+                "missing_time_evidence": "bằng chứng thời gian",
+                "missing_metric": "chỉ số",
+                "missing_dimension": "chiều phân tích",
+                "unmapped_requirement": "liên kết yêu cầu",
+            }.get(prefix, "một yêu cầu đầu ra")
+            readable.append(f"{label}{f' ({detail})' if detail else ''}")
+        sentences.append("Chưa xác minh được: " + ", ".join(readable) + ".")
+
+    if artifacts:
+        sentences.append("File kết quả đã sẵn sàng để tải xuống.")
+    return {
+        "user_message": " ".join(sentences),
+        "artifacts": artifacts,
+    }
+
+
 class ConversationalRouterService(SupermarketAgentService):
     def decide(self, ctx: DecisionContext) -> Any:
         mode = (ctx.request.metadata or {}).get("mode", "ingress")
@@ -368,22 +426,7 @@ class ConversationalRouterService(SupermarketAgentService):
     def _synthesize(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}
         summary = meta.get("technical_summary") or {}
-        if os.getenv("ALLOW_LLM_STUB") == "1":
-            payload = {
-                "user_message": f"Kết quả: {summary.get('outcome', 'done')}.",
-                "artifacts": summary.get("artifact_urls") or [],
-            }
-            return self.json_response(ctx, payload)
-        client = OpenRouterClient()
-        result = client.chat(
-            profile_name=agent_profile("router"),
-            messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide="synthesize_guide")},
-                {"role": "user", "content": json.dumps(summary, ensure_ascii=False)},
-            ],
-            response_format={"type": "json_object"},
-        )
-        return self.json_response(ctx, parse_llm_json(result))
+        return self.json_response(ctx, _deterministic_synthesis(summary))
 
 
 def build_service(config: PlatformConfig, spec: AgentSpec) -> ConversationalRouterService:

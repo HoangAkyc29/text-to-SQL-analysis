@@ -112,6 +112,8 @@ class TechnicalSummary(BaseModel):
     caveats: list[str] = Field(default_factory=list)
     empty_reason: str | None = None
     coverage: dict[str, Any] = Field(default_factory=dict)
+    verification: dict[str, Any] = Field(default_factory=dict)
+    deliverables: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RouterIngressResult(BaseModel):

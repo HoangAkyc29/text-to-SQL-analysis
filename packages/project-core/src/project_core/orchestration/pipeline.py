@@ -1219,6 +1219,8 @@ class SupermarketAnalysisPipeline:
                     artifact_urls=[str(out_dir / Path(p).name) for p in arts] if arts else arts,
                     caveats=[fb.summary or fb.issue, *(iv_parsed.caveats or [])][:8],
                     coverage=iv_parsed.coverage or {"diagnosis": "partial", "gaps": [fb.issue]},
+                    verification=dict(iv_parsed.verification or {}),
+                    deliverables=_deliverable_summaries(iv_parsed.artifact_manifests),
                 )
                 if has_rows or arts:
                     best_effort = _remember_best_effort(
@@ -1339,6 +1341,8 @@ class SupermarketAnalysisPipeline:
                     artifact_urls=[str(out_dir / Path(p).name) for p in artifact_paths],
                     caveats=iv_parsed.caveats,
                     coverage=coverage,
+                    verification=dict(iv_parsed.verification or {}),
+                    deliverables=_deliverable_summaries(iv_parsed.artifact_manifests),
                 )
                 best_effort = _remember_best_effort(
                     best_effort,
@@ -1725,6 +1729,22 @@ def _write_artifact_manifest(
         encoding="utf-8",
     )
     manifest_temp.replace(manifest_path)
+
+
+def _deliverable_summaries(
+    manifests: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "filename": str(item.get("filename") or Path(str(item.get("path") or "")).name),
+            "kind": str(item.get("kind") or "file"),
+            "primary": bool(item.get("primary")),
+            "validation_status": str(item.get("validation_status") or "pending"),
+            "sheets": list((item.get("sheet_map") or {}).keys()),
+        }
+        for item in (manifests or [])
+        if item.get("primary")
+    ]
 
 
 def _sql_plan_fingerprint(

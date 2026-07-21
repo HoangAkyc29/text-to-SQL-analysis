@@ -67,9 +67,39 @@ def test_clarify_mode_returns_mcq(decision_ctx):
 
 
 def test_synthesize_returns_outcome_message(decision_ctx):
-    ctx = decision_ctx(metadata={"mode": "synthesize", "technical_summary": {"outcome": "success"}})
+    ctx = decision_ctx(
+        metadata={
+            "mode": "synthesize",
+            "technical_summary": {
+                "outcome": "success",
+                "headline_metrics": {"row_count": 4},
+                "verification": {"status": "passed"},
+                "artifact_urls": ["out/result.xlsx"],
+            },
+        }
+    )
     payload = json.loads(_svc().decide(ctx).content)
-    assert "success" in payload["user_message"]
+    assert "vượt qua kiểm tra dữ liệu" in payload["user_message"]
+    assert "4 dòng dữ liệu" in payload["user_message"]
+    assert "buồn" not in payload["user_message"]
+    assert payload["artifacts"] == ["out/result.xlsx"]
+
+
+def test_synthesize_partial_uses_verified_gaps_not_caveat_prose(decision_ctx):
+    ctx = decision_ctx(
+        metadata={
+            "mode": "synthesize",
+            "technical_summary": {
+                "outcome": "partial",
+                "headline_metrics": {"row_count": 2},
+                "coverage": {"gaps": ["missing_filter:item_code"]},
+                "caveats": ["user must provide an item code"],
+            },
+        }
+    )
+    payload = json.loads(_svc().decide(ctx).content)
+    assert "bằng chứng bộ lọc (item_code)" in payload["user_message"]
+    assert "user must provide" not in payload["user_message"]
 
 
 def test_requirement_provenance_keeps_inferred_metric_optional():

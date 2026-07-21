@@ -6,10 +6,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+import pandas as pd
 
 from project_core.domain.analysis.feedback_coerce import try_validate_data_feedback
 from project_core.domain.analysis.chart_reviewer import ChartReviewer
@@ -488,14 +492,15 @@ def run_analysis_brain(
             if check.gaps:
                 decision = {**decision, "status": "partial"}
                 caveats.extend(check.gaps)
-            if "auto_export_fallback_partial" in caveats:
-                decision = {**decision, "status": "partial"}
-            if any(
+            unresolved_visual = any(
                 r.get("verdict") != "pass" and not r.get("resolved")
                 for r in visual_reviews
-            ):
+            )
+            if unresolved_visual:
                 decision = {**decision, "status": "partial"}
                 caveats.append("visual_review_not_passed")
+            elif not check.gaps and reasoning.verification.status.value == "passed":
+                decision = {**decision, "status": "complete"}
             reasoning.advance_to(IVReasoningPhase.FINALIZE)
             terminal = decision
             break
@@ -780,16 +785,9 @@ def _verify_deliverable(
     )
     reasoning.record_observation()
     coverage_gaps: list[str] = []
-    blocking_ids = {
-        item.requirement_id
-        for item in brief.blocking_requirements()
-        if item.kind != "output"
-    }
-    if blocking_ids:
-        coverage_gaps.extend(
-            f"unmapped_requirement:{requirement_id}"
-            for requirement_id in sorted(blocking_ids - set(mapped_requirement_ids or set()))
-        )
+    blocking_requirements = [
+        item for item in brief.blocking_requirements() if item.kind != "output"
+    ]
     if cov.status != "ok":
         coverage_gaps.append("coverage_check_failed")
     else:
@@ -807,6 +805,41 @@ def _verify_deliverable(
             coverage_gaps.append("missing_time_evidence")
         if cov.result.get("issue") == "empty_result":
             coverage_gaps.append("empty_result")
+        metric_found = {
+            str(item).lower() for item in cov.result.get("metrics_found", [])
+        }
+        dimension_found = {
+            str(item).lower() for item in cov.result.get("dimensions_found", [])
+        }
+        filter_found = {
+            str(item).lower() for item in cov.result.get("filters_found", [])
+        }
+        ranking_found = {
+            str(item) for item in cov.result.get("ranking_found", [])
+        }
+        evidenced_ids = {
+            item.requirement_id
+            for item in blocking_requirements
+            if (
+                item.kind == "metric"
+                and item.key.lower() in metric_found
+                or item.kind == "dimension"
+                and item.key.lower() in dimension_found
+                or item.kind == "filter"
+                and item.key.lower() in filter_found
+                or item.kind == "time"
+                and bool(cov.result.get("time_covered", False))
+                or item.kind == "ranking"
+                and item.requirement_id in ranking_found
+            )
+        }
+        unresolved_mappings = {
+            item.requirement_id for item in blocking_requirements
+        } - set(mapped_requirement_ids or set()) - evidenced_ids
+        coverage_gaps.extend(
+            f"unmapped_requirement:{requirement_id}"
+            for requirement_id in sorted(unresolved_mappings)
+        )
 
     arts = list(ws.primary_artifacts or ws.artifact_paths)
     artifact_checks: dict[str, bool] = {}
@@ -909,24 +942,50 @@ def _ensure_deliverable_exports(
     refs = ws.refs()
     if not refs:
         return []
-    preferred = [r for r in refs if not r.startswith("q") or "_" in r]
-    candidates = preferred or refs
-    nonempty: list[tuple[str, int]] = []
+    parent_refs = {
+        parent
+        for node in ws.lineage.values()
+        for parent in node.parents
+    }
+    candidates = [ref for ref in refs if ref not in parent_refs] or refs
+    nonempty: list[tuple[str, int, str | None]] = []
+    seen_content: set[str] = set()
     for ref in candidates:
         try:
-            n = len(ws.get(ref).frame())
+            handle = ws.get(ref)
+            frame = handle.frame()
+            frame, numeric_normalized = _normalize_presentation_numeric_columns(frame)
+            frame, restored = _restore_required_identifier_values(frame, brief)
+            if restored or numeric_normalized:
+                presentation_ref = f"deliverable_{len(nonempty) + 1}"
+                handle = ws.save_frame(
+                    presentation_ref,
+                    frame,
+                    role=handle.role,
+                    purpose=handle.purpose,
+                    parents=[ref],
+                    op_id="restore_identifier_display",
+                )
+                ref = presentation_ref
+            n = len(frame)
         except Exception:  # noqa: BLE001
             continue
         if n > 0:
-            nonempty.append((ref, n))
+            fingerprint = _frame_content_fingerprint(frame)
+            if fingerprint in seen_content:
+                continue
+            seen_content.add(fingerprint)
+            nonempty.append((ref, n, _dataset_purpose(ws, ref)))
     if not nonempty:
         return []
+    nonempty = _enrich_required_identifier_columns(ws, nonempty, brief)
+    nonempty.sort(key=lambda item: (item[1], item[0]))
     exported: list[str] = []
     formats = {str(x).strip().lower() for x in (brief.output_format or []) if str(x).strip()}
     want_excel = bool(formats & {"excel", "xlsx", "spreadsheet"}) or len(nonempty) > 1
     want_csv = bool(formats & {"csv"}) or not want_excel
     if want_csv:
-        for index, (ref, _) in enumerate(nonempty):
+        for index, (ref, _, _) in enumerate(nonempty):
             csv_res = execute_op(
                 ws,
                 "export_csv",
@@ -945,15 +1004,11 @@ def _ensure_deliverable_exports(
                 exported.append("export_csv")
     if want_excel:
         sheets: dict[str, str] = {}
-        used: set[str] = set()
-        for index, (ref, _) in enumerate(nonempty):
-            base = "".join(ch if ch.isalnum() or ch in " _-" else "_" for ch in ref)[:25] or f"data_{index + 1}"
-            name = base
-            suffix = 2
-            while name.lower() in used:
-                name = f"{base[:27]}_{suffix}"
-                suffix += 1
-            used.add(name.lower())
+        for name, (ref, _, _) in zip(
+            _friendly_sheet_names(nonempty),
+            nonempty,
+            strict=True,
+        ):
             sheets[name] = ref
         x_res = execute_op(
             ws,
@@ -965,9 +1020,262 @@ def _ensure_deliverable_exports(
             caveats.append(f"auto_export_excel:{x_res.error or 'error'}")
         else:
             exported.append("export_excel")
-    if exported:
-        caveats.append("auto_export_fallback_partial")
     return exported
+
+
+def _frame_content_fingerprint(frame: pd.DataFrame) -> str:
+    """Hash tabular content so equivalent intermediate datasets export once."""
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {
+                "columns": [str(column) for column in frame.columns],
+            },
+            sort_keys=True,
+        ).encode("utf-8")
+    )
+    canonical = frame.copy()
+    for column in canonical.columns:
+        source = canonical[column]
+        numeric = pd.to_numeric(source, errors="coerce")
+        if int(numeric.notna().sum()) == int(source.notna().sum()):
+            canonical[column] = numeric.astype("float64")
+        elif pd.api.types.is_datetime64_any_dtype(source):
+            canonical[column] = pd.to_datetime(source, errors="coerce").astype(str)
+        else:
+            canonical[column] = source.astype(object).where(source.notna(), None)
+    try:
+        digest.update(
+            pd.util.hash_pandas_object(canonical, index=False).values.tobytes()
+        )
+    except TypeError:
+        digest.update(
+            canonical.astype(str)
+            .to_json(orient="split", force_ascii=False)
+            .encode("utf-8")
+        )
+    return digest.hexdigest()
+
+
+def _dataset_purpose(ws: DatasetWorkingSet, ref: str) -> str | None:
+    seen: set[str] = set()
+    current = ref
+    while current and current not in seen:
+        seen.add(current)
+        if ws.has(current):
+            purpose = ws.get(current).purpose
+            if purpose:
+                return purpose
+        node = ws.lineage.get(current)
+        current = str(node.parents[0]) if node and node.parents else ""
+    return None
+
+
+def _enrich_required_identifier_columns(
+    ws: DatasetWorkingSet,
+    datasets: list[tuple[str, int, str | None]],
+    brief: AnalysisBrief,
+) -> list[tuple[str, int, str | None]]:
+    """Project a verified display identifier into summaries via shared keys."""
+
+    def _tokens(value: str) -> set[str]:
+        aliases = {"sku": "item", "product": "item", "code": "code", "id": "id"}
+        return {
+            aliases.get(token, token)
+            for token in re.findall(r"[a-z0-9]+", value.lower())
+        }
+
+    def _key(value: Any) -> str:
+        text = str(value).strip()
+        if re.fullmatch(r"\d+[.]0+", text):
+            text = text.split(".", 1)[0]
+        normalized = re.sub(r"[^a-z0-9]", "", text.lower())
+        return normalized.lstrip("0") or "0"
+
+    enriched = list(datasets)
+    for requirement in brief.blocking_requirements("filter"):
+        expected = (
+            requirement.value if isinstance(requirement.value, list) else [requirement.value]
+        )
+        if not expected or not all(isinstance(value, str) for value in expected):
+            continue
+        wanted = {_key(value) for value in expected}
+        needed = _tokens(requirement.key)
+        if not (needed & {"code", "id"}):
+            continue
+
+        evidence: tuple[str, str, pd.DataFrame] | None = None
+        for ref, _, _ in enriched:
+            frame = ws.get(ref).frame()
+            for column in frame.columns:
+                if not needed.intersection(_tokens(str(column))):
+                    continue
+                seen = {_key(value) for value in frame[column].dropna()}
+                if wanted.issubset(seen):
+                    evidence = (ref, str(column), frame)
+                    break
+            if evidence is not None:
+                break
+        if evidence is None:
+            continue
+
+        evidence_ref, display_column, evidence_frame = evidence
+        updated: list[tuple[str, int, str | None]] = []
+        for index, (ref, row_count, purpose) in enumerate(enriched):
+            frame = ws.get(ref).frame()
+            if display_column in frame.columns:
+                updated.append((ref, row_count, purpose))
+                continue
+            shared_columns = [
+                str(column)
+                for column in evidence_frame.columns
+                if column in frame.columns and str(column) != display_column
+            ]
+            replacement = frame
+            for shared in shared_columns:
+                mapping_frame = evidence_frame[[shared, display_column]].dropna().drop_duplicates()
+                if mapping_frame[shared].duplicated().any():
+                    continue
+                mapping = mapping_frame.set_index(shared)[display_column]
+                mapped = frame[shared].map(mapping)
+                if int(mapped.notna().sum()) != int(frame[shared].notna().sum()):
+                    continue
+                replacement = frame.copy()
+                insert_at = list(replacement.columns).index(shared) + 1
+                replacement.insert(insert_at, display_column, mapped)
+                new_ref = f"deliverable_enriched_{index + 1}"
+                ws.save_frame(
+                    new_ref,
+                    replacement,
+                    role=ws.get(ref).role,
+                    purpose=purpose,
+                    parents=[ref, evidence_ref],
+                    op_id="enrich_identifier_display",
+                )
+                ref = new_ref
+                break
+            updated.append((ref, row_count, purpose))
+        enriched = updated
+    return enriched
+
+
+def _friendly_sheet_names(
+    datasets: list[tuple[str, int, str | None]],
+) -> list[str]:
+    if len(datasets) == 1:
+        return ["Data"]
+    row_counts = [row_count for _, row_count, _ in datasets]
+    smallest = min(row_counts)
+    largest = max(row_counts)
+    names: list[str] = []
+    used: set[str] = set()
+    for index, (ref, row_count, purpose) in enumerate(datasets):
+        if row_count == smallest and row_count < largest and "Summary" not in used:
+            base = "Summary"
+        elif row_count == largest and row_count > smallest and "Details" not in used:
+            base = "Details"
+        else:
+            source = purpose or re.sub(
+                r"^(?:q\d+|deliverable_\d+)[_-]*",
+                "",
+                ref,
+                flags=re.IGNORECASE,
+            )
+            words = re.sub(r"[_-]+", " ", source).strip()
+            base = words.title()[:25] or f"Data {index + 1}"
+        name = base
+        suffix = 2
+        while name.lower() in {item.lower() for item in used}:
+            name = f"{base[:27]} {suffix}"
+            suffix += 1
+        used.add(name)
+        names.append(name[:31])
+    return names
+
+
+def _restore_required_identifier_values(
+    frame: pd.DataFrame,
+    brief: AnalysisBrief,
+) -> tuple[pd.DataFrame, bool]:
+    """Restore user-supplied identifier spelling, including leading zeros."""
+
+    def _tokens(value: str) -> set[str]:
+        expanded = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value)
+        aliases = {"sku": "item", "product": "item", "code": "code", "id": "id"}
+        return {
+            aliases.get(token, token)
+            for token in re.findall(r"[a-z0-9]+", expanded.lower())
+        }
+
+    def _key(value: Any) -> str:
+        text = str(value).strip()
+        if re.fullmatch(r"\d+[.]0+", text):
+            text = text.split(".", 1)[0]
+        normalized = re.sub(r"[^a-z0-9]", "", text.lower())
+        return normalized.lstrip("0") or "0"
+
+    result = frame.copy()
+    changed = False
+    for requirement in brief.blocking_requirements("filter"):
+        expected_values = (
+            requirement.value if isinstance(requirement.value, list) else [requirement.value]
+        )
+        if not expected_values or not all(
+            isinstance(value, str) for value in expected_values
+        ):
+            continue
+        display_by_key = {_key(value): str(value) for value in expected_values}
+        needed = _tokens(requirement.key)
+        if not (needed & {"code", "id"}) and not any(
+            str(value).startswith("0") for value in expected_values
+        ):
+            continue
+        for column in result.columns:
+            if not needed.intersection(_tokens(str(column))):
+                continue
+            series_keys = result[column].map(_key)
+            matched = series_keys.isin(display_by_key)
+            if not bool(matched.any()):
+                continue
+            result[column] = [
+                display_by_key.get(key, original)
+                for key, original in zip(series_keys, result[column], strict=True)
+            ]
+            changed = True
+    return result, changed
+
+
+def _normalize_presentation_numeric_columns(
+    frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, bool]:
+    """Keep measures numeric while leaving identifiers and dates as text."""
+    result = frame.copy()
+    changed = False
+    measure_tokens = {
+        "amount",
+        "count",
+        "metric",
+        "quantity",
+        "qty",
+        "revenue",
+        "sum",
+        "total",
+        "value",
+    }
+    identifier_tokens = {"barcode", "code", "id", "num", "number"}
+    for column in result.columns:
+        if pd.api.types.is_numeric_dtype(result[column]):
+            continue
+        expanded = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", str(column))
+        tokens = set(re.findall(r"[a-z0-9]+", expanded.lower()))
+        if not tokens.intersection(measure_tokens) or tokens.intersection(identifier_tokens):
+            continue
+        numeric = pd.to_numeric(result[column], errors="coerce")
+        if int(numeric.notna().sum()) != int(result[column].notna().sum()):
+            continue
+        result[column] = numeric
+        changed = True
+    return result, changed
 
 
 def _assemble_response(

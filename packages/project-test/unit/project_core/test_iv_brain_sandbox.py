@@ -207,7 +207,7 @@ def test_iv_brain_direct_finalize_requires_coverage(tmp_path, monkeypatch):
             self.tokens = 0
 
         def next_decision(self, state):
-            return {"decision": "finalize", "status": "complete"}
+            return {"decision": "finalize", "status": "partial"}
 
     monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
     payload = iv_brain.run_analysis_brain(
@@ -249,7 +249,7 @@ def test_iv_brain_aligns_executed_query_meta_by_query_index(tmp_path, monkeypatc
             self.tokens = 0
 
         def next_decision(self, state):
-            return {"decision": "finalize", "status": "complete"}
+            return {"decision": "finalize", "status": "partial"}
 
     monkeypatch.setattr(iv_brain, "AnalysisPlanner", FakePlanner)
     payload = iv_brain.run_analysis_brain(
@@ -286,7 +286,6 @@ def test_iv_brain_aligns_executed_query_meta_by_query_index(tmp_path, monkeypatc
             {
                 "role": "main",
                 "purpose": "quantity",
-                "requirement_ids": ["metric:0"],
             },
         ],
         recipe_candidates=[],
@@ -297,7 +296,7 @@ def test_iv_brain_aligns_executed_query_meta_by_query_index(tmp_path, monkeypatc
         profile_name="analyst",
         system_prompt="x",
     )
-    assert payload["action"] in {"complete", "partial"}
+    assert payload["action"] == "complete"
     assert all(
         "unmapped_requirement:metric:0" not in caveat
         for caveat in payload.get("caveats", [])
@@ -644,3 +643,72 @@ def test_iv_brain_stops_repeated_schema_invalid_tool_call_without_spending_op_bu
     )
     assert payload["reasoning_state"]["analysis_ops"] == 0
     assert payload["verification"]["status"] == "passed"
+
+
+def test_auto_export_deduplicates_sheets_and_restores_identifier_text(tmp_path):
+    from openpyxl import load_workbook
+
+    from project_core.domain.analysis.iv_brain import _ensure_deliverable_exports
+    from project_core.domain.analysis.ops.working_set import DatasetWorkingSet
+    from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement
+
+    summary_path = tmp_path / "summary.parquet"
+    detail_path = tmp_path / "detail.parquet"
+    pd.DataFrame({"ITEM_ID": [9001], "Quantity": ["4.000"]}).to_parquet(summary_path)
+    pd.DataFrame(
+        {
+            "ITEM_ID": [9001, 9001, 9001, 9001],
+            "ITEM_CODE": [123, 123, 123, 123],
+            "EventDate": pd.to_datetime(
+                ["2034-01-04", "2034-01-03", "2034-01-02", "2034-01-01"]
+            ),
+        }
+    ).to_parquet(detail_path)
+    working_set = DatasetWorkingSet.from_manifest(
+        {
+            "queries": [
+                {"path": str(summary_path), "ref": "q0", "row_count": 1},
+                {"path": str(detail_path), "ref": "q1", "row_count": 4},
+            ]
+        },
+        [
+            {"role": "main", "purpose": "summary"},
+            {"role": "main", "purpose": "details"},
+        ],
+        work_dir=tmp_path / "ws-clean",
+    )
+    working_set.save_frame(
+        "q0_copy",
+        working_set.get("q0").frame().copy(),
+        parents=["q0"],
+        op_id="copy",
+    )
+    brief = AnalysisBrief(
+        output_format=["excel"],
+        requirements=[
+            BriefRequirement(
+                requirement_id="filter:0",
+                kind="filter",
+                key="item_code",
+                source="explicit",
+                required=True,
+                value=["00123"],
+            )
+        ],
+    )
+    out = tmp_path / "clean-out"
+    out.mkdir()
+    exported = _ensure_deliverable_exports(
+        working_set,
+        brief,
+        out_dir=str(out),
+        caveats=[],
+    )
+    assert exported == ["export_excel"]
+    workbook = load_workbook(out / "analysis_result.xlsx", data_only=True)
+    assert workbook.sheetnames == ["Summary", "Details"]
+    assert workbook["Summary"]["B2"].value == "00123"
+    assert workbook["Summary"]["B2"].data_type == "s"
+    assert workbook["Summary"]["C2"].value == 4
+    assert workbook["Summary"]["C2"].data_type == "n"
+    assert workbook["Details"]["B2"].value == "00123"
