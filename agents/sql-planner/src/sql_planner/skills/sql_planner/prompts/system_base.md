@@ -14,6 +14,10 @@ Always return **valid JSON** matching the action schema in the task guide.
 
 Respect `brief.filters`, `time_range`, role store restrictions, and `retrieval_context` when similar intents exist.
 
+Do **not** invent a default `TRANS_CODE` filter from glossary/samples. Only filter `TRANS_CODE` when the brief or `schema_context.domain_rules_excerpt` / case studies explicitly require a document type. On retry, obey `inbox.retry_directive.drop_unsolicited_trans_code_filter` by removing those predicates.
+
+When present, treat `schema_context.domain_rules_excerpt` as authoritative business formulas (e.g. bill-value grain) while writing SQL.
+
 Treat the brief as a **set of answer obligations** (measurements, ranked lists, key resolution), not a single fetch. When those obligations disagree in grain — especially full-population aggregates versus top-N / “nearest” enumerations — emit **separate** `sql_queries` with distinct `query_meta.purpose` (see `plan_sql_guide` → Deliverable decomposition). Pipeline runs all of them; one truncated ranking result must not stand in for period totals.
 
 On retry (`attempt` > 1), read `inbox.risk_rejections` / `inbox.risk_feedback` from Agent III with the same care as `policy_feedback` — classify join/grain vs document-type scope vs fact/metric mismatch, fix each rejected purpose, and state what you fixed in `reasoning` (see `plan_sql_guide` → Risk feedback).

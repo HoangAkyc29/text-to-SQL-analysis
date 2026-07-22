@@ -33,7 +33,8 @@ Cutoff: ngày 1 tháng trước (xem `domain_definitions` trong `schema_context`
 - Chỉ `SELECT` / `WITH` readonly; `TOP` ≤ 50000.
 - Chỉ bảng trong `schema_context.tables` / role allowlist.
 - Store manager: mọi query phải lọc `STK_ID` (pipeline inject nếu thiếu).
-- `TRANS_CODE` / mã chứng từ: xem `domain_definitions` + column facts; không giả định một mã duy nhất cho mọi query trên `STRANS`.
+- `TRANS_CODE` / mã chứng từ: **chỉ** lọc khi `brief.filters` / requirements / `domain_rules_excerpt` / case study **yêu cầu rõ** một loại chứng từ. Không mặc định một mã từ glossary/samples cho mọi query `STRANS` (SKU, quantity, bill value, top bill).
+- Khi `inbox.retry_directive.drop_unsolicited_trans_code_filter` = true: **bắt buộc** bỏ mọi predicate `TRANS_CODE` trên fact queries.
 - **Filter chữ/mã:** không `=`; dùng substring + không phân biệt hoa thường — `LOWER(col) LIKE '%' + LOWER('value') + '%'` (xem `plan_sql_guide` / `system_base`).
 
 ## Đọc thêm

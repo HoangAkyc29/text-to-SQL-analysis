@@ -118,6 +118,17 @@ class TechnicalSummary(BaseModel):
     deliverables: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class DomainFactTeachPayload(BaseModel):
+    """User-taught declarative domain fact from Agent I ingress (no SQL)."""
+
+    statement: str = ""
+    fact_type: Literal["definition", "formula", "classification", "relationship", "constraint"] = (
+        "definition"
+    )
+    schema_links: list[dict[str, str]] = Field(default_factory=list)
+    scope: Literal["user", "tenant", "global"] = "user"
+
+
 class RouterIngressResult(BaseModel):
     route: Literal["chitchat", "analysis", "confirm_cancel", "wait"]
     user_message: str = ""
@@ -132,6 +143,8 @@ class RouterIngressResult(BaseModel):
             "topic_switch",
             "chitchat",
             "satisfaction",
+            "teach_domain_fact",
         ]
         | None
     ) = None
+    domain_fact: DomainFactTeachPayload | None = None

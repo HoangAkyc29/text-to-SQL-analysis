@@ -16,7 +16,7 @@ from project_core.domain.budget import SessionTraceBudget, TraceBudget
 from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.clarification.resolver import apply_clarification_reply
 from project_core.domain.brief.session_merge import empty_follow_up_message, session_merge_brief
-from project_core.domain.contracts.brief import AnalysisBrief
+from project_core.domain.contracts.brief import AnalysisBrief, DomainFactTeachPayload
 from project_core.domain.contracts.clarification import ClarificationReply, ClarificationRequest
 from project_core.domain.contracts.feedback import (
     DomainEvidence,
@@ -33,7 +33,9 @@ from project_core.domain.errors.codes import (
 from project_core.domain.feedback.analysis_tool_registry import AnalysisToolRegistry
 from project_core.domain.feedback.domain_rule_store import DomainRuleStore
 from project_core.domain.feedback.loop import CaseStudyIndexer, FeedbackLoop
+from project_core.domain.feedback.schema_link_normalize import normalize_schema_links
 from project_core.domain.feedback.store import BehavioralSignal
+from project_core.domain.schema.column_semantic_catalog import ColumnSemanticCatalog
 from project_core.domain.memory.context_pack import (
     append_compact_archive,
     apply_curator_selection,
@@ -210,6 +212,14 @@ class ChatOrchestrator:
 
         route = ingress.get("route", "analysis")
         dialogue_act = ingress.get("dialogue_act")
+        if dialogue_act == "teach_domain_fact" or ingress.get("domain_fact"):
+            return self._handle_teach_domain_fact(
+                session_id=session_id,
+                message=message,
+                user=user,
+                bundle=bundle,
+                ingress=ingress,
+            )
         if route == "confirm_cancel":
             return self._handle_confirm_cancel(session_id, bundle, ingress)
         if route == "wait":
@@ -673,6 +683,122 @@ class ChatOrchestrator:
         if tokens:
             budget.trace_budget.charge("tokens", tokens=tokens)
         return out
+
+    def _handle_teach_domain_fact(
+        self,
+        *,
+        session_id: str,
+        message: str,
+        user: dict[str, Any],
+        bundle: SessionBundle,
+        ingress: dict[str, Any],
+    ) -> ChatResponse:
+        raw = ingress.get("domain_fact") or {}
+        try:
+            payload = DomainFactTeachPayload.model_validate(raw)
+        except Exception:  # noqa: BLE001
+            payload = DomainFactTeachPayload(statement=str(raw.get("statement") or "").strip())
+        statement = (payload.statement or "").strip() or message.strip()
+        if not statement:
+            ask = ingress.get("user_message") or "Bạn muốn lưu quy tắc nghiệp vụ nào?"
+            assistant = TranscriptTurn(
+                id=str(uuid4()),
+                role="assistant",
+                content=ask,
+                at=utc_now().isoformat(),
+            )
+            bundle.transcript.append(assistant)
+            self.stm.save_transcript(session_id, bundle.transcript)
+            return ChatResponse(
+                session_id=session_id,
+                workflow_status=WorkflowStatus.IDLE.value,
+                message=ask,
+            )
+
+        catalog = getattr(self.pipeline, "column_catalog", None) or ColumnSemanticCatalog.from_columns_dir()
+        links = normalize_schema_links(payload.schema_links, catalog=catalog)
+        if not links:
+            # Fallback: try to pick links from statement tokens without inventing SQL.
+            hinted: list[dict[str, str]] = []
+            upper = statement.upper()
+            for bare in ("TRANSHDR", "STRANS", "PMTRANS", "SKU_DEF"):
+                if bare in upper:
+                    hinted.append({"table": bare})
+            if "AMOUNT" in upper and "TRANSHDR" in upper:
+                hinted.append({"table": "TRANSHDR", "column": "AMOUNT"})
+            if "AMOUNT" in upper and "STRANS" in upper:
+                hinted.append({"table": "STRANS", "column": "AMOUNT"})
+            if "TRANS_NUM" in upper:
+                hinted.append({"table": "TRANSHDR", "column": "TRANS_NUM"})
+            links = normalize_schema_links(hinted, catalog=catalog)
+
+        ack_default = (
+            "Đã ghi nhận quy tắc nghiệp vụ."
+            if links
+            else "Đã nhận statement nhưng chưa gắn được schema link rõ ràng — vui lòng nêu bảng/cột."
+        )
+        user_message = (ingress.get("user_message") or "").strip() or ack_default
+
+        rule_id = ""
+        if links and self.domain_rule_store is not None:
+            candidate = DomainRuleCandidate(
+                statement=statement,
+                fact_type=payload.fact_type,
+                scope=payload.scope if payload.scope in {"user", "tenant", "global"} else "user",
+                schema_links=links,
+                confidence=1.0,
+                evidence=[
+                    DomainEvidence(
+                        source_kind="user_statement",
+                        source_ref="chat_teach",
+                        quote=message,
+                        schema_links=links,
+                        confidence=1.0,
+                    )
+                ],
+            )
+            staged = self.stage_domain_rule(
+                candidate,
+                trace_id=f"teach:{session_id}:{uuid4()}",
+                user=user,
+            )
+            rule_id = str(staged.get("rule_id") or "")
+            if staged.get("status") == "ok" and rule_id:
+                status = "candidate"
+                if self.domain_rule_store is not None:
+                    doc = self.domain_rule_store.collection.find_one({"rule_id": rule_id}) or {}
+                    status = str(doc.get("status") or "candidate")
+                if status == "confirmed":
+                    user_message = (
+                        ingress.get("user_message")
+                        or f"Đã lưu và xác nhận fact (rule_id={rule_id})."
+                    )
+                else:
+                    user_message = (
+                        ingress.get("user_message")
+                        or f"Đã đưa fact vào hàng đợi Domain Rules (rule_id={rule_id})."
+                    )
+            elif staged.get("status") == "no_store":
+                user_message = "Hệ thống chưa bật kho domain rules — không lưu được fact."
+        elif not links:
+            pass
+        else:
+            user_message = "Hệ thống chưa bật kho domain rules — không lưu được fact."
+
+        assistant = TranscriptTurn(
+            id=str(uuid4()),
+            role="assistant",
+            content=user_message,
+            at=utc_now().isoformat(),
+        )
+        bundle.transcript.append(assistant)
+        self.stm.save_transcript(session_id, bundle.transcript)
+        return ChatResponse(
+            session_id=session_id,
+            workflow_status=WorkflowStatus.IDLE.value,
+            message=user_message,
+            analysis_id=rule_id or None,
+        )
 
     def _handle_satisfaction_signal(self, ingress: dict[str, Any], bundle: SessionBundle) -> None:
         raw = ingress.get("satisfaction_signal")

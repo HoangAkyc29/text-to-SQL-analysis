@@ -110,7 +110,10 @@ Legacy flat `retrieval_context` as `list[str]` is still supported — treat each
 - Only reference tables listed in `schema_context.logical_tables` / data_dictionary / expanded `db1_shards`. Do **not** invent table names (e.g. `rankedSales`, `productSkus`); use `WITH` CTEs or subqueries instead.
 - Use `FORMAT(TRAN_DATE,'yyyy-MM')` for monthly grain when brief asks month grain.
 - Apply `STK_ID IN (...)` when `brief.filters.STK_ID` or store scope is already in the brief (pipeline/role may also inject).
-- Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, column facts, and **case studies** — not from hardcoded recipes in this file.
+- Codes, formulas, VIP/gift/bill semantics → from `schema_context.domain_definitions_excerpt`, `schema_context.domain_rules_excerpt` (when present), column facts, and **case studies** — not from hardcoded recipes in this file.
+- **`TRANS_CODE` is opt-in:** add a `TRANS_CODE` predicate only when the brief (or domain rule / case study) explicitly scopes a document type. Product / quantity / `min_bill_value` / top-bill asks do **not** imply a default document code from glossary tables.
+- **Bill-value grain:** when the brief has a bill threshold (`min_bill_value` or similar), measure bill amount at **header grain** (`TRANSHDR`) or as the sum of **all** lines sharing the bill key — not as `SUM(AMOUNT)` of only the filtered SKU lines. Prefer `schema_context.domain_rules_excerpt` when it defines this formula.
+- On empty retry, if `inbox.retry_directive.drop_unsolicited_trans_code_filter` is true, remove every `TRANS_CODE` filter and re-plan; do not swap one invented code for another.
 - Read `schema_context.table_naming` (as_of, cutoff, db2 bare vs db1 suffix rules).
 
 ## CTE / column hygiene (mandatory)

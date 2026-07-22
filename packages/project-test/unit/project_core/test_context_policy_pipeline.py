@@ -188,6 +188,70 @@ def test_retry_directive_routes_missing_value_and_ranking_evidence():
     assert directive["must_change_plan"] is True
 
 
+def test_retry_directive_drops_unsolicited_trans_code_on_empty():
+    from project_core.domain.contracts.brief import AnalysisBrief
+    from project_core.domain.contracts.feedback import DataFeedback
+    from project_core.domain.contracts.pipeline import ResultProfile
+    from project_core.orchestration.pipeline import _build_retry_directive
+
+    brief = AnalysisBrief(
+        intent="quantity for product",
+        filters={"product_code": ["0030325"], "min_bill_value": 600000},
+    )
+    feedback = DataFeedback(
+        needs_sql_retry=True,
+        issue="empty_result",
+        diagnosis="solvable",
+        summary="no rows",
+    )
+    directive = _build_retry_directive(
+        feedback=feedback,
+        coverage={"gaps": ["empty_result"]},
+        brief=brief,
+        profiles=[ResultProfile(row_count=0, columns=[])],
+        query_meta=[{"purpose": "qty", "requirement_ids": ["metric:0"]}],
+        sql_attempt=1,
+        plan_fingerprint="fp1",
+        prior_sql_queries=[
+            "SELECT SUM(s.QTY) FROM STRANS s WHERE s.TRANS_CODE = '113' AND s.TRAN_DATE >= '2026-07-01'"
+        ],
+    )
+    assert directive["retry_target"] == "agent_ii"
+    assert directive["drop_unsolicited_trans_code_filter"] is True
+    assert directive["must_change_plan"] is True
+    assert "Remove every TRANS_CODE" in directive["instruction"]
+
+
+def test_retry_directive_keeps_trans_code_when_brief_asks():
+    from project_core.domain.contracts.brief import AnalysisBrief
+    from project_core.domain.contracts.feedback import DataFeedback
+    from project_core.domain.contracts.pipeline import ResultProfile
+    from project_core.orchestration.pipeline import _build_retry_directive
+
+    brief = AnalysisBrief(
+        intent="retail docs only",
+        filters={"product_code": ["0030325"], "TRANS_CODE": ["113"]},
+    )
+    feedback = DataFeedback(
+        needs_sql_retry=True,
+        issue="empty_result",
+        diagnosis="solvable",
+        summary="no rows",
+    )
+    directive = _build_retry_directive(
+        feedback=feedback,
+        coverage={"gaps": ["empty_result"]},
+        brief=brief,
+        profiles=[ResultProfile(row_count=0, columns=[])],
+        query_meta=[],
+        sql_attempt=1,
+        plan_fingerprint="fp2",
+        prior_sql_queries=["SELECT 1 FROM STRANS WHERE TRANS_CODE = '113'"],
+    )
+    assert "drop_unsolicited_trans_code_filter" not in directive
+    assert "instruction" not in directive
+
+
 def test_sql_plan_fingerprint_ignores_formatting_only_changes():
     from project_core.orchestration.pipeline import _sql_plan_fingerprint
 

@@ -1328,6 +1328,7 @@ class SupermarketAnalysisPipeline:
                     query_meta=query_meta,
                     sql_attempt=sql_attempt,
                     plan_fingerprint=current_plan_fingerprint,
+                    prior_sql_queries=sql_queries,
                 )
                 inbox["retry_directive"] = retry_directive
                 soft_solvable = (
@@ -1933,6 +1934,44 @@ def _sql_plan_fingerprint(
     return hashlib.sha256(encoded).hexdigest()
 
 
+_DOCUMENT_TYPE_FILTER_KEYS = frozenset(
+    {
+        "trans_code",
+        "TRANS_CODE",
+        "document_type",
+        "document_types",
+        "doc_type",
+        "loai_chung_tu",
+        "sale_header_document_type",
+    }
+)
+_TRANS_CODE_PREDICATE_RE = re.compile(
+    r"\bTRANS_CODE\b\s*(?:=|LIKE|IN\b)",
+    re.IGNORECASE,
+)
+
+
+def _brief_requests_document_type(brief: AnalysisBrief) -> bool:
+    filters = brief.filters or {}
+    if any(key in _DOCUMENT_TYPE_FILTER_KEYS for key in filters):
+        return True
+    for req in brief.requirements or []:
+        if str(getattr(req, "key", "") or "") in _DOCUMENT_TYPE_FILTER_KEYS:
+            return True
+        if str(getattr(req, "kind", "") or "") == "filter" and str(
+            getattr(req, "key", "") or ""
+        ).casefold() in {k.casefold() for k in _DOCUMENT_TYPE_FILTER_KEYS}:
+            return True
+    return False
+
+
+def _prior_sql_has_trans_code_filter(prior_sql_queries: list[str] | None) -> bool:
+    for sql in prior_sql_queries or []:
+        if _TRANS_CODE_PREDICATE_RE.search(sql or ""):
+            return True
+    return False
+
+
 def _build_retry_directive(
     *,
     feedback: DataFeedback,
@@ -1942,6 +1981,7 @@ def _build_retry_directive(
     query_meta: list[dict[str, Any]],
     sql_attempt: int,
     plan_fingerprint: str,
+    prior_sql_queries: list[str] | None = None,
 ) -> dict[str, Any]:
     """Route a retry and state exactly which evidence the next plan must add."""
     gaps = [
@@ -2035,7 +2075,7 @@ def _build_retry_directive(
                 }
             )
 
-    return {
+    directive: dict[str, Any] = {
         "retry_target": retry_target,
         "reason": feedback.issue,
         "gaps": gaps,
@@ -2059,6 +2099,31 @@ def _build_retry_directive(
         "attempt": sql_attempt,
         "must_change_plan": retry_target == "agent_ii",
     }
+
+    # Empty plans that invented a TRANS_CODE predicate (brief did not ask for a
+    # document type) almost always miss live line types. Force the next plan to
+    # drop that predicate rather than reshuffling the same filter.
+    unsolicited_trans_code = (
+        feedback.issue == "empty_result"
+        and retry_target == "agent_ii"
+        and _prior_sql_has_trans_code_filter(prior_sql_queries)
+        and not _brief_requests_document_type(brief)
+    )
+    if unsolicited_trans_code:
+        directive["drop_unsolicited_trans_code_filter"] = True
+        directive["must_change_plan"] = True
+        directive["instruction"] = (
+            "Prior plan returned 0 rows and filtered TRANS_CODE even though the brief "
+            "did not request a document type. Remove every TRANS_CODE predicate from "
+            "fact queries; constrain by brief filters (SKU/time/store/bill value) only. "
+            "Do not invent a default TRANS_CODE from glossary samples. If "
+            "schema_context.domain_rules_excerpt is present, apply those formulas "
+            "(e.g. bill value grain) without adding document-type filters."
+        )
+        if "empty_result" not in directive["gaps"]:
+            directive["gaps"] = [*directive["gaps"], "empty_result"]
+
+    return directive
 
 
 def _terminal_on_exhausted(workflow: WorkflowState) -> tuple[AnalysisOutcome, TechnicalSummary] | None:

@@ -37,7 +37,7 @@ archive_newest_ym = tháng trước cutoff (YYYYMM) — hậu tố shard mới n
 | `821` | Xuất/nhập kho thẻ PM gift/voucher |
 | `320`, `340`, `310`, `318`, `316` | Loại chứng từ khác trên STRANS (điều chỉnh, KM, …) — cần map đầy đủ |
 
-**Lưu ý:** `STRANS` / `TRANSHDR` mang **nhiều** `TRANS_CODE` (`113`, `221`, `310`, …). Không suy ra mọi dòng hàng đều là `113`. Chọn filter `TRANS_CODE` theo brief + column/case-study retrieval, không theo mặc định cứng trong glossary.
+**Lưu ý:** `STRANS` / `TRANSHDR` mang **nhiều** `TRANS_CODE` (`113`, `221`, `310`, …). Không suy ra mọi dòng hàng đều là `113`. **Không** thêm `WHERE TRANS_CODE = …` cho phân tích SKU / số lượng / giá trị bill trừ khi brief (hoặc domain rule / case study) chỉ rõ loại chứng từ. Chọn filter theo brief + retrieval, không theo mặc định cứng trong glossary.
 
 ## PMT_CODE — hình thức thanh toán
 

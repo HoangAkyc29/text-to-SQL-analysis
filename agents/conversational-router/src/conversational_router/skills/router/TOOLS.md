@@ -8,6 +8,7 @@ Agent I **không** gọi MCP trực tiếp. Output JSON được pipeline và ch
 |--------------|----------|
 | `route` | `chat-gateway` quyết định có chạy `SupermarketAnalysisPipeline` |
 | `brief` | Agent II (sql-planner) |
+| `dialogue_act` / `domain_fact` | `teach_domain_fact` → gateway stage `domain_rules` + schema_links (không chạy pipeline) |
 | `clarification` | UI MCQ + `POST /chat/clarify` |
 | `user_message` | Hiển thị cho user |
 
@@ -22,7 +23,7 @@ Agent I **không** gọi MCP trực tiếp. Output JSON được pipeline và ch
 | `time_range` | `start`, `end`, `grain` (`day`/`month`/`quarter`) |
 | `output_format` | `table`, `chart`, `excel` |
 | `exploration_mode` | `true` khi user không chắc định nghĩa (VIP, mã hàng, …) |
-| `retrieval_facets` | 4–8 câu độc lập cho schema RAG — một câu / constraint còn hiệu lực (kể cả field `carried` trên follow-up) |
+| `retrieval_facets` | 4–8 câu độc lập cho schema RAG: **một câu / constraint**; mỗi câu nêu rõ **từ khóa đối tượng nghiệp vụ** còn trong brief (kể cả `carried`). Không ghi tên bảng/SQL. Xem bảng object-keyword trong `ingress_guide` |
 
 ## Domain hints (không query DB)
 
