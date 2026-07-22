@@ -63,6 +63,15 @@ class StmConfig(BaseModel):
     session_ttl_days: int = 30
 
 
+class DurableAnalysisConfig(BaseModel):
+    retention_days: int = 30
+    lease_seconds: int = 120
+    reclaim_idle_seconds: int = 180
+    max_attempts: int = 3
+    retry_backoff_seconds: list[int] = Field(default_factory=lambda: [5, 30, 120])
+    sse_heartbeat_seconds: int = 15
+
+
 class RoleConfig(BaseModel):
     allowed_tables: list[str] = Field(default_factory=list)
     denied_columns: list[str] = Field(default_factory=list)
@@ -80,6 +89,7 @@ class ProjectConfig(BaseModel):
     policy: PolicyConfig = Field(default_factory=PolicyConfig)
     artifacts: ArtifactsConfig = Field(default_factory=ArtifactsConfig)
     stm: StmConfig = Field(default_factory=StmConfig)
+    durable_analysis: DurableAnalysisConfig = Field(default_factory=DurableAnalysisConfig)
     roles: dict[str, RoleConfig] = Field(default_factory=dict)
 
 

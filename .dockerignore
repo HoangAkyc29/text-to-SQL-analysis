@@ -10,6 +10,12 @@
 data/
 .cursor/
 agent-transcripts/
+frontend/node_modules/
+frontend/.next/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.env*
 tests/
 packages/trading-test/
 !packages/trading-test/pyproject.toml

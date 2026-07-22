@@ -1,0 +1,40 @@
+---
+description: Protect other host Docker apps (Plane, birthday, etc.) from destructive or port-colliding compose actions
+alwaysApply: true
+---
+
+# Docker host isolation (multi-app machine)
+
+This host runs **multiple unrelated Docker stacks** (e.g. Plane `plane-hrm_*`, birthday-sync, this monorepo). Treat Docker as shared infrastructure.
+
+## Absolute bans
+
+1. **Never** `docker system prune`, `docker volume prune`, `docker network prune`, or `docker container prune` unless the user explicitly asks and confirms scope.
+2. **Never** `docker rm` / `docker stop` / `docker kill` / `docker compose down` on containers, networks, or volumes that are **not** prefixed for this project (`monorepo-trading-agent*` / compose project name for this repo).
+3. **Never** delete or recreate volumes belonging to other projects (`plane-hrm_*`, `birthday-*`, anonymous hashes you did not create in this session for this stack).
+4. **Never** change host port mappings to claim ports already published by another stack (today: Plane `web` → **3000**, Plane `proxy` → **80/443**, Plane MinIO → **9000/9090**, birthday-api → **8000**, etc.).
+5. **Never** open or automate browsers against another app’s ports while working here (Plane is `http://localhost:3000`, **not** this agent UI).
+
+## Allowed scope (this repo only)
+
+- Prefer: `docker compose …` from **this repo root**, targeting **named services** of this compose file only.
+- Prefer rebuild/restart: `docker compose up -d --build <service…>` for this stack’s services only.
+- Prefer: `docker compose down` **without** `-v` unless the user explicitly wants **this** project’s volumes wiped.
+- Before any broad Docker command, run `docker ps` / `docker volume ls` and confirm names match this project.
+
+## Port map (this stack — keep remapped)
+
+| Host port | Service | Notes |
+|-----------|---------|--------|
+| 13000 | frontend | Maps container `:3000` — **do not** publish host `3000` (Plane owns it) |
+| 18300 | chat-gateway | |
+| 18201–18204 | agents | |
+| 18101 | sql-gateway | |
+| 18217 | mongodb | Host also has native `mongod` on **27017** — keep remap |
+| 18379 | redis | Plane redis is internal-only; keep remap |
+
+**Prod overlay risk:** `docker-compose.prod.yaml` publishes **80/443** via Caddy — that **collides** with Plane `proxy` on this machine. Do not apply prod overlay on this shared host without an explicit user decision and a non-conflicting port plan.
+
+## If unsure
+
+Stop and ask. Prefer no Docker action over risking another app.

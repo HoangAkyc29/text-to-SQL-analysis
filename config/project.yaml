@@ -50,6 +50,14 @@ artifacts:
 stm:
   session_ttl_days: 30
 
+durable_analysis:
+  retention_days: 30
+  lease_seconds: 120
+  reclaim_idle_seconds: 180
+  max_attempts: 3
+  retry_backoff_seconds: [5, 30, 120]
+  sse_heartbeat_seconds: 15
+
 data_sources:
   db1:
     env_dsn: ANALYTICS_DB_DSN

@@ -18,8 +18,27 @@ venv/
 .coverage
 htmlcov/
 
+# Node / Next.js (frontend)
+node_modules/
+.next/
+out/
+.turbo/
+.pnpm-store/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
 # Env / secrets
 .env
+.env.*
+!.env.example
+!.env.*.example
 *.local.env
 .env.dictionary_exploration
 docs/db_exploration_samples/

@@ -12,6 +12,7 @@ Dải **`18xxx`** tránh cổng mặc định (6379, 27017, 8000, 3000, 5432, 14
 | Agent III | **18203** | `risk-reviewer:18203` | |
 | Agent IV | **18204** | `data-analyst:18204` | |
 | chat-gateway | **18300** | `chat-gateway:18300` | `POST /auth/login`, `/chat` |
+| Webapp | **13000** | `frontend:3000` | Next.js UI + same-origin API/SSE BFF |
 | Auth SQL (tùy chọn) | **18435** | — | `AUTH_DB_DSN` — ODBC từ host |
 **`.env` khi chạy trên host** (uv / client gọi localhost):
 
@@ -24,6 +25,7 @@ AGENT_II_URL=http://localhost:18202
 AGENT_III_URL=http://localhost:18203
 AGENT_IV_URL=http://localhost:18204
 CHAT_GATEWAY_URL=http://localhost:18300
+FRONTEND_URL=http://localhost:13000
 ```
 
 **Docker Compose** publish host ports ở trên; `chat-gateway` override URL nội bộ qua tên service (xem `docker-compose.yaml`).

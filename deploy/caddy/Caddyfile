@@ -5,8 +5,8 @@
 #   - "chat.example.com"   -> Caddy auto-provisions a Let's Encrypt cert
 #                             (needs public DNS + ports 80/443 + a valid TLS_EMAIL).
 #
-# Only this proxy is published to the host (80/443); chat-gateway stays on the
-# internal compose network and is reached by service DNS name.
+# Only this proxy is published to the host (80/443). The Next.js webapp is the
+# public entry point and proxies authenticated API/SSE traffic to chat-gateway.
 
 {
 	email {$TLS_EMAIL}
@@ -15,8 +15,7 @@
 {$PUBLIC_DOMAIN} {
 	encode zstd gzip
 
-	# Forward everything to the chat-gateway service on the internal network.
-	reverse_proxy chat-gateway:18300 {
+	reverse_proxy frontend:3000 {
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}

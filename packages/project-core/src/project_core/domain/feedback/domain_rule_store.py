@@ -193,6 +193,7 @@ class DomainRuleStore:
         role: str = "requester",
         status: str | None = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         query = {} if status is None else {"status": status}
         records = list(self.collection.find(query))
@@ -209,7 +210,8 @@ class DomainRuleStore:
             ),
             reverse=True,
         )
-        return visible[: max(0, limit)]
+        start = max(0, offset)
+        return visible[start : start + max(0, limit)]
 
     def confirmed_rules(
         self,

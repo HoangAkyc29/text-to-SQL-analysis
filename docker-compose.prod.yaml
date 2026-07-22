@@ -94,6 +94,45 @@ services:
       data-analyst:
         condition: service_started
 
+  analysis-worker:
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
+      - SQL_GATEWAY_URL=http://sql-gateway:18101
+      - AGENT_I_URL=http://conversational-router:18201
+      - AGENT_II_URL=http://sql-planner:18202
+      - AGENT_III_URL=http://risk-reviewer:18203
+      - AGENT_IV_URL=http://data-analyst:18204
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      sql-gateway:
+        condition: service_healthy
+      conversational-router:
+        condition: service_started
+      sql-planner:
+        condition: service_started
+      risk-reviewer:
+        condition: service_started
+      data-analyst:
+        condition: service_started
+
+  frontend:
+    ports: []
+    environment:
+      - BACKEND_URL=http://chat-gateway:18300
+      - NEXT_PUBLIC_APP_NAME=Agent Analysis Workspace
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      chat-gateway:
+        condition: service_started
+
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -108,8 +147,8 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     depends_on:
-      chat-gateway:
-        condition: service_started
+      frontend:
+        condition: service_healthy
 
 volumes:
   caddy-data:

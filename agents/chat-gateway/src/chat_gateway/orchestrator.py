@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -38,6 +39,7 @@ from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.state import new_workflow, resume_analysis, start_analysis
 from project_core.domain.time import utc_now
 from project_core.infra.stm.redis_store import RedisSessionStore
+from project_core.infra.analysis_repository import sanitize_public_data
 from project_core.infra.resilience import CircuitBreaker
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
 from project_core.orchestration.clarification_coordinator import ClarificationCoordinator
@@ -67,6 +69,9 @@ class ChatOrchestrator:
         self.feedback: FeedbackLoop | None = None
         self.analysis_tool_registry: AnalysisToolRegistry | None = None
         self.domain_rule_store: DomainRuleStore | None = None
+        # Optional sinks used by the durable worker to mirror pipeline progress
+        # into Mongo analysis_events + live-trial JSONL without changing agent logic.
+        self.progress_sinks: list[Any] = []
         try:
             from pymongo import MongoClient
 
@@ -112,6 +117,14 @@ class ChatOrchestrator:
             self.pipeline.agent_invoker.close()  # type: ignore[attr-defined]
         if hasattr(self.pipeline.sql_gateway, "close"):
             self.pipeline.sql_gateway.close()  # type: ignore[attr-defined]
+
+    def request_cancel(self, session_id: str) -> bool:
+        """Signal an in-flight legacy pipeline without making memory authoritative."""
+        token = self._cancel_tokens.get(session_id)
+        if token is None:
+            return False
+        token.cancel()
+        return True
 
     def _make_invoker(self) -> HttpAgentInvoker:
         return HttpAgentInvoker(client=self._http, circuit=self._agent_circuit)
@@ -330,16 +343,19 @@ class ChatOrchestrator:
         user: dict[str, Any],
         status: str | None = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         if self.domain_rule_store is None:
             return []
-        return self.domain_rule_store.list_rules(
+        records = self.domain_rule_store.list_rules(
             actor_id=str(user["sub"]),
             tenant_id=str(user.get("tenant_id") or ""),
             role=self._domain_rule_role(user),
             status=status,
             limit=limit,
+            offset=offset,
         )
+        return [sanitize_public_data(item) for item in records]
 
     def review_domain_rule(
         self,
@@ -698,16 +714,22 @@ class ChatOrchestrator:
     ) -> ChatResponse:
         def on_progress(workflow: Any) -> None:
             self.stm.save_workflow(session_id, workflow)
+            for sink in list(self.progress_sinks):
+                try:
+                    sink(workflow)
+                except Exception:
+                    logger.exception("progress sink failed for session %s", session_id)
 
         deadline = time.monotonic() + float(self.cfg.pipeline.max_sync_seconds)
         cancel_token = self._cancel_tokens.get(session_id)
+        progress_cb = on_progress if (self.cfg.pipeline.poll_enabled or self.progress_sinks) else None
         try:
             result = self.pipeline.run(
                 brief=brief,
                 workflow=bundle.workflow,
                 permissions=permissions,
                 trace_budget=session_budget.trace_budget,
-                on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
+                on_progress=progress_cb,
                 deadline=deadline,
                 cancel_token=cancel_token,
             )
@@ -723,7 +745,7 @@ class ChatOrchestrator:
                     workflow=bundle.workflow,
                     permissions=permissions,
                     trace_budget=session_budget.trace_budget,
-                    on_progress=on_progress if self.cfg.pipeline.poll_enabled else None,
+                    on_progress=progress_cb,
                     deadline=deadline,
                     cancel_token=cancel_token,
                 )
@@ -788,10 +810,36 @@ class ChatOrchestrator:
                 error={"code": "BUDGET_EXCEEDED", "retryable": False},
             )
 
+        assistant_text = str(synth.get("user_message") or "").strip()
+        artifact_urls = list(result.technical_summary.artifact_urls or [])
+        public_artifacts: list[dict[str, str]] = []
+        file_names: list[str] = []
+        for raw in artifact_urls:
+            path = Path(str(raw))
+            name = path.name or "artifact"
+            file_names.append(name)
+            public_artifacts.append(
+                {"url": f"/artifacts/{result.trace_id}/{name}", "name": name}
+            )
+        metrics = result.technical_summary.headline_metrics or {}
+        sheet_rows = metrics.get("artifact_rows")
+        if isinstance(sheet_rows, dict) and sheet_rows:
+            parts = [
+                f"{str(key).split(':')[-1]}: {value} dòng"
+                for key, value in sheet_rows.items()
+            ]
+            sheet_note = "Kết quả gồm " + "; ".join(parts) + "."
+            if sheet_note.lower() not in assistant_text.lower():
+                assistant_text = f"{assistant_text} {sheet_note}".strip()
+        if file_names and "tải" not in assistant_text.lower() and "file" not in assistant_text.lower():
+            assistant_text = (
+                f"{assistant_text} File đính kèm sẵn sàng tải: {', '.join(file_names)}."
+            ).strip()
+
         assistant = TranscriptTurn(
             id=str(uuid4()),
             role="assistant",
-            content=synth.get("user_message", ""),
+            content=assistant_text,
             at=utc_now().isoformat(),
             analysis_id=analysis_id,
             trace_id=result.trace_id,
@@ -805,8 +853,8 @@ class ChatOrchestrator:
             trace_id=result.trace_id,
             workflow_status=bundle.workflow.status.value,
             outcome=result.outcome,
-            message=synth.get("user_message", ""),
-            artifacts=[{"url": u} for u in result.technical_summary.artifact_urls],
+            message=assistant_text,
+            artifacts=public_artifacts,
         )
 
     def _handle_clarification_needed(

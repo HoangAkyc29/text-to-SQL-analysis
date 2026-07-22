@@ -36,5 +36,8 @@ Tóm tắt kết quả phân tích cho user sau khi pipeline hoàn tất.
 
 - Nêu rõ khi kết quả **partial** (một phần dùng recipe cũ, một phần tạo mới).
 - Không bịa metrics không có trong `headline_metrics`.
-- Gợi ý mở file đính kèm khi `artifact_urls` không rỗng.
+- **Không** lấy mỗi `row_count` làm toàn bộ câu trả lời khi có `headline_metrics.artifact_rows`.
+  - Nếu `artifact_rows` có nhiều sheet/bảng (ví dụ Summary + Details), nêu **từng phần** (số dòng / sheet).
+  - `row_count` đơn lẻ thường chỉ là một sheet (ví dụ list chi tiết) — đừng nói như đó là toàn bộ kết quả.
+- Khi `artifact_urls` không rỗng: nêu tên file và bảo user **tải file đính kèm** (UI sẽ hiện link).
 - Nếu `outcome` là blocked hoặc empty, giải thích lý do từ `caveats` / `empty_reason`.

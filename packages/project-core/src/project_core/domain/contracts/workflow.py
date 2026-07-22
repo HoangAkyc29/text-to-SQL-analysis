@@ -12,8 +12,15 @@ from project_core.domain.contracts.clarification import ClarificationRequest
 
 class WorkflowStatus(StrEnum):
     IDLE = "idle"
+    QUEUED = "queued"
     RUNNING = "running"
     AWAITING_CLARIFICATION = "awaiting_clarification"
+    AWAITING_CONFIRMATION = "awaiting_confirmation"
+    CANCEL_REQUESTED = "cancel_requested"
+    RETRY_SCHEDULED = "retry_scheduled"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    EXPIRED = "expired"
     STALE = "stale"
     CANCELLED = "cancelled"
 

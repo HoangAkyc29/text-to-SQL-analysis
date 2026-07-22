@@ -151,6 +151,41 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]
 
+  analysis-worker:
+    build:
+      <<: *agent-build
+      dockerfile: agents/chat-gateway/Dockerfile
+    command: ["uv", "run", "analysis-worker"]
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
+      - SQL_GATEWAY_URL=http://sql-gateway:18101
+      - AGENT_I_URL=http://conversational-router:18201
+      - AGENT_II_URL=http://sql-planner:18202
+      - AGENT_III_URL=http://risk-reviewer:18203
+      - AGENT_IV_URL=http://data-analyst:18204
+    volumes:
+      - supermarket-artifacts:/app/data/artifacts
+      - supermarket-attachments:/app/data/attachments
+      - supermarket-state:/app/data/state
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://chat-gateway:18300
+      - NEXT_PUBLIC_APP_NAME=Agent Analysis Workspace
+    ports: ["13000:3000"]
+    depends_on:
+      - chat-gateway
+
 volumes:
   supermarket-redis:
   supermarket-mongo:
