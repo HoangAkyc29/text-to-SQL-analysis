@@ -267,10 +267,13 @@ class ChatOrchestrator:
         if bundle.workflow.brief and bundle.workflow.brief.external_sources:
             brief.external_sources = bundle.workflow.brief.external_sources
 
+        # After partial outcomes, last_resolved_brief may be unset while workflow.brief
+        # still holds the runnable brief from the last pipeline start — use it to merge.
+        prior_brief = bundle.workflow.last_resolved_brief or bundle.workflow.brief
         brief, route_override = session_merge_brief(
             brief=brief,
             dialogue_act=dialogue_act,
-            prior_brief=bundle.workflow.last_resolved_brief,
+            prior_brief=prior_brief,
             working_memory=bundle.workflow.working_memory,
             current_message=message,
         )
@@ -1130,11 +1133,15 @@ class ChatOrchestrator:
         )
         bundle.transcript.append(assistant)
         self.stm.save_transcript(session_id, bundle.transcript)
-        # Persist L4 + refresh L2 on success/empty only
+        # Persist L4 + refresh L2 for any resolved runnable brief, including partial
+        # (soft verification gaps). Omitting partial left last_resolved_brief null and
+        # forced follow-ups into empty_follow_up_message() loops.
         if result.outcome in {
             AnalysisOutcome.SUCCESS.value,
+            AnalysisOutcome.PARTIAL.value,
             AnalysisOutcome.EMPTY.value,
             "success",
+            "partial",
             "empty",
         }:
             bundle.workflow.last_resolved_brief = brief

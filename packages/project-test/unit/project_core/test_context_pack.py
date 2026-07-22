@@ -141,6 +141,34 @@ def test_follow_up_without_prior_asks_chitchat():
     assert "khoảng thời gian" in empty_follow_up_message()
 
 
+def test_follow_up_after_partial_uses_workflow_brief_as_prior():
+    """Mirrors orchestrator fallback: LRB unset after partial, workflow.brief still set."""
+    workflow_brief = AnalysisBrief(
+        intent="gift analysis for 30325",
+        metrics=["quantity"],
+        filters={"product_code": ["0030325"], "min_bill_value": 600000},
+        time_range=TimeRange(start="2026-07-01", end="2026-07-06", grain="day"),
+    )
+    thin = AnalysisBrief(
+        intent="giữ khung thời gian, mã hàng cũng giữ nguyên",
+        filters={},
+        metrics=[],
+        time_range=TimeRange(),
+    )
+    merged, override = session_merge_brief(
+        brief=thin,
+        dialogue_act="follow_up_same_task",
+        prior_brief=workflow_brief,  # last_resolved_brief or workflow.brief
+        current_message="giữ khung thời gian, mã hàng cũng giữ nguyên. Thế thôi",
+    )
+    assert override is None
+    assert merged is not None
+    assert merged.filters["product_code"] == ["0030325"]
+    assert merged.filters["min_bill_value"] == 600000
+    assert merged.time_range.start == "2026-07-01"
+    assert merged.metrics == ["quantity"]
+
+
 def test_follow_up_signal_overrides_new_request_act():
     prior = AnalysisBrief(
         intent="gift analysis",
