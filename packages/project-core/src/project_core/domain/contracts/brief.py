@@ -21,7 +21,7 @@ class BriefRequirement(BaseModel):
     requirement_id: str
     kind: Literal["metric", "dimension", "filter", "time", "ranking", "output"]
     key: str
-    source: Literal["explicit", "inferred"] = "explicit"
+    source: Literal["explicit", "inferred", "carried"] = "explicit"
     required: bool = True
     evidence_quote: str = ""
     value: Any = None
@@ -48,7 +48,9 @@ class AnalysisBrief(BaseModel):
         selected = [
             item
             for item in self.requirements
-            if item.required and item.source == "explicit" and (kind is None or item.kind == kind)
+            if item.required
+            and item.source in {"explicit", "carried"}
+            and (kind is None or item.kind == kind)
         ]
         if self.requirements or kind is None:
             return selected
@@ -121,3 +123,15 @@ class RouterIngressResult(BaseModel):
     user_message: str = ""
     brief: AnalysisBrief | None = None
     satisfaction_signal: SatisfactionSignal | None = None
+    dialogue_act: (
+        Literal[
+            "new_request",
+            "follow_up_same_task",
+            "revise_and_rerun",
+            "correction_only",
+            "topic_switch",
+            "chitchat",
+            "satisfaction",
+        ]
+        | None
+    ) = None

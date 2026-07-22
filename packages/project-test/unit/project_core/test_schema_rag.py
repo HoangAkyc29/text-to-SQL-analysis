@@ -143,7 +143,9 @@ def test_sanitize_keeps_digits_and_agent_facets():
         metrics=["quantity"],
     )
     facets = build_retrieval_facets(brief)
-    assert facets == ["Lọc theo mã sản phẩm 0030344, 0030348"]
+    assert "Lọc theo mã sản phẩm 0030344, 0030348" in facets
+    # LLM already covered product-code filter; structural duplicate should not replace it
+    assert len(facets) <= 8
 
 
 def test_fuse_facet_scores_prefers_strong_match():

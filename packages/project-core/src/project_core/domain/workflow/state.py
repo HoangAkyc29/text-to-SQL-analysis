@@ -37,6 +37,9 @@ def start_analysis(workflow: WorkflowState, *, reset_clarify: bool = True) -> st
         workflow.clarify_round = 0
     workflow.sql_attempt = 1
     workflow.steps = []
+    # Fresh agent-call budget per analysis so multi-turn follow-ups are not
+    # blocked by prior runs (curator + ingress + pipeline share the same caps).
+    workflow.budget_spent = {}
     if analysis_id not in workflow.analysis_history:
         workflow.analysis_history.append(analysis_id)
     touch_workflow(workflow)

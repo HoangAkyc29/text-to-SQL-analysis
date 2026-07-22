@@ -49,6 +49,17 @@ artifacts:
 
 stm:
   session_ttl_days: 30
+  context_pack:
+    pack_token_budget: 3500
+    soft_pct: 0.40
+    hard_pct: 0.60
+    emergency_pct: 0.85
+    window_recent_turns: 16
+    recall_max_turns: 8
+    transcript_max_turns: 200
+    turn_trim_chars: 600
+    compact_archive_max: 8
+    curator_timeout_ms: 8000
 
 durable_analysis:
   retention_days: 30

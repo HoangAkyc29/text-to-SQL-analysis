@@ -13,6 +13,7 @@ from platform_core.service.base import DecisionContext
 from project_core.config.loader import load_project_config
 from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement
+from project_core.domain.memory.context_pack import has_follow_up_signal
 from project_core.domain.contracts.clarification import ClarificationRequest
 from project_core.domain.brief.templates import brief_templates_excerpt
 from project_core.domain.errors.codes import LLMProviderError
@@ -70,13 +71,23 @@ def _normalize_requirement_provenance(
         except Exception:  # noqa: BLE001
             continue
         quote = _norm(item.evidence_quote)
-        is_explicit = bool(quote and quote in normalized_text and item.source == "explicit")
-        item = item.model_copy(
-            update={
-                "source": "explicit" if is_explicit else "inferred",
-                "required": bool(item.required and is_explicit),
-            }
-        )
+        if item.source == "carried":
+            # Preserve carried provenance from multi-turn merge; still not "explicit" in current text.
+            item = item.model_copy(
+                update={
+                    "source": "carried",
+                    "required": bool(item.required),
+                    "evidence_quote": item.evidence_quote or "(carried from prior brief)",
+                }
+            )
+        else:
+            is_explicit = bool(quote and quote in normalized_text and item.source == "explicit")
+            item = item.model_copy(
+                update={
+                    "source": "explicit" if is_explicit else "inferred",
+                    "required": bool(item.required and is_explicit),
+                }
+            )
         if item.kind == "ranking":
             ranking.append(item)
         else:
@@ -255,10 +266,36 @@ class ConversationalRouterService(SupermarketAgentService):
             return self._clarify(ctx)
         if mode == "synthesize":
             return self._synthesize(ctx)
+        if mode == "context_curator":
+            return self._context_curator(ctx)
         return self._ingress(ctx)
 
-    def _ingress_heuristic(self, text: str, external_sources: list[Any]) -> dict[str, Any]:
+    def _ingress_heuristic(
+        self,
+        text: str,
+        external_sources: list[Any],
+        context_pack: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         lowered = text.lower()
+        prior = (context_pack or {}).get("last_resolved_brief") if context_pack else None
+        if has_follow_up_signal(text) and prior:
+            prior_brief = AnalysisBrief.model_validate(prior)
+            filters = dict(prior_brief.filters or {})
+            m = re.search(r"mã\s+(\d+)", text, flags=re.I)
+            if m:
+                filters["product_code"] = m.group(1)
+            brief = prior_brief.model_copy(
+                update={
+                    "intent": f"{prior_brief.intent}. Thay đổi theo yêu cầu hiện tại: {text}".strip(),
+                    "filters": filters,
+                }
+            )
+            return {
+                "route": "analysis",
+                "user_message": "Đã nhận yêu cầu làm tương tự với thay đổi mới.",
+                "dialogue_act": "follow_up_same_task",
+                "brief": brief.model_dump(mode="json"),
+            }
         route = "analysis" if any(k in lowered for k in _ANALYSIS_HINTS) else "chitchat"
         brief: AnalysisBrief | None = None
         if route == "analysis":
@@ -297,8 +334,72 @@ class ConversationalRouterService(SupermarketAgentService):
         return {
             "route": route,
             "user_message": "Đã nhận yêu cầu phân tích." if route == "analysis" else "Xin chào, tôi có thể giúp gì?",
+            "dialogue_act": "chitchat" if route == "chitchat" else "new_request",
             "brief": brief.model_dump() if brief else None,
         }
+
+    def _context_curator_heuristic(self, payload: dict[str, Any]) -> dict[str, Any]:
+        candidates = payload.get("candidates") or []
+        selected = [
+            c.get("id")
+            for c in candidates
+            if isinstance(c, dict)
+            and c.get("kind") in {"analysis", "assistant", "clarify", "user"}
+            and c.get("id")
+        ]
+        if not selected:
+            selected = [c.get("id") for c in candidates if isinstance(c, dict) and c.get("id")]
+        observations: list[str] = []
+        prior = payload.get("last_resolved_brief") or {}
+        if isinstance(prior, dict) and prior.get("intent"):
+            observations.append(f"prior_goal:{str(prior['intent'])[:120]}")
+        msg = str(payload.get("current_message") or "")
+        if msg:
+            observations.append(f"current:{msg[:120]}")
+        return {
+            "ccs_patch": {},
+            "selected_turn_ids": [s for s in selected if s][:12],
+            "observations": observations[:20],
+            "compact_summary": None,
+            "drop_turn_ids": [
+                c.get("id")
+                for c in candidates
+                if isinstance(c, dict)
+                and c.get("kind") in {"satisfaction", "chitchat"}
+                and c.get("id")
+            ],
+        }
+
+    def _context_curator(self, ctx: DecisionContext):
+        meta = ctx.request.metadata or {}
+        raw = ctx.request.message or "{}"
+        try:
+            payload = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+        except json.JSONDecodeError:
+            payload = meta.get("curator_input") or {}
+        if os.getenv("ALLOW_LLM_STUB") == "1":
+            return self.json_response(ctx, self._context_curator_heuristic(payload))
+        client = OpenRouterClient()
+        result = client.chat(
+            profile_name=agent_profile("router"),
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.llm_system_prompt(guide="context_curator_guide"),
+                },
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+            response_format={"type": "json_object"},
+        )
+        parsed = self._parse_json_payload(result)
+        out = {
+            "ccs_patch": parsed.get("ccs_patch") or {},
+            "selected_turn_ids": list(parsed.get("selected_turn_ids") or [])[:16],
+            "observations": list(parsed.get("observations") or [])[:20],
+            "compact_summary": parsed.get("compact_summary"),
+            "drop_turn_ids": list(parsed.get("drop_turn_ids") or []),
+        }
+        return self.json_response(ctx, out, usage_tokens=result.usage_tokens)
 
     def _parse_json_payload(
         self,
@@ -322,22 +423,38 @@ class ConversationalRouterService(SupermarketAgentService):
         meta = ctx.request.metadata or {}
         raw = ctx.request.message or ""
         external_sources = meta.get("external_sources") or []
+        context_pack = meta.get("context_pack")
         text = raw
         if raw.startswith("{"):
             try:
                 payload = json.loads(raw)
-                text = payload.get("text") or raw
+                text = payload.get("text") or payload.get("current_message") or raw
                 external_sources = payload.get("external_sources") or external_sources
+                context_pack = payload.get("context_pack") or context_pack
             except json.JSONDecodeError:
                 pass
+        if isinstance(context_pack, dict) and context_pack.get("current_message"):
+            text = str(context_pack.get("current_message") or text)
+            if context_pack.get("external_sources"):
+                external_sources = context_pack.get("external_sources") or external_sources
         satisfaction = detect_satisfaction(text)
         if os.getenv("ALLOW_LLM_STUB") == "1":
-            payload_out = self._ingress_heuristic(text, external_sources)
+            payload_out = self._ingress_heuristic(
+                text,
+                external_sources,
+                context_pack if isinstance(context_pack, dict) else None,
+            )
             payload_out["satisfaction_signal"] = satisfaction
             return self.json_response(ctx, payload_out)
-        user_content: dict[str, Any] = {"text": text}
-        if external_sources:
-            user_content["external_sources"] = external_sources
+        if isinstance(context_pack, dict):
+            user_content: dict[str, Any] = dict(context_pack)
+            user_content.setdefault("current_message", text)
+            if external_sources:
+                user_content["external_sources"] = external_sources
+        else:
+            user_content = {"text": text}
+            if external_sources:
+                user_content["external_sources"] = external_sources
         templates = brief_templates_excerpt()
         if templates:
             user_content["brief_templates_excerpt"] = templates
@@ -367,7 +484,28 @@ class ConversationalRouterService(SupermarketAgentService):
     def _clarification_bridge(self, ctx: DecisionContext):
         meta = ctx.request.metadata or {}
         request = ClarificationRequest.model_validate(meta["clarification_request"])
+        context_pack = meta.get("context_pack")
         transcript = meta.get("transcript") or []
+        if isinstance(context_pack, dict) and context_pack.get("selected_turns"):
+            transcript = [
+                {
+                    "id": t.get("id") or f"turn-{idx}",
+                    "role": t.get("role") or "user",
+                    "content": t.get("content_trimmed") or t.get("content") or "",
+                    "at": t.get("at") or "",
+                }
+                for idx, t in enumerate(context_pack.get("selected_turns") or [])
+                if isinstance(t, dict)
+            ]
+            if context_pack.get("current_message"):
+                transcript = list(transcript) + [
+                    {
+                        "id": "current",
+                        "role": "user",
+                        "content": context_pack["current_message"],
+                        "at": "",
+                    }
+                ]
         cfg = load_project_config()
         bridge = ClarificationBridge(min_confidence=cfg.clarification.bridge_min_confidence)
         if os.getenv("ALLOW_LLM_STUB") == "1":
@@ -384,7 +522,13 @@ class ConversationalRouterService(SupermarketAgentService):
                     {
                         "role": "user",
                         "content": json.dumps(
-                            {"request": request.model_dump(), "transcript": transcript},
+                            {
+                                "request": request.model_dump(),
+                                "transcript": transcript,
+                                "working_memory": (context_pack or {}).get("working_memory")
+                                if isinstance(context_pack, dict)
+                                else None,
+                            },
                             ensure_ascii=False,
                         ),
                     },

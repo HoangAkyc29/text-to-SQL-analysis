@@ -15,6 +15,7 @@ from project_core.domain.access.context_policy import ContextPolicy
 from project_core.domain.budget import SessionTraceBudget, TraceBudget
 from project_core.domain.clarification.bridge import ClarificationBridge
 from project_core.domain.clarification.resolver import apply_clarification_reply
+from project_core.domain.brief.session_merge import empty_follow_up_message, session_merge_brief
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationReply, ClarificationRequest
 from project_core.domain.contracts.feedback import (
@@ -33,7 +34,16 @@ from project_core.domain.feedback.analysis_tool_registry import AnalysisToolRegi
 from project_core.domain.feedback.domain_rule_store import DomainRuleStore
 from project_core.domain.feedback.loop import CaseStudyIndexer, FeedbackLoop
 from project_core.domain.feedback.store import BehavioralSignal
+from project_core.domain.memory.context_pack import (
+    append_compact_archive,
+    apply_curator_selection,
+    assemble_context_pack,
+    build_context_pack_hard,
+    merge_ccs_patch,
+    refresh_working_memory_from_brief,
+)
 from project_core.domain.memory.session_bundle import SessionBundle, TranscriptTurn
+from project_core.domain.memory.working_memory import CompactArchiveEntry, WorkingMemory
 from project_core.domain.retrieval.mongo_vector import HybridMongoRetriever
 from project_core.domain.schema.catalog import SchemaCatalog
 from project_core.domain.workflow.state import new_workflow, resume_analysis, start_analysis
@@ -147,8 +157,14 @@ class ChatOrchestrator:
 
         self._maybe_emit_re_ask_signal(session_id, bundle, message)
 
+        # Per user-turn analysis budget (curator + ingress run before start_analysis).
+        bundle.workflow.budget_spent = {}
+
         turn = TranscriptTurn(id=str(uuid4()), role="user", content=message, at=utc_now().isoformat())
         bundle.transcript.append(turn)
+        # Soft L0 bound may mutate compact_archive on workflow
+        if bundle.workflow.working_memory is None:
+            bundle.workflow.working_memory = WorkingMemory()
         self.stm.save_transcript(session_id, bundle.transcript)
 
         invoker = self._make_invoker()
@@ -159,10 +175,26 @@ class ChatOrchestrator:
             external_sources = [s.model_dump() for s in bundle.workflow.brief.external_sources]
 
         try:
+            pack = self._prepare_context_pack(
+                bundle=bundle,
+                message=message,
+                current_turn_id=turn.id,
+                external_sources=external_sources,
+                invoker=invoker,
+                session_budget=session_budget,
+                actor_id=actor_id,
+                session_id=session_id,
+            )
+            self.stm.save_workflow(session_id, bundle.workflow)
             ingress = self._invoke_agent_i(
                 invoker,
                 {"text": message, "external_sources": external_sources},
-                {"mode": "ingress", "session_id": session_id, "actor_id": actor_id},
+                {
+                    "mode": "ingress",
+                    "session_id": session_id,
+                    "actor_id": actor_id,
+                    "context_pack": pack.to_ingress_user_content(),
+                },
                 session_budget,
                 bundle,
             )
@@ -177,6 +209,7 @@ class ChatOrchestrator:
         self._handle_satisfaction_signal(ingress, bundle)
 
         route = ingress.get("route", "analysis")
+        dialogue_act = ingress.get("dialogue_act")
         if route == "confirm_cancel":
             return self._handle_confirm_cancel(session_id, bundle, ingress)
         if route == "wait":
@@ -223,6 +256,29 @@ class ChatOrchestrator:
         brief = AnalysisBrief.model_validate(ingress.get("brief") or {"intent": message})
         if bundle.workflow.brief and bundle.workflow.brief.external_sources:
             brief.external_sources = bundle.workflow.brief.external_sources
+
+        brief, route_override = session_merge_brief(
+            brief=brief,
+            dialogue_act=dialogue_act,
+            prior_brief=bundle.workflow.last_resolved_brief,
+            working_memory=bundle.workflow.working_memory,
+            current_message=message,
+        )
+        if route_override == "chitchat" or brief is None:
+            ask = empty_follow_up_message()
+            assistant = TranscriptTurn(
+                id=str(uuid4()),
+                role="assistant",
+                content=ask,
+                at=utc_now().isoformat(),
+            )
+            bundle.transcript.append(assistant)
+            self.stm.save_transcript(session_id, bundle.transcript)
+            return ChatResponse(
+                session_id=session_id,
+                workflow_status=WorkflowStatus.IDLE.value,
+                message=ask,
+            )
 
         analysis_id = start_analysis(bundle.workflow, reset_clarify=True)
         bundle.workflow.brief = brief
@@ -492,6 +548,105 @@ class ChatOrchestrator:
             return SessionTraceBudget(tb)
         return SessionTraceBudget()
 
+    def _prepare_context_pack(
+        self,
+        *,
+        bundle: SessionBundle,
+        message: str,
+        current_turn_id: str,
+        external_sources: list[dict[str, Any]],
+        invoker: HttpAgentInvoker,
+        session_budget: SessionTraceBudget,
+        actor_id: str,
+        session_id: str,
+    ):
+        assert bundle.workflow is not None
+        cfg = self.cfg.stm.context_pack
+        pack, candidates, need_curator = build_context_pack_hard(
+            transcript=bundle.transcript,
+            workflow=bundle.workflow,
+            current_message=message,
+            cfg=cfg,
+            current_turn_id=current_turn_id,
+            external_sources=external_sources,
+        )
+        if not need_curator:
+            return pack
+
+        curator_input = {
+            "current_message": message,
+            "working_memory": (bundle.workflow.working_memory or WorkingMemory()).model_dump(
+                mode="json"
+            ),
+            "last_resolved_brief": (
+                bundle.workflow.last_resolved_brief.model_dump(mode="json")
+                if bundle.workflow.last_resolved_brief
+                else None
+            ),
+            "candidates": [c.model_dump(mode="json") for c in candidates],
+            "pack_token_budget": cfg.pack_token_budget,
+        }
+        curator_failed = False
+        curator_out: dict[str, Any] = {}
+        try:
+            # Charge as Agent I; isolated clean-window call
+            curator_out = self._invoke_agent_i(
+                invoker,
+                curator_input,
+                {
+                    "mode": "context_curator",
+                    "session_id": session_id,
+                    "actor_id": actor_id,
+                    "curator_input": curator_input,
+                },
+                session_budget,
+                bundle,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("context_curator failed; falling back to hard-only pack")
+            curator_failed = True
+
+        selected = candidates
+        archive_id = None
+        if not curator_failed and curator_out:
+            selected = apply_curator_selection(
+                candidates,
+                curator_out.get("selected_turn_ids"),
+                curator_out.get("drop_turn_ids"),
+            )
+            bundle.workflow.working_memory = merge_ccs_patch(
+                bundle.workflow.working_memory or WorkingMemory(),
+                curator_out.get("ccs_patch") if isinstance(curator_out.get("ccs_patch"), dict) else {},
+            )
+            observations = [str(x) for x in (curator_out.get("observations") or [])][:20]
+            summary = curator_out.get("compact_summary")
+            if summary or observations or selected:
+                entry = CompactArchiveEntry(
+                    at=utc_now().isoformat(),
+                    reason="curator",
+                    summary=str(summary or "")[:1600],
+                    selected_turn_ids=[t.id for t in selected],
+                    observations=observations,
+                    source_turn_ids=[c.id for c in candidates],
+                )
+                archive_id = append_compact_archive(
+                    bundle.workflow, entry, max_entries=cfg.compact_archive_max
+                )
+
+        return assemble_context_pack(
+            current_message=message,
+            workflow=bundle.workflow,
+            selected_turns=selected,
+            cfg=cfg,
+            strategy="curator" if not curator_failed else "curator_failed_hard",
+            curator_invoked=True,
+            curator_failed=curator_failed,
+            archive_id=archive_id,
+            pct_before=pack.pack_meta.pct,
+            external_sources=external_sources,
+            dropped_turns=pack.pack_meta.dropped_turns,
+        )
+
     def _invoke_agent_i(
         self,
         invoker: HttpAgentInvoker,
@@ -506,7 +661,8 @@ class ChatOrchestrator:
             "session_bundle": {
                 "session_id": bundle.session_id,
                 "actor_id": bundle.actor_id,
-                "transcript": [t.model_dump() for t in bundle.transcript],
+                # Do not dump full L0 into agent metadata; ContextPack is authoritative.
+                "transcript_len": len(bundle.transcript),
                 "workflow_summary": self.context_policy.build_request_context(
                     "I", bundle.actor_id, bundle
                 ).get("workflow_summary", {}),
@@ -648,6 +804,16 @@ class ChatOrchestrator:
         session_budget = self._session_budget(bundle)
         request = ClarificationRequest.model_validate(bundle.clarification)
         try:
+            pack = self._prepare_context_pack(
+                bundle=bundle,
+                message=message,
+                current_turn_id="clarify-current",
+                external_sources=[],
+                invoker=invoker,
+                session_budget=session_budget,
+                actor_id=user["sub"],
+                session_id=session_id,
+            )
             bridge = self._invoke_agent_i(
                 invoker,
                 {},
@@ -656,15 +822,7 @@ class ChatOrchestrator:
                     "session_id": session_id,
                     "actor_id": user["sub"],
                     "clarification_request": request.model_dump(),
-                    "transcript": [t.model_dump() for t in bundle.transcript]
-                    + [
-                        {
-                            "id": str(uuid4()),
-                            "role": "user",
-                            "content": message,
-                            "at": utc_now().isoformat(),
-                        }
-                    ],
+                    "context_pack": pack.to_ingress_user_content(),
                 },
                 session_budget,
                 bundle,
@@ -846,6 +1004,17 @@ class ChatOrchestrator:
         )
         bundle.transcript.append(assistant)
         self.stm.save_transcript(session_id, bundle.transcript)
+        # Persist L4 + refresh L2 on success/empty only
+        if result.outcome in {
+            AnalysisOutcome.SUCCESS.value,
+            AnalysisOutcome.EMPTY.value,
+            "success",
+            "empty",
+        }:
+            bundle.workflow.last_resolved_brief = brief
+            bundle.workflow.working_memory = refresh_working_memory_from_brief(
+                brief, bundle.workflow.working_memory
+            )
         self.stm.save_workflow(session_id, bundle.workflow)
         return ChatResponse(
             session_id=session_id,
@@ -871,6 +1040,16 @@ class ChatOrchestrator:
     ) -> ChatResponse:
         assert result.needs_clarification is not None
         try:
+            pack = self._prepare_context_pack(
+                bundle=bundle,
+                message="",
+                current_turn_id="pipeline-clarify",
+                external_sources=[],
+                invoker=invoker,
+                session_budget=session_budget,
+                actor_id=permissions.actor_id,
+                session_id=session_id,
+            )
             bridge = self._invoke_agent_i(
                 invoker,
                 {},
@@ -879,7 +1058,7 @@ class ChatOrchestrator:
                     "session_id": session_id,
                     "actor_id": permissions.actor_id,
                     "clarification_request": result.needs_clarification.model_dump(),
-                    "transcript": [t.model_dump() for t in bundle.transcript],
+                    "context_pack": pack.to_ingress_user_content(),
                 },
                 session_budget,
                 bundle,

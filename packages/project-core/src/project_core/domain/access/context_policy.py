@@ -26,7 +26,7 @@ class ContextPolicy:
         if agent == "I":
             ctx.update(
                 {
-                    "transcript": session.transcript,
+                    "transcript_len": len(session.transcript),
                     "workflow_summary": _workflow_summary(session.workflow),
                     "clarification_request": extra.get("clarification_request") if extra else None,
                 }
@@ -70,8 +70,12 @@ class ContextPolicy:
 def _workflow_summary(workflow: WorkflowState | None) -> dict[str, Any]:
     if workflow is None:
         return {}
+    wm = workflow.working_memory
     return {
         "status": workflow.status.value,
         "active_analysis_id": workflow.active_analysis_id,
         "last_outcome": workflow.last_outcome,
+        "has_last_resolved_brief": workflow.last_resolved_brief is not None,
+        "working_memory_goal": (wm.current_goal if wm else "")[:160],
+        "compact_archive_len": len(workflow.compact_archive or []),
     }

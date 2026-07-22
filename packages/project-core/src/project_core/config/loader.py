@@ -59,8 +59,22 @@ class ArtifactsConfig(BaseModel):
     max_bytes_per_trace: int = 52_428_800
 
 
+class ContextPackConfig(BaseModel):
+    pack_token_budget: int = 3500
+    soft_pct: float = 0.40
+    hard_pct: float = 0.60
+    emergency_pct: float = 0.85
+    window_recent_turns: int = 16
+    recall_max_turns: int = 8
+    transcript_max_turns: int = 200
+    turn_trim_chars: int = 600
+    compact_archive_max: int = 8
+    curator_timeout_ms: int = 8000
+
+
 class StmConfig(BaseModel):
     session_ttl_days: int = 30
+    context_pack: ContextPackConfig = Field(default_factory=ContextPackConfig)
 
 
 class DurableAnalysisConfig(BaseModel):

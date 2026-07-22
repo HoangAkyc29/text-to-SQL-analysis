@@ -368,7 +368,7 @@ class AnalysisWorker:
                             code="WORKER_ERROR",
                             message="Analysis temporarily unavailable.",
                             retryable=True,
-                        ),
+                        ).model_dump(mode="json"),
                     },
                 )
                 retry_payload = {"attempt": current.attempt + 1}
@@ -645,7 +645,7 @@ class AnalysisWorker:
             {
                 "status": ExecutionStatus.FAILED,
                 "outcome": getattr(response, "outcome", None) or "error",
-                "safe_error": error,
+                "safe_error": error.model_dump(mode="json"),
                 "completed_at": utc_now(),
                 "lease_owner": None,
                 "lease_expires_at": None,

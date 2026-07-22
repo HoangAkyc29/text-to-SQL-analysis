@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from project_core.domain.contracts.brief import AnalysisBrief
 from project_core.domain.contracts.clarification import ClarificationRequest
+from project_core.domain.memory.working_memory import CompactArchiveEntry, WorkingMemory
 
 
 class WorkflowStatus(StrEnum):
@@ -109,6 +110,9 @@ class WorkflowState(BaseModel):
     progress_step: str | None = None
     last_artifact_urls: list[str] = Field(default_factory=list)
     analysis_history: list[str] = Field(default_factory=list)
+    working_memory: WorkingMemory = Field(default_factory=WorkingMemory)
+    last_resolved_brief: AnalysisBrief | None = None
+    compact_archive: list[CompactArchiveEntry] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

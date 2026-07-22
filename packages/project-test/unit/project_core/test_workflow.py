@@ -13,10 +13,12 @@ pytestmark = pytest.mark.unit
 
 def test_start_analysis_resets_counters():
     wf = new_workflow("s", "u")
+    wf.budget_spent = {"I": 4, "II": 8}
     aid = start_analysis(wf)
     assert wf.active_analysis_id == aid
     assert wf.clarify_round == 0
     assert wf.status == WorkflowStatus.RUNNING
+    assert wf.budget_spent == {}
 
 
 def test_suspend_and_resume_clarification():
