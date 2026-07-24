@@ -71,8 +71,58 @@ from project_core.domain.schema.output_semantics import build_output_semantics
 from project_core.domain.schema.table_samples import load_table_samples
 from project_core.domain.workflow.steps import has_step_type
 from project_core.orchestration.cancellation import CancellationToken, mark_cancelled
+import os
 
 logger = logging.getLogger(__name__)
+
+
+def _data_agent_v2_enabled(cfg: Any) -> bool:
+    env = os.getenv("DATA_AGENT_V2", "").strip().lower()
+    if env in {"1", "true", "yes", "on"}:
+        return True
+    if env in {"0", "false", "no", "off"}:
+        return False
+    return bool(getattr(getattr(cfg, "pipeline", None), "data_agent_v2", False))
+
+
+def _data_agent_chain_from_observations(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Rebuild a tool_chain recipe from brain observations (fetch + ops), never SQL."""
+    if payload.get("tool_chain"):
+        return [dict(s) for s in payload["tool_chain"] if isinstance(s, dict)]
+    steps: list[dict[str, Any]] = []
+    for obs in payload.get("observations") or []:
+        if not isinstance(obs, dict) or not obs.get("ok"):
+            continue
+        if obs.get("tool_id"):
+            lineage = obs.get("lineage") or {}
+            steps.append(
+                {
+                    "kind": "fetch",
+                    "server": obs.get("server")
+                    or (
+                        "product-lookup"
+                        if obs.get("tool_id") == "resolve_products"
+                        else "data-query"
+                    ),
+                    "tool_id": obs.get("tool_id"),
+                    "args": dict(lineage.get("params") or {}),
+                    "save_as": obs.get("save_as"),
+                }
+            )
+        elif obs.get("op_id"):
+            steps.append(
+                {
+                    "kind": "op",
+                    "server": "deliverables"
+                    if str(obs.get("op_id")).startswith("export") or obs.get("op_id") == "plot_chart"
+                    else "dataframe-ops",
+                    "tool_id": obs.get("op_id"),
+                    "args": dict(obs.get("args") or {}),
+                    "dataset": obs.get("dataset"),
+                    "save_as": obs.get("save_as") or obs.get("output_ref"),
+                }
+            )
+    return steps
 
 
 class SupermarketAnalysisPipeline:
@@ -164,6 +214,22 @@ class SupermarketAnalysisPipeline:
         if brief.plan is None and not iv_llm_enabled:
             brief.plan = decompose_brief(brief)
         brief = normalize_brief_filters(brief)
+
+        if _data_agent_v2_enabled(self.cfg):
+            return self._run_data_agent_v2(
+                trace_id=trace_id,
+                analysis_id=analysis_id,
+                brief=brief,
+                workflow=workflow,
+                permissions=permissions,
+                acl=acl,
+                policy=policy,
+                budget=budget,
+                artifact_base=artifact_base,
+                out_dir=out_dir,
+                cancel_token=cancel_token,
+                on_progress=on_progress,
+            )
 
         promoted_tools: list[dict[str, Any]] = []
         if self.analysis_tool_registry is not None:
@@ -1673,6 +1739,339 @@ class SupermarketAnalysisPipeline:
             outcome,
             summarize_step_timings(workflow.steps).get("by_step_type"),
         )
+
+    def _run_data_agent_v2(
+        self,
+        *,
+        trace_id: str,
+        analysis_id: str,
+        brief: AnalysisBrief,
+        workflow: WorkflowState,
+        permissions: PermissionsSnapshot,
+        acl: SqlAclContext,
+        policy: PolicyEngine,
+        budget: SupermarketBudgetGuard,
+        artifact_base: Path,
+        out_dir: Path,
+        cancel_token: CancellationToken | None,
+        on_progress: Callable[[WorkflowState], None] | None,
+    ) -> PipelineResult:
+        """HTTP Data Agent: adaptive chunks → Tool-Selector → MCP/fetch (no free SQL)."""
+        from project_core.domain.sql.shard_resolver import table_naming_context
+
+        if cancel_token and cancel_token.cancelled:
+            mark_cancelled(workflow)
+            return self._finish(
+                trace_id,
+                workflow,
+                AnalysisOutcome.CANCELLED,
+                TechnicalSummary(outcome=AnalysisOutcome.CANCELLED.value, caveats=["user_cancelled"]),
+            )
+
+        if not self.context_policy.can_execute_sql(permissions):
+            return self._finish(
+                trace_id,
+                workflow,
+                AnalysisOutcome.POLICY_BLOCKED,
+                TechnicalSummary(
+                    outcome=AnalysisOutcome.POLICY_BLOCKED.value,
+                    caveats=["execute_readonly not granted"],
+                ),
+            )
+
+        domain_excerpt = ""
+        retrieval_payload: dict[str, Any] | list[Any] = {}
+        candidate_tables: list[str] = []
+        column_priority: list[str] = []
+        budget.record("DATA")
+        if self.feedback_loop is not None:
+            from project_core.domain.audit.schema_retrieve import build_schema_retrieve_payload
+            from project_core.domain.retrieval.hierarchical_result import HierarchicalRetrievalResult
+
+            with TimedSpan("schema_retrieve") as rag_span:
+                retrieval_payload = self.feedback_loop.retrieve_context(
+                    "DATA", brief.intent, permissions.actor_id, brief=brief
+                )
+            retrieval_miss = HierarchicalRetrievalResult.is_empty_payload(retrieval_payload)
+            self.audit.log_schema_retrieve(
+                trace_id=trace_id,
+                actor_id=permissions.actor_id,
+                payload=build_schema_retrieve_payload(
+                    actor_id=permissions.actor_id,
+                    sql_attempt=1,
+                    retrieval_payload=retrieval_payload if isinstance(retrieval_payload, dict) else None,
+                    miss=retrieval_miss,
+                ),
+                duration_ms=rag_span.duration_ms,
+            )
+            self._append_timed_step(
+                workflow,
+                trace_id=trace_id,
+                step_type=WorkflowStepType.SCHEMA_RETRIEVE,
+                sql_attempt=1,
+                span=rag_span,
+                summary=f"miss={retrieval_miss}",
+            )
+            if isinstance(retrieval_payload, dict):
+                candidate_tables = list(retrieval_payload.get("candidate_tables") or [])
+                for col in retrieval_payload.get("columns") or []:
+                    sk = col.get("semantic_key")
+                    if sk:
+                        meta = self.column_catalog.get(str(sk))
+                        if meta:
+                            column_priority.extend(meta.display_names)
+            if self.domain_rule_store is not None:
+                fact_links = [
+                    {"chunk_group": "table", "ref": str(ref)} for ref in candidate_tables
+                ]
+                fact_links.extend(
+                    {"chunk_group": "column", "ref": str(key)}
+                    for key in (
+                        retrieval_payload.get("candidate_semantic_keys") or []
+                        if isinstance(retrieval_payload, dict)
+                        else []
+                    )
+                )
+                domain_excerpt = self.domain_rule_store.excerpt_for_agents(
+                    actor_id=permissions.actor_id,
+                    role=permissions.role,
+                    schema_links=fact_links,
+                )
+
+        table_filter: list[str] | None = None
+        if candidate_tables:
+            table_filter = [
+                ref.split(":")[-1] if ":" in ref else ref for ref in candidate_tables
+            ]
+        schema_context = self.catalog.agent_schema_bundle(
+            permissions.allowed_tables,
+            table_filter=table_filter,
+            column_priority=column_priority,
+        )
+        shard_plan = suggest_query_plan(brief.model_dump(), self.catalog)
+        schema_context = {
+            **schema_context,
+            "shard_plan": shard_plan.model_dump(mode="json"),
+            "table_naming": table_naming_context(),
+            "domain_rules_excerpt": domain_excerpt,
+            "product_resolution_hints": product_resolution_hints(brief),
+        }
+
+        recipe_candidates: list[dict[str, Any]] = []
+        if self.analysis_tool_registry is not None:
+            ranked = self.analysis_tool_registry.find_candidates(
+                brief.intent,
+                top_k=5,
+                datasets=[],
+                params={
+                    **dict(brief.filters or {}),
+                    "metrics": list(brief.metrics or []),
+                },
+                available_ops=set(list_op_ids()),
+            )
+            recipe_candidates = [
+                c.model_dump(mode="json") if hasattr(c, "model_dump") else dict(c)
+                for c in ranked
+            ]
+
+        work_dir = artifact_base / "ws"
+        work_dir.mkdir(parents=True, exist_ok=True)
+
+        workflow.progress_step = WorkflowStepType.SANDBOX.value
+        self._emit_progress(workflow, on_progress)
+        use_stub = os.getenv("ALLOW_LLM_STUB", "").strip() in {"1", "true", "TRUE"}
+
+        case_hints: list[dict[str, Any]] = []
+        if isinstance(retrieval_payload, dict):
+            for item in retrieval_payload.get("case_studies") or []:
+                if isinstance(item, dict):
+                    case_hints.append(
+                        {
+                            "text": str(item.get("text") or "")[:800],
+                            "links": item.get("links") or [],
+                            "tool_chain": item.get("tool_chain") or [],
+                            "stages": item.get("stages") or [],
+                            "kind": item.get("kind"),
+                            "provenance": item.get("provenance") or [],
+                        }
+                    )
+
+        with TimedSpan("data_agent") as da_span:
+            payload = self.agent_invoker.invoke(
+                "DATA",
+                {
+                    "brief": brief.model_dump(mode="json"),
+                    "permissions": permissions.model_dump(mode="json"),
+                    "out_dir": str(out_dir),
+                    "work_dir": str(work_dir),
+                    "domain_rules_excerpt": domain_excerpt,
+                    "schema_context_keys": list(schema_context.keys())[:40],
+                    "recipe_candidates": recipe_candidates,
+                    "case_hints": case_hints,
+                    "trace_id": trace_id,
+                    "analysis_id": analysis_id,
+                    "max_planner_turns": int(
+                        getattr(self.cfg.pipeline, "data_agent_max_planner_turns", 16) or 16
+                    ),
+                    "max_steps": int(getattr(self.cfg.pipeline, "data_agent_max_steps", 24) or 24),
+                },
+                {
+                    "mode": "data_agent",
+                    "actor_id": permissions.actor_id,
+                    "session_id": analysis_id,
+                    "trace_id": trace_id,
+                    "analysis_id": analysis_id,
+                },
+            )
+        if not isinstance(payload, dict):
+            payload = {"action": "partial", "caveats": ["invalid_data_agent_payload"]}
+
+        fetch_ok = int(payload.get("fetch_ok") or 0)
+        fetch_attempts = int(payload.get("fetch_attempts") or 0)
+        fetch_errors = list(payload.get("fetch_errors") or [])
+        self.audit.log_data_agent_summary(
+            trace_id=trace_id,
+            actor_id=permissions.actor_id,
+            analysis_id=analysis_id,
+            action=str(payload.get("action") or "partial"),
+            duration_ms=int(da_span.duration_ms or 0),
+            usage_tokens=int(payload.get("usage_tokens") or 0),
+            planner_turns=int(payload.get("planner_turns") or 0),
+            fetch_ok=fetch_ok,
+            fetch_attempts=fetch_attempts,
+            fetch_errors=fetch_errors,
+            steps_trace=list(payload.get("steps_trace") or []),
+            caveats=list(payload.get("caveats") or []),
+            artifact_count=len(payload.get("artifact_paths") or []),
+            use_stub=use_stub,
+            stages=list(payload.get("stages") or []),
+            tool_chain=list(payload.get("tool_chain") or []),
+            coverage=dict(payload.get("coverage") or {}) or None,
+        )
+        self._append_timed_step(
+            workflow,
+            trace_id=trace_id,
+            step_type=WorkflowStepType.AGENT_IV,
+            sql_attempt=1,
+            span=da_span,
+            summary=(
+                f"action={payload.get('action')};"
+                f"fetch_ok={fetch_ok};fetch_attempts={fetch_attempts};"
+                f"turns={payload.get('planner_turns')};stub={int(use_stub)}"
+            ),
+        )
+
+        action = str(payload.get("action") or "partial")
+        if action == "suggest_clarify":
+            needs = ClarificationRequest(
+                source_agent="IV",
+                reason=str(
+                    (payload.get("suggest_clarify") or {}).get("reason")
+                    or payload.get("reason")
+                    or "clarify"
+                ),
+                partial_brief=brief,
+                questions=list(
+                    (payload.get("suggest_clarify") or {}).get("questions") or []
+                ),
+            )
+            workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
+            self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)
+            return PipelineResult(
+                trace_id=trace_id,
+                analysis_id=analysis_id,
+                outcome=AnalysisOutcome.NEEDS_CLARIFICATION.value,
+                technical_summary=TechnicalSummary(
+                    outcome=AnalysisOutcome.NEEDS_CLARIFICATION.value
+                ),
+                workflow_steps=workflow.steps,
+                needs_clarification=needs,
+            )
+        if action == "impossible":
+            return self._finish(
+                trace_id,
+                workflow,
+                AnalysisOutcome.IMPOSSIBLE,
+                TechnicalSummary(
+                    outcome=AnalysisOutcome.IMPOSSIBLE.value,
+                    caveats=[str(payload.get("impossible_reason") or "impossible")],
+                ),
+            )
+
+        arts = [str(p) for p in (payload.get("artifact_paths") or [])]
+        if payload.get("artifact_manifests"):
+            _write_artifact_manifest(artifact_base, list(payload.get("artifact_manifests") or []))
+
+        outcome = (
+            AnalysisOutcome.SUCCESS
+            if action == "complete"
+            else AnalysisOutcome.PARTIAL
+        )
+        summary = TechnicalSummary(
+            outcome=outcome.value,
+            artifact_urls=arts,
+            caveats=list(payload.get("caveats") or [])
+            + ([str(payload.get("insight_vi"))] if payload.get("insight_vi") else [])
+            + (
+                [f"fetch_ok={fetch_ok}", f"fetch_attempts={fetch_attempts}"]
+                + ([f"fetch_errors={fetch_errors[:5]}"] if fetch_errors else [])
+            ),
+            headline_metrics={
+                **dict(payload.get("headline_metrics") or {}),
+                "fetch_ok": fetch_ok,
+                "fetch_attempts": fetch_attempts,
+                "planner_turns": int(payload.get("planner_turns") or 0),
+            },
+            coverage=dict(payload.get("coverage") or {}),
+            verification=dict(payload.get("verification") or {}),
+        )
+
+        # Stage tool_chain recipes (no SQL) for Data Agent successes.
+        chain_steps = list(payload.get("tool_chain") or []) or _data_agent_chain_from_observations(payload)
+        if (
+            outcome == AnalysisOutcome.SUCCESS
+            and self.analysis_tool_registry is not None
+            and (payload.get("steps_trace") or chain_steps)
+        ):
+            try:
+                if chain_steps:
+                    self.analysis_tool_registry.stage_data_agent_chain(
+                        name=f"data_agent_{trace_id[:8]}",
+                        intent_pattern=brief.intent,
+                        steps=chain_steps,
+                        actor_id=permissions.actor_id,
+                        status="staged",
+                    )
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to stage data_agent_chain", exc_info=True)
+        if (
+            outcome in {AnalysisOutcome.SUCCESS, AnalysisOutcome.PARTIAL}
+            and self.feedback_loop is not None
+            and (payload.get("steps_trace") or chain_steps)
+        ):
+            try:
+                self.feedback_loop.on_pipeline_complete(
+                    trace_id,
+                    outcome.value,
+                    {
+                        "brief": brief,
+                        "approved_sql": [],
+                        "tool_chain": chain_steps,
+                        "stages": list(payload.get("stages") or []),
+                        "analysis_id": analysis_id,
+                        "actor_id": permissions.actor_id,
+                        "headline_metrics": summary.headline_metrics,
+                        "artifact_paths": arts,
+                        "workflow_steps": workflow.steps,
+                        "sql_attempt": 1,
+                        "schema_tables_used": list(permissions.allowed_tables)[:40],
+                        "topology": schema_context.get("shard_plan"),
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning("Data Agent case-study staging failed", exc_info=True)
+
+        return self._finish(trace_id, workflow, outcome, summary)
 
     def _finish(
         self,

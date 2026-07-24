@@ -246,7 +246,87 @@ def op_drop_null(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> 
 # ----- C. Filter -----
 
 
+def _expand_filter_value(ws: DatasetWorkingSet, value: Any) -> Any:
+    """Expand dataset / dataset.column refs in filter values (meta tooling)."""
+    if isinstance(value, dict):
+        ref = (
+            value.get("dataset")
+            or value.get("ref")
+            or value.get("from")
+            or value.get("source")
+            or value.get("save_as")
+        )
+        col = value.get("column") or value.get("column_name") or value.get("field")
+        if ref is None:
+            return value
+        ref_s = str(ref).strip()
+        if not ws.has(ref_s):
+            raise ValueError(f"unknown_dataset_ref:{ref_s}")
+        frame = ws.get(ref_s).frame()
+        if col is None:
+            for preferred in ("SKU_ID", "SKU_CODE", "TRANS_NUM"):
+                if preferred in frame.columns:
+                    col = preferred
+                    break
+            if col is None and len(frame.columns):
+                col = str(frame.columns[0])
+        col_s = str(col)
+        if col_s not in frame.columns:
+            raise ValueError(f"missing_columns:[{col_s}]")
+        return [str(x) for x in frame[col_s].dropna().astype(str).tolist()]
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return value
+        # dataset.COLUMN
+        if "." in text:
+            ref_s, _, col_s = text.partition(".")
+            ref_s, col_s = ref_s.strip(), col_s.strip()
+            if ref_s and col_s and ws.has(ref_s):
+                frame = ws.get(ref_s).frame()
+                if col_s in frame.columns:
+                    return [str(x) for x in frame[col_s].dropna().astype(str).tolist()]
+        # bare dataset ref
+        if ws.has(text):
+            frame = ws.get(text).frame()
+            for preferred in ("SKU_ID", "SKU_CODE", "TRANS_NUM"):
+                if preferred in frame.columns:
+                    return [str(x) for x in frame[preferred].dropna().astype(str).tolist()]
+            if len(frame.columns):
+                col0 = str(frame.columns[0])
+                return [str(x) for x in frame[col0].dropna().astype(str).tolist()]
+        return value
+
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], str):
+        expanded = _expand_filter_value(ws, value[0])
+        if expanded is not value[0]:
+            return expanded
+    return value
+
+
+def _normalize_filter_clause(clause: dict[str, Any]) -> dict[str, Any]:
+    """Accept planner aliases: operator→op, col/field→column."""
+    if not isinstance(clause, dict):
+        raise ValueError("invalid_filter_clause")
+    out = dict(clause)
+    if out.get("column") is None:
+        for key in ("column_name", "col", "field"):
+            if out.get(key) is not None:
+                out["column"] = out[key]
+                break
+    if out.get("op") is None:
+        for key in ("operator", "cmp", "predicate"):
+            if out.get(key) is not None:
+                out["op"] = out[key]
+                break
+    if out.get("column") is None:
+        raise ValueError("filter_clause_missing_column")
+    return out
+
+
 def _clause_mask(df: pd.DataFrame, clause: dict[str, Any]) -> pd.Series:
+    clause = _normalize_filter_clause(clause)
     col = str(clause["column"])
     op = str(clause.get("op") or "eq").lower()
     value = clause.get("value")
@@ -254,11 +334,29 @@ def _clause_mask(df: pd.DataFrame, clause: dict[str, Any]) -> pd.Series:
     if col not in df.columns:
         raise KeyError(f"missing_columns:[{col}]")
     s = df[col]
+    # Soft/descriptive filters on all-empty columns produce false zeros (e.g. ITEM_TYPE).
+    if op in {"eq", "contains", "in"} and isinstance(value, str) and value.strip():
+        populated = s.dropna().astype(str).str.strip()
+        populated = populated[populated != ""]
+        if len(populated) == 0:
+            raise ValueError(f"sparse_column_unusable:{col}")
     if op == "is_null":
         return s.isna()
     if op == "not_null":
         return s.notna()
-    if op in {"contains", "not_contains", "startswith", "endswith", "regex", "eq", "ne"} and case_insensitive:
+    # Identifier-style membership: compare as strings to avoid int/str mismatches.
+    if op in {"eq", "ne", "in", "not_in"} and col.upper() in {
+        "SKU_ID",
+        "SKU_CODE",
+        "TRANS_NUM",
+        "STK_ID",
+    }:
+        s_cmp = s.astype(str)
+        if isinstance(value, list):
+            value = [str(v) for v in value]
+        elif value is not None:
+            value = str(value)
+    elif op in {"contains", "not_contains", "startswith", "endswith", "regex", "eq", "ne"} and case_insensitive:
         s_cmp = s.astype(str).str.lower()
         if isinstance(value, str):
             value = value.lower()
@@ -312,22 +410,38 @@ def _combine_masks(masks: list[pd.Series], how: str) -> pd.Series:
 def op_filter_rows(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
     df = handle.frame()
-    clauses = args.get("clauses")
+    clauses = args.get("clauses") or args.get("conditions") or args.get("filters")
     try:
         if clauses:
-            how = str(args.get("combine") or "and").lower()
-            masks = [_clause_mask(df, c) for c in clauses]
+            if not isinstance(clauses, list):
+                raise ValueError("clauses_must_be_list")
+            how = str(args.get("combine") or "").lower()
+            if how not in {"and", "or"}:
+                # LLM often puts AND/OR in top-level "op" when using clauses.
+                maybe = str(args.get("op") or args.get("logic") or "and").lower()
+                how = maybe if maybe in {"and", "or"} else "and"
+            expanded_clauses: list[dict[str, Any]] = []
+            for raw_clause in clauses:
+                clause = _normalize_filter_clause(raw_clause if isinstance(raw_clause, dict) else {})
+                clause = dict(clause)
+                clause["value"] = _expand_filter_value(ws, clause.get("value"))
+                expanded_clauses.append(clause)
+            masks = [_clause_mask(df, c) for c in expanded_clauses]
             mask = _combine_masks(masks, how)
-        else:
+        elif args.get("column") is not None or args.get("column_name") is not None:
             # Single-clause shorthand
-            mask = _clause_mask(
-                df,
-                {
-                    "column": args["column"],
-                    "op": args.get("op", "eq"),
-                    "value": args.get("value"),
-                    "case_insensitive": args.get("case_insensitive", False),
-                },
+            clause = {
+                "column": args.get("column") or args.get("column_name"),
+                "op": args.get("op") or args.get("operator") or "eq",
+                "value": _expand_filter_value(ws, args.get("value")),
+                "case_insensitive": args.get("case_insensitive", False),
+            }
+            mask = _clause_mask(df, clause)
+        else:
+            raise ValueError(
+                "filter_rows_needs_clauses_or_column "
+                "(use clauses/conditions:[{column,op|operator,value}] "
+                "or top-level column+op+value)"
             )
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
@@ -390,10 +504,76 @@ _AGG_MAP = {
 }
 
 
+def _normalize_groupby_aggs(raw: Any) -> list[dict[str, str]] | dict[str, Any]:
+    """Accept common LLM shapes for groupby aggs.
+
+    Supported:
+      - [{"column": "QTY", "fn": "sum", "as": "qty_sum"}]
+      - [{"column": "QTY", "func": "sum", "new_column_name": "qty_sum"}]
+      - {"qty_sum": ["QTY", "sum"]} / {"qty_sum": {"column": "QTY", "fn": "sum"}}
+      - [["QTY", "sum"], ["QTY", "sum", "qty_sum"]]
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, dict):
+        out: list[dict[str, str]] = []
+        for key, value in raw.items():
+            if isinstance(value, dict):
+                col = str(value.get("column") or value.get("col") or "").strip()
+                fn = str(value.get("fn") or value.get("func") or value.get("agg") or "sum")
+                if not col:
+                    return {"error": f"agg_missing_column:{key}"}
+                out.append({"column": col, "fn": fn, "as": str(key)})
+            elif isinstance(value, (list, tuple)) and len(value) >= 2:
+                out.append({"column": str(value[0]), "fn": str(value[1]), "as": str(key)})
+            else:
+                return {"error": f"unsupported_agg_shape:{key}"}
+        return out
+    if not isinstance(raw, list):
+        return {"error": "aggs_must_be_list_or_dict"}
+    out = []
+    for item in raw:
+        if isinstance(item, dict):
+            col = str(
+                item.get("column")
+                or item.get("col")
+                or item.get("field")
+                or ""
+            ).strip()
+            if not col:
+                return {"error": "agg_missing_column"}
+            fn = str(
+                item.get("fn")
+                or item.get("func")
+                or item.get("agg")
+                or item.get("aggregation")
+                or "sum"
+            )
+            alias = str(
+                item.get("as")
+                or item.get("new_column_name")
+                or item.get("name")
+                or item.get("alias")
+                or f"{col}_{fn}"
+            )
+            out.append({"column": col, "fn": fn, "as": alias})
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            col = str(item[0])
+            fn = str(item[1])
+            alias = str(item[2]) if len(item) >= 3 else f"{col}_{fn}"
+            out.append({"column": col, "fn": fn, "as": alias})
+        else:
+            return {"error": f"unsupported_agg_item:{type(item).__name__}"}
+    return out
+
+
 def op_groupby_agg(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
     by = [str(c) for c in (args.get("by") or [])]
-    aggs = args.get("aggs") or []
+    normalized = _normalize_groupby_aggs(args.get("aggs"))
+    if isinstance(normalized, dict) and normalized.get("error"):
+        return normalized
+    aggs = list(normalized or [])
     err = _require_cols(handle.frame(), by + [str(a["column"]) for a in aggs if a.get("column")])
     if err:
         return {"error": err}

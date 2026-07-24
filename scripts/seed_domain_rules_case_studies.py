@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed domain-rule case studies with links to column/table RAG chunks."""
+"""Seed domain-rule case studies with schema links (prose + links; no SQL recipes)."""
 
 from __future__ import annotations
 
@@ -26,17 +26,26 @@ CASES: list[dict[str, Any]] = [
             "giá trị = ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0). "
             "Tổng bill theo (STK_ID, TRANS_NUM) = SUM công thức đó trên STRANS. "
             "TRANSHDR.AMOUNT dùng được nếu tương thích công thức — không chỉ lấy AMOUNT đơn độc. "
-            "Không bắt buộc TRANS_CODE=113 khi gom bill cho lọc min_bill."
+            "Tool gợi ý: query_rows trên TRANSHDR với min_amount từ brief.min_bill_value; "
+            "không bắt buộc TRANS_CODE khi gom bill cho lọc min_bill."
         ),
-        "sql_template": [
-            (
-                "SELECT STK_ID, TRANS_NUM, "
-                "SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) AS BILL_VALUE "
-                "FROM STRANS "
-                "WHERE TRAN_DATE >= '{{date_start}}' AND TRAN_DATE < '{{date_end}}' "
-                "GROUP BY STK_ID, TRANS_NUM "
-                "HAVING SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) >= {{min_bill}}"
-            ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "TRANSHDR",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "min_amount": "{{min_bill}}",
+                    "limit": 500,
+                },
+                "save_as": "bill_headers",
+            }
+        ],
+        "stages": [
+            {"stage_id": "narrow", "goal": "query_rows TRANSHDR with min_amount from brief"},
         ],
         "brief_template": {
             "intent": "Tính giá trị bill / lọc bill >= {{min_bill}} bằng AMOUNT+SURPLUS+VAT_AMT",
@@ -62,12 +71,25 @@ CASES: list[dict[str, Any]] = [
         "text": (
             "Khi user nói '3 siêu thị' (không liệt kê mã cửa hàng): lọc "
             "STK_ID IN ('10001','10004','10005'). "
-            "Áp dụng trên STRANS / TRANSHDR / PMTRANS và báo cáo theo store. "
+            "Áp dụng trên STRANS / TRANSHDR / PMTRANS qua filters[] store_ids hoặc STK_ID. "
             "Join bill-dòng ưu tiên kèm cả STK_ID và TRANS_NUM."
         ),
-        "sql_template": [
-            "SELECT ... FROM STRANS WHERE STK_ID IN ('10001','10004','10005') AND TRAN_DATE >= '{{date_start}}'",
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "store_ids": ["10001", "10004", "10005"],
+                    "limit": 5000,
+                },
+                "save_as": "store_lines",
+            }
         ],
+        "stages": [{"stage_id": "narrow", "goal": "query_rows with store_ids for 3 siêu thị"}],
         "brief_template": {
             "intent": "Phân tích giao dịch tại 3 siêu thị 10001/10004/10005",
             "filters": {"STK_ID": ["10001", "10004", "10005"]},
@@ -88,18 +110,26 @@ CASES: list[dict[str, Any]] = [
             "Điểm tích lũy khách hàng trong một kỳ = FLOOR(SUM(giá trị hàng thanh toán trong kỳ) / 50000). "
             "Giá trị hàng = ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0). "
             "Chỉ áp dụng khách có thẻ (CARD_ID / CSCARD) — bỏ khách không thẻ. "
-            "Có thể đối chiếu MARK trên CRDTRANS TRANS_CODE=811 nhưng công thức tính lại từ doanh số thanh toán như trên."
+            "Tool gợi ý: aggregate_rows trên STRANS group_by CARD_ID; không nhúng SQL trong skill."
         ),
-        "sql_template": [
-            (
-                "SELECT s.CARD_ID, "
-                "FLOOR(SUM(ISNULL(s.AMOUNT,0)+ISNULL(s.SURPLUS,0)+ISNULL(s.VAT_AMT,0)) / 50000.0) AS POINTS "
-                "FROM STRANS s "
-                "WHERE s.TRAN_DATE >= '{{date_start}}' AND s.TRAN_DATE < '{{date_end}}' "
-                "AND s.CARD_ID IS NOT NULL AND LTRIM(RTRIM(s.CARD_ID)) <> '' "
-                "GROUP BY s.CARD_ID"
-            ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "aggregate_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "group_by": ["CARD_ID"],
+                    "aggs": [{"fn": "sum", "column": "AMOUNT", "as": "sum_amount"}],
+                    "filters": [{"column": "CARD_ID", "op": "is_not_null"}],
+                    "limit": 5000,
+                },
+                "save_as": "loyalty_agg",
+            }
         ],
+        "stages": [{"stage_id": "narrow", "goal": "aggregate_rows STRANS by CARD_ID for loyalty"}],
         "brief_template": {
             "intent": "Tính điểm tích lũy kỳ {{date_start}}–{{date_end}}: FLOOR(sum thanh toán/50000) cho khách có thẻ",
             "metrics": ["loyalty_points"],
@@ -136,8 +166,11 @@ def main() -> None:
         case_id = str(uuid4())
         record = {
             "case_id": case_id,
+            "kind": "data_agent_chain",
             "brief_template": case["brief_template"],
-            "sql_template": case["sql_template"],
+            "sql_template": [],
+            "tool_chain": case.get("tool_chain") or [],
+            "stages": case.get("stages") or [],
             "text": case["text"],
             "status": "promoted",
             "correction_path": False,

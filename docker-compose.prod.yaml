@@ -3,7 +3,7 @@
 #
 # What it changes vs. base:
 # - Redis requires a password (--requirepass); Mongo runs with root auth.
-#   chat-gateway / sql-planner get credentialed connection URLs.
+#   chat-gateway / data-agent get credentialed connection URLs.
 # - A Caddy reverse proxy terminates TLS and is the ONLY service published to the
 #   host (80/443). No app/infra container exposes a host port.
 # - Readiness gating via healthchecks + depends_on conditions.
@@ -51,20 +51,20 @@ services:
   conversational-router:
     ports: []
 
-  sql-planner:
+  tool-selector:
+    ports: []
+
+  data-agent:
     ports: []
     environment:
-      - AGENT_HTTP_PORT=18202
+      - AGENT_HTTP_PORT=18206
+      - AGENT_TOOL_SELECTOR_URL=http://tool-selector:18205
       - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
     depends_on:
       mongodb:
         condition: service_healthy
-
-  risk-reviewer:
-    ports: []
-
-  data-analyst:
-    ports: []
+      tool-selector:
+        condition: service_started
 
   chat-gateway:
     # Fronted by Caddy over the internal network; no host port.
@@ -75,9 +75,9 @@ services:
       - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
       - SQL_GATEWAY_URL=http://sql-gateway:18101
       - AGENT_I_URL=http://conversational-router:18201
-      - AGENT_II_URL=http://sql-planner:18202
-      - AGENT_III_URL=http://risk-reviewer:18203
-      - AGENT_IV_URL=http://data-analyst:18204
+      - AGENT_DATA_URL=http://data-agent:18206
+      - AGENT_TOOL_SELECTOR_URL=http://tool-selector:18205
+      - DATA_AGENT_V2=1
     depends_on:
       redis:
         condition: service_healthy
@@ -87,11 +87,9 @@ services:
         condition: service_healthy
       conversational-router:
         condition: service_started
-      sql-planner:
+      tool-selector:
         condition: service_started
-      risk-reviewer:
-        condition: service_started
-      data-analyst:
+      data-agent:
         condition: service_started
 
   analysis-worker:
@@ -100,9 +98,9 @@ services:
       - MONGODB_URI=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/supermarket_agent?authSource=admin
       - SQL_GATEWAY_URL=http://sql-gateway:18101
       - AGENT_I_URL=http://conversational-router:18201
-      - AGENT_II_URL=http://sql-planner:18202
-      - AGENT_III_URL=http://risk-reviewer:18203
-      - AGENT_IV_URL=http://data-analyst:18204
+      - AGENT_DATA_URL=http://data-agent:18206
+      - AGENT_TOOL_SELECTOR_URL=http://tool-selector:18205
+      - DATA_AGENT_V2=1
     depends_on:
       redis:
         condition: service_healthy
@@ -112,11 +110,9 @@ services:
         condition: service_healthy
       conversational-router:
         condition: service_started
-      sql-planner:
+      tool-selector:
         condition: service_started
-      risk-reviewer:
-        condition: service_started
-      data-analyst:
+      data-agent:
         condition: service_started
 
   frontend:

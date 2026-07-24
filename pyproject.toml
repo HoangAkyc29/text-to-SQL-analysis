@@ -6,11 +6,19 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "platform-core",
-    "base-runner",
 ]
 
 [tool.uv.workspace]
-members = ["libs/*", "packages/*", "agents/*", "mcp-servers/*"]
+members = [
+    "libs/*",
+    "packages/*",
+    "agents/chat-gateway",
+    "agents/conversational-router",
+    "agents/data-agent",
+    "agents/tool-selector",
+    "mcp-servers/*",
+]
+# agents/archived/* intentionally excluded from the workspace
 
 [tool.uv.sources]
 commons = { workspace = true }
@@ -19,16 +27,17 @@ mcp-core = { workspace = true }
 platform-core = { workspace = true }
 project-core = { workspace = true }
 project-test = { workspace = true }
-base-agent = { workspace = true }
-base-runner = { workspace = true }
 base-mcp-server = { workspace = true }
 sql-gateway = { workspace = true }
 python-sandbox = { workspace = true }
 conversational-router = { workspace = true }
-sql-planner = { workspace = true }
-risk-reviewer = { workspace = true }
-data-analyst = { workspace = true }
 chat-gateway = { workspace = true }
+tool-selector = { workspace = true }
+data-agent = { workspace = true }
+product-lookup = { workspace = true }
+data-query = { workspace = true }
+dataframe-ops = { workspace = true }
+deliverables = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -39,9 +48,8 @@ dev = [
     "chat-gateway",
     "sql-gateway",
     "conversational-router",
-    "sql-planner",
-    "risk-reviewer",
-    "data-analyst",
+    "tool-selector",
+    "data-agent",
 ]
 # Docker base image tiers — see docs/DOCKER_BUILD.md
 # TODO: add domain packages to docker-project when the project needs heavier shared deps

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed a parametric gift+bill+multi-SKU case study into Mongo for Agent II RAG."""
+"""Seed a parametric gift+bill case study (tool_chain, no SQL) into Mongo."""
 
 from __future__ import annotations
 
@@ -15,55 +15,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
 
 from project_core.config.env import load_project_env  # noqa: E402
+from project_core.domain.data_fetch.recipes import gift_bill_threshold_chain  # noqa: E402
 from project_core.llm.embedding_client import EmbeddingClient  # noqa: E402
 
 CASE_TEXT = (
-    "Phân tích quà tặng multi-SKU: số lượng, bill hợp lệ tối thiểu min_bill, top N bill mỗi SKU. "
-    "Chuỗi suy luận: probe SKU_DEF/BARCODE resolve SKU_ID (LPAD8 nếu mã thiếu 0) → "
-    "valid_bills = SUM(AMOUNT+SURPLUS+VAT_AMT) trên STRANS theo (STK_ID, TRANS_NUM) >= min_bill "
-    "trong date range → gift lines join STK_ID+TRANS_NUM filter SKU_ID "
-    "(không mặc định TRANS_CODE=113; quà thường AMOUNT=0) → "
-    "ROW_NUMBER PARTITION BY SKU_ID cho top bills. "
-    "Nếu user nói 3 siêu thị: STK_ID IN (10001,10004,10005)."
+    "Phân tích quà tặng multi-SKU: số lượng, bill hợp lệ tối thiểu min_bill, top N bill. "
+    "Chuỗi tool: resolve_products → query_rows(STRANS, sku_ids) → "
+    "query_rows(TRANSHDR, min_amount từ brief) → top_n_per_group → export_excel. "
+    "Không nhúng SQL; filter values lấy từ brief (product_code, time_range, min_bill_value)."
 )
-
-SQL_TEMPLATES = [
-    (
-        "SELECT TOP 100 SKU_ID, SKU_CODE, FULL_NAME FROM SKU_DEF "
-        "WHERE SKU_CODE IN ({{sku_codes_padded}}) OR SKU_CODE LIKE '%{{user_code}}%'"
-    ),
-    (
-        "WITH valid_bills AS ("
-        " SELECT STK_ID, TRANS_NUM, "
-        " SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) AS BILL_VALUE "
-        " FROM STRANS "
-        " WHERE TRAN_DATE >= '{{date_start}}' AND TRAN_DATE < '{{date_end}}' "
-        " GROUP BY STK_ID, TRANS_NUM "
-        " HAVING SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) >= {{min_bill}}"
-        ") "
-        "SELECT s.SKU_ID, s.STK_ID, s.TRANS_NUM, s.QTY, s.AMOUNT, vb.BILL_VALUE, s.TRAN_DATE "
-        "FROM STRANS s INNER JOIN valid_bills vb "
-        " ON s.STK_ID = vb.STK_ID AND s.TRANS_NUM = vb.TRANS_NUM "
-        "WHERE s.SKU_ID IN ({{sku_ids}}) "
-        "AND s.TRAN_DATE >= '{{date_start}}' AND s.TRAN_DATE < '{{date_end}}'"
-    ),
-    (
-        "WITH ranked AS ("
-        " SELECT s.SKU_ID, s.STK_ID, s.TRANS_NUM, s.QTY, vb.BILL_VALUE, s.TRAN_DATE, "
-        " ROW_NUMBER() OVER (PARTITION BY s.SKU_ID ORDER BY s.TRAN_DATE DESC) AS rn "
-        " FROM STRANS s "
-        " INNER JOIN ("
-        "  SELECT STK_ID, TRANS_NUM, "
-        "  SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) AS BILL_VALUE "
-        "  FROM STRANS WHERE TRAN_DATE >= '{{date_start}}' AND TRAN_DATE < '{{date_end}}' "
-        "  GROUP BY STK_ID, TRANS_NUM "
-        "  HAVING SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) >= {{min_bill}}"
-        " ) vb ON s.STK_ID = vb.STK_ID AND s.TRANS_NUM = vb.TRANS_NUM "
-        " WHERE s.SKU_ID IN ({{sku_ids}}) "
-        " AND s.TRAN_DATE >= '{{date_start}}' AND s.TRAN_DATE < '{{date_end}}'"
-        ") SELECT * FROM ranked WHERE rn <= {{top_n}}"
-    ),
-]
 
 BRIEF_TEMPLATE = {
     "intent": "Phân tích {{product_count}} quà tặng: số lượng, bill >= {{min_bill}}, top {{top_n}} bill/SKU",
@@ -76,6 +36,13 @@ BRIEF_TEMPLATE = {
     "output_format": ["table"],
 }
 
+STAGES = [
+    {"stage_id": "ground", "goal": "Resolve product codes from brief"},
+    {"stage_id": "probe", "goal": "query_rows STRANS for resolved SKUs in time_range"},
+    {"stage_id": "narrow", "goal": "query_rows TRANSHDR with min_amount from brief"},
+    {"stage_id": "deliver", "goal": "top_n_per_group then export_excel"},
+]
+
 
 def main() -> None:
     load_project_env(ROOT)
@@ -85,10 +52,20 @@ def main() -> None:
     coll = db["case_studies"]
     embedder = EmbeddingClient()
     case_id = str(uuid4())
+    tool_chain = gift_bill_threshold_chain(
+        product_codes=["{{sku_codes}}"],
+        time_start="{{date_start}}",
+        time_end="{{date_end}}",
+        min_bill_value="{{min_bill}}",  # type: ignore[arg-type]
+        top_n=5,
+    )
     record = {
         "case_id": case_id,
+        "kind": "data_agent_chain",
         "brief_template": BRIEF_TEMPLATE,
-        "sql_template": SQL_TEMPLATES,
+        "sql_template": [],
+        "tool_chain": tool_chain,
+        "stages": STAGES,
         "text": CASE_TEXT,
         "status": "promoted",
         "correction_path": False,
@@ -102,9 +79,6 @@ def main() -> None:
             {"chunk_group": "column", "ref": "product_display_sku_code"},
             {"chunk_group": "column", "ref": "amount_bill_header"},
             {"chunk_group": "column", "ref": "amount_line_item"},
-            {"chunk_group": "column", "ref": "surplus"},
-            {"chunk_group": "column", "ref": "vat_amt"},
-            {"chunk_group": "column", "ref": "sale_line_document_type"},
             {"chunk_group": "column", "ref": "sale_document_number"},
             {"chunk_group": "column", "ref": "sale_line_quantity"},
             {"chunk_group": "column", "ref": "store_id_ref"},
@@ -118,7 +92,7 @@ def main() -> None:
         "embedding": embedder.embed([CASE_TEXT])[0],
     }
     coll.update_one({"source_trace_id": "seed-gift-bill"}, {"$set": record}, upsert=True)
-    print(f"Seeded case study case_id={case_id} status=promoted")
+    print(f"Seeded case study case_id={case_id} kind=data_agent_chain status=promoted")
 
 
 if __name__ == "__main__":

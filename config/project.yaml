@@ -10,6 +10,11 @@ pipeline:
   iv_max_steps: 8
   iv_max_planner_turns: 12
   iv_llm_enabled: true
+  # Flip true (or set DATA_AGENT_V2=1) to replace II→III→IV with Data Agent tool-loop.
+  data_agent_v2: true
+  data_agent_max_steps: 24
+  data_agent_max_planner_turns: 16
+  data_agent_max_fetch_calls: 24
   best_effort_on_exhaust: true
   poll_enabled: true
   workflow_stale_ttl_seconds: 900
@@ -35,6 +40,7 @@ budget:
     II: 24
     III: 18
     IV: 4
+    DATA: 20
   max_tokens_per_trace: 800000
 
 policy:

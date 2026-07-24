@@ -88,3 +88,16 @@ User thường không hiểu format mã trong DB:
 Join path: user barcode → `BARCODE` → `SKU_ID` → `STRANS.SKU_ID`.
 
 Khi query chính trả 0 dòng nhưng probe master có kết quả → **identifier mismatch**, không phải “không bán”.
+
+### Tên hiển thị (`SKU_DEF.FULL_NAME`) vs loại hàng
+
+- Prefix / từ trong `FULL_NAME` (vd. ký hiệu khuyến mãi trên nhãn) **không** phải ontology “loại hàng” ổn định.
+- Khi user đã đưa `SKU_CODE` / mã SP: lấy hàng theo mã; **không** suy type từ chuỗi tên.
+- “Quà tặng” / gift / khuyến mãi: ưu tiên cột / rule trong dictionary (AMOUNT dòng, GDISC/GCOMM, …) hoặc hỏi clarify khi **không** có mã và schema không có cột type — không map từ prefix tên.
+
+## Tên hiển thị vs loại hàng (quà / KM)
+
+- `SKU_DEF.FULL_NAME` là **tên hiển thị**, không phải ontology loại hàng.
+- Prefix / substring trên tên (vd. mã ngắn kiểu KM, chữ “quà”, …) **không** đủ để khẳng định product type.
+- Khi user đã chỉ `SKU_CODE` / product code: resolve theo mã là đủ; soft phrase (“dạng quà tặng”) chỉ là ngữ cảnh — xác nhận type qua cột dictionary / clarify khi **không** có mã hoặc resolve đa nghĩa.
+- Dòng quà/KM trên fact: xem mô tả cột `AMOUNT` (có thể 0), `GDISC_*` / `GCOMM_*`, và glossary TRANS_CODE khi brief yêu cầu loại chứng từ — không suy từ `FULL_NAME` alone.

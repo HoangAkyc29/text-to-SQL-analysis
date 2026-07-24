@@ -47,6 +47,8 @@ class HttpAgentInvoker(AgentInvoker):
             "II": os.getenv("AGENT_II_URL", "http://localhost:18202"),
             "III": os.getenv("AGENT_III_URL", "http://localhost:18203"),
             "IV": os.getenv("AGENT_IV_URL", "http://localhost:18204"),
+            "DATA": os.getenv("AGENT_DATA_URL", "http://localhost:18206"),
+            "TOOL_SELECTOR": os.getenv("AGENT_TOOL_SELECTOR_URL", "http://localhost:18205"),
         }
         self._client = client
         self._owns_client = client is None
@@ -78,7 +80,11 @@ class HttpAgentInvoker(AgentInvoker):
             session_id=metadata.get("session_id", "system"),
             actor_id=metadata.get("actor_id", "system"),
             message=dumps_agent_payload(payload),
-            metadata=metadata,
+            metadata={
+                **metadata,
+                **({"trace_id": self._trace_id} if self._trace_id else {}),
+                **({"analysis_id": self._analysis_id} if self._analysis_id else {}),
+            },
         )
         headers = {**internal_auth_headers()}
         if self._trace_id:

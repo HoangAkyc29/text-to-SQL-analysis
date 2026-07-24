@@ -7,6 +7,8 @@ agent_profiles:
   sql_planner: openrouter_fast
   risk_reviewer: openrouter_fast
   analyst: openrouter_fast
+  data_agent: openrouter_fast
+  tool_selector: openrouter_fast
   analyst_vision: openrouter_vision
   embed: openrouter_embed
 

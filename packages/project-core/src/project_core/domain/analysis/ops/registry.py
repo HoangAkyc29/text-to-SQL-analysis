@@ -67,7 +67,7 @@ REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
     "select_columns": ("dataset", "columns"),
     "rename_columns": ("dataset", "mapping"),
     "drop_columns": ("dataset", "columns"),
-    "cast_column": ("dataset", "column", "to"),
+    "cast_column": ("dataset", "column"),
     "add_column_expr": ("dataset", "name", "expr"),
     "fill_null": ("dataset",),
     "drop_null": ("dataset",),
@@ -102,6 +102,11 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "column": ("column_name", "columns"),
         "to": ("dtype", "target_type", "type"),
     },
+    "filter_rows": {
+        "clauses": ("conditions", "filters", "predicates"),
+        "column": ("column_name", "col", "field"),
+        "op": ("operator", "cmp", "predicate"),
+    },
     "groupby_agg": {
         "by": ("group_by", "groupby"),
         "aggs": ("aggregations", "aggregate"),
@@ -116,6 +121,22 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "order_by": ("sort_by", "order", "column"),
     },
     "plot_chart": {"x": ("x_column",), "y": ("y_column", "value_column")},
+    "export_excel": {
+        "dataset": ("data", "source", "frame", "table", "ref"),
+        "filename": ("path", "file", "file_name", "name", "output"),
+        "sheets": ("sheet_map", "workbook"),
+    },
+    "export_csv": {
+        "dataset": ("data", "source", "frame", "table", "ref"),
+        "filename": ("path", "file", "file_name", "name", "output"),
+    },
+    "join_datasets": {
+        "left": ("left_dataset", "left_dataset_name", "left_ref", "lhs"),
+        "right": ("right_dataset", "right_dataset_name", "right_ref", "rhs"),
+        "on": ("join_on", "keys", "key"),
+        "left_on": ("left_key", "left_keys"),
+        "right_on": ("right_key", "right_keys"),
+    },
 }
 
 MUTATING_OPS = {

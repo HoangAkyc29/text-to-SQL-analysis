@@ -23,3 +23,22 @@ def test_extract_links_from_gift_bill_sql():
     refs = {(l["chunk_group"], l["ref"]) for l in links}
     assert ("column", "sku_id") in refs or ("column", "sku_code") in refs
     assert ("table", "db2:strans") in refs or ("table", "strans") in refs
+
+
+def test_extract_links_from_tool_chain():
+    catalog = ColumnSemanticCatalog.from_columns_dir(ROOT / "data_dictionary" / "columns")
+    chain = [
+        {
+            "kind": "fetch",
+            "tool_id": "query_rows",
+            "args": {
+                "table": "TRANSHDR",
+                "filters": [{"column": "AMOUNT", "op": "gte", "value": 600000}],
+                "time_range": {"start": "2026-07-01", "end": "2026-07-06"},
+            },
+            "save_as": "bill_headers",
+        }
+    ]
+    links = extract_case_study_links(tool_chain=chain, column_catalog=catalog)
+    refs = {(l["chunk_group"], l["ref"]) for l in links}
+    assert ("table", "db2:transhdr") in refs or ("table", "transhdr") in refs

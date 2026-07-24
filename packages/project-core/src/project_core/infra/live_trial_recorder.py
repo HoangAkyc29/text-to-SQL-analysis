@@ -101,20 +101,38 @@ def export_trial_bundle(
     ]
     file_log = recorder.read(analysis_id)
     audit_hits: list[dict[str, Any]] = []
-    legacy_id = job.legacy_analysis_id
+    legacy_id = getattr(job, "legacy_analysis_id", None) or (job.model_dump().get("legacy_analysis_id") if hasattr(job, "model_dump") else None)
+    job_trace = getattr(job, "trace_id", None) or (job.model_dump().get("trace_id") if hasattr(job, "model_dump") else None)
     path = Path(
         audit_path
         or os.getenv("SQL_AUDIT_LOG_PATH")
         or Path(os.getenv("AGENT_DATA_DIR", "data")) / "state" / "audit.jsonl"
     )
-    if path.exists() and legacy_id:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if legacy_id not in line and analysis_id not in line:
+    match_ids = {str(x) for x in (analysis_id, legacy_id, job_trace) if x}
+    if path.exists() and match_ids:
+        # Prefer recent matches; keep bound for large audit files.
+        hits: list[dict[str, Any]] = []
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+        for line in lines[-8000:]:
+            if not any(mid in line for mid in match_ids):
                 continue
             try:
-                audit_hits.append(sanitize_public_data(json.loads(line)))
+                hits.append(sanitize_public_data(json.loads(line)))
             except json.JSONDecodeError:
                 continue
+        # Prefer Data Agent / Tool-Selector events first for trial UI.
+        priority = {
+            "data_agent_summary": 0,
+            "data_agent_turn": 1,
+            "tool_selector_suggest": 2,
+            "workflow_timing": 3,
+            "schema_retrieve": 4,
+        }
+        hits.sort(key=lambda e: priority.get(str(e.get("event_type") or ""), 99))
+        audit_hits = hits[:400]
     return {
         "exported_at": utc_now_iso(),
         "analysis_id": analysis_id,

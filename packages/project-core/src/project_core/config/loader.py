@@ -20,6 +20,11 @@ class PipelineConfig(BaseModel):
     iv_max_steps: int = 8
     iv_max_planner_turns: int = 12
     iv_llm_enabled: bool = True
+    # When true, replace II→III→IV SQL loop with Data Agent fetch+ops brain.
+    data_agent_v2: bool = False
+    data_agent_max_steps: int = 24
+    data_agent_max_planner_turns: int = 16
+    data_agent_max_fetch_calls: int = 24
     best_effort_on_exhaust: bool = True
     poll_enabled: bool = True
     workflow_stale_ttl_seconds: int = 900

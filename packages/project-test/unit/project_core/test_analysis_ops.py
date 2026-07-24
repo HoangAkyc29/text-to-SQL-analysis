@@ -47,6 +47,76 @@ def test_catalog_has_expected_ops():
     assert len(ids) >= 35
 
 
+def test_groupby_agg_accepts_llm_agg_shapes(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    # dict-of-list shape that previously raised: 'str' object has no attribute 'get'
+    r1 = execute_op(
+        working,
+        "groupby_agg",
+        {
+            "dataset": "q0",
+            "save_as": "by_sku_dict",
+            "by": ["SKU_CODE"],
+            "aggs": {"qty_sum": ["QTY", "sum"], "amt_sum": ["BillAmount", "sum"]},
+        },
+        out_dir=out_dir,
+    )
+    assert r1.status == "ok", r1.error
+    # list-of-list shape
+    r2 = execute_op(
+        working,
+        "groupby_agg",
+        {
+            "dataset": "q0",
+            "save_as": "by_sku_lol",
+            "by": ["SKU_CODE"],
+            "aggs": [["QTY", "sum", "qty_sum"]],
+        },
+        out_dir=out_dir,
+    )
+    assert r2.status == "ok", r2.error
+    # func/new_column_name aliases
+    r3 = execute_op(
+        working,
+        "groupby_agg",
+        {
+            "dataset": "q0",
+            "save_as": "by_sku_alias",
+            "by": ["SKU_CODE"],
+            "aggs": [
+                {"column": "QTY", "func": "sum", "new_column_name": "qty_sum"},
+            ],
+        },
+        out_dir=out_dir,
+    )
+    assert r3.status == "ok", r3.error
+
+
+def test_filter_rows_expands_dataset_column_ref(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    working.save_frame(
+        "resolved_products",
+        pd.DataFrame({"SKU_ID": ["x1", "x2"], "SKU_CODE": ["A", "B"]}),
+        role="catalog",
+    )
+    r = execute_op(
+        working,
+        "filter_rows",
+        {
+            "dataset": "q0",
+            "save_as": "matched",
+            "clauses": [
+                {"column": "SKU_CODE", "operator": "in", "value": "resolved_products.SKU_CODE"},
+            ],
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert r.result["row_count"] == 5  # all A/B rows in fixture
+
+
 def test_filter_and_groupby_export(ws):
     working, out_dir = ws
     out_dir.mkdir(parents=True)
@@ -80,6 +150,74 @@ def test_filter_and_groupby_export(ws):
     assert r3.status == "ok"
     assert Path(r3.result["path"]).exists()
     assert working.artifact_paths
+
+
+def test_filter_rows_accepts_conditions_and_operator_aliases(ws):
+    """LLM often emits conditions+operator instead of clauses+op."""
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "filter_rows",
+        {
+            "dataset": "q0",
+            "save_as": "named_a",
+            "conditions": [
+                {"column": "SKU_CODE", "operator": "eq", "value": "A"},
+            ],
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert r.result["row_count"] == 2
+    r2 = execute_op(
+        working,
+        "filter_rows",
+        {
+            "dataset": "q0",
+            "save_as": "contains_b",
+            "conditions": [
+                {"column": "SKU_CODE", "operator": "contains", "value": "B"},
+            ],
+        },
+        out_dir=out_dir,
+    )
+    assert r2.status == "ok", r2.error
+    assert r2.result["row_count"] == 3
+
+
+def test_filter_rows_top_level_op_or_combines_clauses(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "filter_rows",
+        {
+            "dataset": "q0",
+            "save_as": "a_or_b",
+            "clauses": [
+                {"column": "SKU_CODE", "op": "eq", "value": "A"},
+                {"column": "SKU_CODE", "op": "eq", "value": "B"},
+            ],
+            "op": "OR",
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert r.result["row_count"] == 5
+
+
+def test_export_excel_accepts_data_and_path_aliases(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "export_excel",
+        {"data": "q0", "path": "gift_bills.xlsx"},
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert Path(r.result["path"]).exists()
 
 
 def test_top_n_per_group(ws):

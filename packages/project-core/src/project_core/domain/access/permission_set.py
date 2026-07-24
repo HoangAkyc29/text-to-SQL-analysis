@@ -60,6 +60,15 @@ AGENT_TOOLS: dict[str, tuple[str, ...]] = {
         "load_dataset",
         "merge_datasets",
     ),
+    # Data Agent (v2): ops + fetch (fetch is in-process; still needs execute grant).
+    "DATA": (
+        "run_analysis_op",
+        "execute_readonly",
+        "export_excel",
+        "plot_chart",
+        "load_dataset",
+        "merge_datasets",
+    ),
 }
 
 

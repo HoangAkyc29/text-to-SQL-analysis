@@ -1,0 +1,31 @@
+ARCHIVED AGENTS
+===============
+
+This folder holds supermarket agents that are NO LONGER wired into the live
+analysis path after the MCP + Tool-Selector redesign.
+
+Packages here
+-------------
+- sql-planner/     Former Agent II — authored free-form SELECT plans (select_tables / plan_sql).
+- risk-reviewer/   Former Agent III — risk-reviewed SQL before execute_readonly.
+- data-analyst/    Former Agent IV — analyzed parquet extracts / legacy IV brain.
+                   Also previously hosted data_agent_guide.md used by in-process Data Agent v2.
+- base-agent/      Scaffold template (not used in supermarket compose).
+- base-runner/     Batch graph runner scaffold (not used in supermarket compose).
+
+Why archived
+------------
+- Live path: Agent I (conversational-router) + chat-gateway pipeline +
+  agents/data-agent + agents/tool-selector.
+- Tools run via MCP stdio packages under mcp-servers/ (product-lookup, data-query,
+  dataframe-ops, deliverables). Agents must not call sql-gateway tools directly;
+  data-query / product-lookup call sql-gateway internally.
+- Free SQL from LLMs is retired for the Data Agent path (Flexible Parameter Patterns).
+
+Do NOT
+------
+- Add these packages back to docker-compose or platform-supermarket.yaml without an
+  explicit product decision to revive the classic II→III→IV loop.
+- Copy domain SQL recipes from archived skills into new MCP skill markdown.
+
+Historical reference only.

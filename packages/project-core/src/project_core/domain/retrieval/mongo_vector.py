@@ -437,6 +437,9 @@ class MongoVectorRetriever(Retriever):
                                 "schema_version",
                                 "links",
                                 "topology",
+                                "tool_chain",
+                                "stages",
+                                "kind",
                             )
                             if doc.get(key) is not None
                         }
@@ -601,6 +604,9 @@ class HierarchicalSchemaRetriever:
                 "text": c.text,
                 "score": round(c.score, 4),
                 "links": links,
+                "tool_chain": list(c.metadata.get("tool_chain") or [])[:12],
+                "stages": list(c.metadata.get("stages") or [])[:12],
+                "kind": c.metadata.get("kind"),
                 "provenance": {
                     "case_id": c.metadata.get("case_id"),
                     "analysis_id": c.metadata.get("analysis_id"),

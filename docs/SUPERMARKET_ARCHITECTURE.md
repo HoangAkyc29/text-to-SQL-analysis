@@ -62,9 +62,11 @@ Service-to-service: `INTERNAL_SERVICE_TOKEN` khi `REQUIRE_INTERNAL_AUTH=1`.
 
 1. User → `POST /chat` (Bearer JWT)
 2. Agent I ingress → `route=analysis` + best-effort brief
-3. `SupermarketAnalysisPipeline`: II plan → Policy → III risk → execute (per `target_db`) → IV analyze
-4. II may `clarify` → I `clarification_bridge` → auto-resolve or MCQ
-5. `FeedbackLoop.on_pipeline_complete` stages case studies on success
+3. `SupermarketAnalysisPipeline`:
+   - **Legacy:** II plan → Policy → III risk → execute → IV analyze
+   - **Data Agent v2** (`pipeline.data_agent_v2` or `DATA_AGENT_V2=1`): single Data Agent loop — parameterized **fetch tools** + catalog ops (no LLM SQL). See `domain/data_fetch` + `data_agent_brain`.
+4. Clarify → I `clarification_bridge` → auto-resolve or MCQ
+5. `FeedbackLoop.on_pipeline_complete` stages case studies / tool_chain recipes on success
 
 ## Dev
 

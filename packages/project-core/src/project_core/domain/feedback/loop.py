@@ -35,22 +35,36 @@ class CaseStudyIndexer:
         links: list[dict[str, str]] | None = None,
         schema_version: str | None = None,
         topology: dict[str, Any] | None = None,
+        tool_chain: list[dict[str, Any]] | None = None,
+        stages: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         brief_data = brief.model_dump()
         brief_template = parameterize_brief_values(brief_data)
-        text = " ".join(
-            str(part)
-            for part in (
-                brief_template.get("intent"),
-                f"metrics={','.join(str(v) for v in brief_template.get('metrics') or [])}",
-                f"outputs={','.join(str(v) for v in brief_template.get('output_format') or [])}",
-            )
-            if part
-        )
-        return {
+        chain = list(tool_chain or [])
+        stage_trail = list(stages or [])
+        text_parts = [
+            brief_template.get("intent"),
+            f"metrics={','.join(str(v) for v in brief_template.get('metrics') or [])}",
+            f"outputs={','.join(str(v) for v in brief_template.get('output_format') or [])}",
+        ]
+        if chain:
+            # Describe fetch/op chain for RAG — never embed executable SQL.
+            tools = []
+            for step in chain:
+                tid = step.get("tool_id") or step.get("op_id")
+                if tid:
+                    kind = step.get("kind") or ("fetch" if step.get("tool_id") else "op")
+                    tools.append(f"{kind}:{tid}")
+            text_parts.append("tool_chain=" + ",".join(tools))
+        if stage_trail:
+            goals = [str(s.get("goal") or "")[:80] for s in stage_trail if isinstance(s, dict)]
+            text_parts.append("stages=" + " > ".join(g for g in goals if g))
+        text = " ".join(str(part) for part in text_parts if part)
+        record: dict[str, Any] = {
             "case_id": str(uuid4()),
             "brief_template": brief_template,
-            "sql_template": [parameterize_sql(s) for s in approved_sql],
+            # Legacy field: empty when Data Agent staged a tool_chain instead.
+            "sql_template": [parameterize_sql(s) for s in approved_sql] if approved_sql else [],
             "text": text,
             "links": links or [],
             "correction_path": correction_path,
@@ -65,6 +79,14 @@ class CaseStudyIndexer:
             "topology": dict(topology or {}),
             "created_at": datetime.now(UTC),
         }
+        if chain:
+            record["kind"] = "data_agent_chain"
+            record["tool_chain"] = chain
+            record["sql_template"] = []  # Explicit: no executable SQL in case study.
+        if stage_trail:
+            record["stages"] = stage_trail
+        return record
+
 
     def stage(self, record: dict[str, Any], *, embedding: list[float] | None = None) -> str:
         if embedding:
@@ -120,15 +142,18 @@ class FeedbackLoop:
                 )
             return
         brief = trace_artifacts.get("brief")
-        approved_sql = trace_artifacts.get("approved_sql") or []
-        if not brief or not approved_sql:
+        approved_sql = list(trace_artifacts.get("approved_sql") or [])
+        tool_chain = list(trace_artifacts.get("tool_chain") or [])
+        stages = list(trace_artifacts.get("stages") or [])
+        if not brief or (not approved_sql and not tool_chain):
             return
         correction_path = bool(trace_artifacts.get("correction_path"))
         sql_attempt = int(trace_artifacts.get("sql_attempt") or 1)
         links = trace_artifacts.get("links")
-        if not links:
+        if not links and (approved_sql or tool_chain):
             links = extract_case_study_links(
                 approved_sql=approved_sql,
+                tool_chain=tool_chain,
                 schema_tables_used=trace_artifacts.get("schema_tables_used"),
                 semantic_keys_used=trace_artifacts.get("semantic_keys_used"),
                 column_catalog=self.column_catalog,
@@ -147,6 +172,8 @@ class FeedbackLoop:
             links=links,
             schema_version=trace_artifacts.get("schema_version"),
             topology=trace_artifacts.get("topology") or trace_artifacts.get("shard_plan"),
+            tool_chain=tool_chain or None,
+            stages=stages or None,
         )
         embedding = None
         if self.embed_fn:
@@ -220,7 +247,7 @@ class FeedbackLoop:
         topology: dict[str, Any] | None = None,
         trace_id: str | None = None,
     ) -> dict[str, Any] | list[Any]:
-        if not self.retriever or agent != "II":
+        if not self.retriever or agent not in {"II", "DATA"}:
             return {}
         filters: dict[str, Any] = {
             "actor_id": actor_id,

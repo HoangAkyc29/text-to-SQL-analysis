@@ -44,12 +44,70 @@ class AnalysisToolRegistry:
     def find_promoted(self, limit: int = 50) -> list[dict[str, Any]]:
         query = {
             "status": "promoted",
-            "kind": "catalog_op_chain",
+            "kind": {"$in": ["catalog_op_chain", "data_agent_chain"]},
             "compatibility_version": 2,
         }
         cursor = self.collection.find(query)
         tools = list(cursor.limit(limit)) if hasattr(cursor, "limit") else list(cursor)[:limit]
-        return [tool for tool in tools if is_recipe_v2(tool)]
+        return [tool for tool in tools if is_recipe_v2(tool) or tool.get("kind") == "data_agent_chain"]
+
+    def stage_data_agent_chain(
+        self,
+        *,
+        name: str,
+        intent_pattern: str,
+        steps: list[dict[str, Any]],
+        actor_id: str = "system",
+        status: str = "staged",
+    ) -> dict[str, Any]:
+        """Stage a Data Agent recipe: mix of fetch tools + catalog ops (no SQL strings)."""
+        cleaned: list[dict[str, Any]] = []
+        for step in steps or []:
+            kind = str(step.get("kind") or step.get("tool") or "op").strip().lower()
+            if kind in {"fetch", "data_fetch"}:
+                tool_id = str(step.get("tool_id") or "").strip()
+                if not tool_id:
+                    continue
+                cleaned.append(
+                    {
+                        "kind": "fetch",
+                        "server": step.get("server"),
+                        "tool_id": tool_id,
+                        "args": dict(step.get("args") or {}),
+                        "save_as": step.get("save_as"),
+                    }
+                )
+            else:
+                op_id = str(step.get("op_id") or step.get("tool_id") or "").strip()
+                if not op_id:
+                    continue
+                cleaned.append(
+                    {
+                        "kind": "op",
+                        "server": step.get("server"),
+                        "op_id": op_id,
+                        "tool_id": op_id,
+                        "args": dict(step.get("args") or {}),
+                        "dataset": step.get("dataset"),
+                        "save_as": step.get("save_as"),
+                    }
+                )
+        if not cleaned:
+            raise ValueError("data_agent_chain_requires_steps")
+        record = {
+            "tool_id": f"data_agent::{name}",
+            "name": name,
+            "kind": "data_agent_chain",
+            "compatibility_version": 2,
+            "status": status,
+            "intent_pattern": intent_pattern,
+            "steps": cleaned,
+            "actor_id": actor_id,
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        self._attach_embedding(record)
+        self.collection.insert_one(record)
+        return record
 
     def _query_embedding(self, intent: str) -> list[float] | None:
         if not self.embed_fn:

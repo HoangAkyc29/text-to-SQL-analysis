@@ -1,5 +1,5 @@
 ---
-description: Never hardcode domain SQL recipes into agents; keep reasoning in LLM + RAG
+description: Never hardcode domain SQL recipes into agents; keep reasoning in LLM + RAG / DataFetch tools
 alwaysApply: true
 ---
 
@@ -8,30 +8,33 @@ alwaysApply: true
 ## Absolute bans (this repo)
 
 1. **Do not** put retail/domain SQL recipes into agent skill prompts (`agents/*/skills/**`), system guides, or TOOLS.md — e.g. `TRANS_CODE='113'`, gift/bill 600k SQL, pad-SKU recipes, ready-made `SELECT … WHERE …`.
-2. **Do not** inject ready-made SQL into Agent II/III/IV inboxes: no `suggested_sql`, no `sql_predicate`, no pre-built `probe_sql` in `schema_context` / `data_feedback` for production LLM runs.
+2. **Do not** inject ready-made SQL into Agent II/III/IV / Data Agent inboxes: no `suggested_sql`, no `sql_predicate`, no pre-built `probe_sql` in `schema_context` / `data_feedback` for production LLM runs.
 3. **Do not** write Cursor/developer self-notes into agent prompts (e.g. “never expect pipeline to hand you SQL”). That guidance is for the coding agent only — put it in `.cursor/rules/`, not in `skills/`.
 4. **Do not** “fix” prod by copying trial cases (specific SKUs, dates, bill thresholds as SQL) into skills or pipeline helpers.
+5. **Do not** store executable SQL strings in Mongo case studies / recipes for Data Agent — use `data_agent_chain` (fetch tool_id + args templates + catalog ops).
 
 ## Where domain knowledge / grounding belongs
 
 - `data_dictionary/` (tables, columns, domain_definitions)
-- **`data_dictionary/table_samples/{db1|db2}/*.json`** — static 5-row samples; pipeline loads them into `inbox.table_samples` after `select_tables` so Agent II `plan_sql` can see real grain, columns, and value shapes (**do use this path; do not replace it with hardcoded SQL**)
-- **db1 monthly shards** — expand at runtime from `shard_range.from` → `archive_newest_ym` (month before rolling cutoff). Do **not** freeze `to` / full `physical_tables` lists for `STRANS`/`PMTRANS` in YAML
-- RAG / case studies (Mongo), parameterized by the LLM
-- Brief fields from Agent I (e.g. `filters.min_bill_value` from user speech) — values, not SQL
+- **`data_dictionary/table_samples/{db1|db2}/*.json`** — static 5-row samples (legacy II path + Data Agent grounding)
+- **`project_core.domain.data_fetch`** — parameterized SQL **only inside coded fetch handlers** (LLM never authors/edits SQL)
+- **db1 monthly shards** — expand at runtime from `shard_range.from` → `archive_newest_ym`
+- RAG / case studies (Mongo) as **tool_chain** descriptions, parameterized by the LLM
+- Brief fields from Agent I — values, not SQL
 
-## Topology naming (Agent II)
+## Topology naming
 
 - **db2** recent/live facts: bare names only (`STRANS`, `PMTRANS`, `TRANSHDR`) — never `_YYYYMM`
-- **db1** history: `STRANS_YYYYMM` / `PMTRANS_YYYYMM` only when `shard_plan.needs_db1`; prefer `shard_plan.shards`
+- **db1** history: `STRANS_YYYYMM` / `PMTRANS_YYYYMM` only when `shard_plan.needs_db1`
 
 ## What is allowed
 
-- **Meta format rules** without business recipes, e.g. text filters use `LOWER(col) LIKE '%' + LOWER('<literal>') + '%'` with placeholders — no concrete product codes.
-- **Topology/policy**: db1/db2, no `db2.dbo.` prefix, allowlist tables, readonly SELECT.
-- **`ALLOW_LLM_STUB=1` / unit-test stubs** may contain deterministic SQL, but must stay behind the stub gate and must not be copied into skill prompts or prod hint injection.
+- **Meta format rules** without business recipes (LIKE/LOWER placeholders).
+- **Topology/policy**: db1/db2, allowlist tables, readonly SELECT.
+- **SQL inside `data_fetch/builders.py` + unit tests** behind PolicyEngine — not in skills.
+- **`ALLOW_LLM_STUB=1` / unit-test stubs** may contain deterministic behavior behind the stub gate.
 
 ## If unsure
 
-Prefer: dictionary + **`inbox.table_samples`** + RAG; agent writes SQL.  
-Never: paste a working trial query into a skill or `suggested_sql`.
+Prefer: dictionary + fetch tools + `inbox`/working-set samples + RAG; **handlers** write SQL.  
+Never: paste a working trial query into a skill, case study executable SQL, or `suggested_sql`.

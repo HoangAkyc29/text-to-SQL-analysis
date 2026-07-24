@@ -6,13 +6,20 @@ from typing import Any
 
 
 INCOMPATIBLE_RECIPE_QUERY: dict[str, Any] = {
-    "$or": [
-        {"kind": {"$ne": "catalog_op_chain"}},
-        {"compatibility_version": {"$ne": 2}},
-        {"op_chain": {"$in": [None, []]}},
-        {"script_template": {"$nin": [None, ""]}},
+    "$and": [
+        # Preserve Data Agent tool_chain recipes (fetch+ops, no SQL).
+        {"kind": {"$ne": "data_agent_chain"}},
+        {
+            "$or": [
+                {"kind": {"$ne": "catalog_op_chain"}},
+                {"compatibility_version": {"$ne": 2}},
+                {"op_chain": {"$in": [None, []]}},
+                {"script_template": {"$nin": [None, ""]}},
+            ]
+        },
     ]
 }
+
 
 
 def cleanup_incompatible_analysis_tools(

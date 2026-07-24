@@ -142,7 +142,13 @@ class OpenRouterClient:
         try:
             data = response.json()
         except ValueError as exc:
-            raise LLMProviderError("OpenRouter returned invalid JSON") from exc
+            # HTTP 200 with a truncated/garbled body is transient (proxy/upstream).
+            # Treat like 5xx so tenacity retries instead of failing Agent I hard.
+            preview = (response.text or "")[:200].replace("\n", "\\n")
+            raise _RetryableProviderError(
+                f"OpenRouter returned invalid JSON body (len={len(response.text or '')}, "
+                f"preview={preview!r})"
+            ) from exc
         if not isinstance(data, dict):
-            raise LLMProviderError("OpenRouter returned a non-object response")
+            raise _RetryableProviderError("OpenRouter returned a non-object response")
         return data

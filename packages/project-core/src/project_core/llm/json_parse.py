@@ -55,14 +55,35 @@ def extract_llm_json(text: str) -> dict[str, Any]:
         start = raw.find("{")
         end = raw.rfind("}")
         if start < 0 or end <= start:
-            raise LLMProviderError(f"LLM returned non-JSON content: {raw[:300]}") from None
-        try:
-            data = json.loads(raw[start : end + 1])
-        except json.JSONDecodeError as exc:
-            raise LLMProviderError(f"LLM returned invalid JSON: {raw[:300]}") from exc
+            # Some models emit Python-literal dicts with single quotes.
+            data = _try_literal_dict(raw)
+            if data is None:
+                raise LLMProviderError(f"LLM returned non-JSON content: {raw[:300]}") from None
+        else:
+            snippet = raw[start : end + 1]
+            try:
+                data = json.loads(snippet)
+            except json.JSONDecodeError as exc:
+                data = _try_literal_dict(snippet) or _try_literal_dict(raw)
+                if data is None:
+                    raise LLMProviderError(f"LLM returned invalid JSON: {raw[:300]}") from exc
     if not isinstance(data, dict):
         raise LLMProviderError("LLM JSON payload must be an object")
     return data
+
+
+def _try_literal_dict(raw: str) -> dict[str, Any] | None:
+    """Best-effort parse of single-quoted / Python-literal object payloads."""
+    import ast
+
+    text = (raw or "").strip()
+    if not text or text[0] not in "{[":
+        return None
+    try:
+        value = ast.literal_eval(text)
+    except (SyntaxError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def parse_llm_json(result: ChatCompletionResult) -> dict[str, Any]:

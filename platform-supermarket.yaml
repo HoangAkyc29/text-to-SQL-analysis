@@ -1,5 +1,5 @@
 # Supermarket platform wiring — agents, MCP servers, memory
-# Pipeline-centric: agents return JSON; chat-gateway + SupermarketAnalysisPipeline execute MCP tools.
+# Data Agent + Tool-Selector; tools via MCP stdio (except trivial native helpers).
 
 memory:
   stm:
@@ -12,18 +12,33 @@ memory:
   checkpoint_db_path: ./data/checkpoints.db
 
 mcp_servers:
-  # Tool ownership: executed by pipeline/gateway (HttpSqlGatewayClient, python_sandbox), not agent ReAct loops.
+  product-lookup:
+    prefix: product
+    transport: stdio
+    command: uv
+    args: ["run", "--directory", "mcp-servers/product-lookup", "product-lookup"]
+  data-query:
+    prefix: query
+    transport: stdio
+    command: uv
+    args: ["run", "--directory", "mcp-servers/data-query", "data-query"]
+  dataframe-ops:
+    prefix: ops
+    transport: stdio
+    command: uv
+    args: ["run", "--directory", "mcp-servers/dataframe-ops", "dataframe-ops"]
+  deliverables:
+    prefix: deliver
+    transport: stdio
+    command: uv
+    args: ["run", "--directory", "mcp-servers/deliverables", "deliverables"]
+  # Infrastructure only — agents must not list this in mcp_servers.
   sql-gateway:
     prefix: sql
     transport: sse
     url_env: SQL_GATEWAY_URL
     command: uv
     args: ["run", "sql-gateway"]
-  python-sandbox:
-    prefix: sandbox
-    transport: stdio
-    command: uv
-    args: ["run", "python-sandbox"]
 
 agents:
   conversational-router:
@@ -32,24 +47,18 @@ agents:
     mcp_servers: []
     skill: router
     endpoint_env: AGENT_I_URL
-  sql-planner:
-    capabilities: [sql_plan, clarify]
-    factory: sql_planner.service:build_service
-    mcp_servers: []  # pipeline executes sql-gateway; reference only in skills/TOOLS.md
-    skill: sql_planner
-    endpoint_env: AGENT_II_URL
-  risk-reviewer:
-    capabilities: [risk_review]
-    factory: risk_reviewer.service:build_service
-    mcp_servers: []  # explain_sql invoked by pipeline when III requests
-    skill: risk_reviewer
-    endpoint_env: AGENT_III_URL
-  data-analyst:
-    capabilities: [analytics]
-    factory: data_analyst.service:build_service
-    mcp_servers: []  # sandbox tools run in pipeline process
-    skill: analyst
-    endpoint_env: AGENT_IV_URL
+  tool-selector:
+    capabilities: [tool_select]
+    factory: tool_selector.service:build_service
+    mcp_servers: []
+    skill: tool_selector
+    endpoint_env: AGENT_TOOL_SELECTOR_URL
+  data-agent:
+    capabilities: [analytics, data_fetch]
+    factory: data_agent.service:build_service
+    mcp_servers: [product-lookup, data-query, dataframe-ops, deliverables]
+    skill: data_agent
+    endpoint_env: AGENT_DATA_URL
 
 orchestration:
   type: pipeline

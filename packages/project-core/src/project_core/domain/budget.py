@@ -12,7 +12,7 @@ from project_core.domain.errors.codes import BudgetExceededError
 
 @dataclass
 class TraceBudget:
-    spent: dict[str, int] = field(default_factory=lambda: {"I": 0, "II": 0, "III": 0, "IV": 0, "tokens": 0})
+    spent: dict[str, int] = field(default_factory=lambda: {"I": 0, "II": 0, "III": 0, "IV": 0, "DATA": 0, "tokens": 0})
 
     def charge(self, agent: str, *, calls: int = 1, tokens: int = 0) -> None:
         self.spent[agent] = self.spent.get(agent, 0) + calls

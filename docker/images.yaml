@@ -24,43 +24,63 @@ services:
     package: base-mcp-server
     dockerfile: mcp-servers/base-mcp-server/Dockerfile
     port: 8100
-  base-agent:
-    base: agent
-    package: base-agent
-    dockerfile: agents/base-agent/Dockerfile
-    port: 8200
-  base-runner:
-    base: agent
-    package: base-runner
-    dockerfile: agents/base-runner/Dockerfile
-    compose_profile: runner
   sql-gateway:
     base: mcp
     package: sql-gateway
     dockerfile: mcp-servers/sql-gateway/Dockerfile
     port: 18101
+  product-lookup:
+    base: mcp
+    package: product-lookup
+    compose_profile: mcp-stdio
+  data-query:
+    base: mcp
+    package: data-query
+    compose_profile: mcp-stdio
+  dataframe-ops:
+    base: mcp
+    package: dataframe-ops
+    compose_profile: mcp-stdio
+  deliverables:
+    base: mcp
+    package: deliverables
+    compose_profile: mcp-stdio
   conversational-router:
     base: agent
     package: conversational-router
     dockerfile: agents/conversational-router/Dockerfile
     port: 18201
-  sql-planner:
+  tool-selector:
     base: agent
-    package: sql-planner
-    dockerfile: agents/sql-planner/Dockerfile
-    port: 18202
-  risk-reviewer:
+    package: tool-selector
+    dockerfile: agents/tool-selector/Dockerfile
+    port: 18205
+  data-agent:
     base: agent
-    package: risk-reviewer
-    dockerfile: agents/risk-reviewer/Dockerfile
-    port: 18203
-  data-analyst:
-    base: agent
-    package: data-analyst
-    dockerfile: agents/data-analyst/Dockerfile
-    port: 18204
+    package: data-agent
+    dockerfile: agents/data-agent/Dockerfile
+    port: 18206
   chat-gateway:
     base: agent
     package: chat-gateway
     dockerfile: agents/chat-gateway/Dockerfile
     port: 18300
+  # Archived classic agents — optional profile only
+  sql-planner:
+    base: agent
+    package: sql-planner
+    dockerfile: agents/archived/sql-planner/Dockerfile
+    port: 18202
+    compose_profile: classic-agents
+  risk-reviewer:
+    base: agent
+    package: risk-reviewer
+    dockerfile: agents/archived/risk-reviewer/Dockerfile
+    port: 18203
+    compose_profile: classic-agents
+  data-analyst:
+    base: agent
+    package: data-analyst
+    dockerfile: agents/archived/data-analyst/Dockerfile
+    port: 18204
+    compose_profile: classic-agents

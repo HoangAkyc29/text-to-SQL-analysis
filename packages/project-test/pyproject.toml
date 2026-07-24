@@ -10,9 +10,8 @@ dependencies = [
     "sql-gateway",
     "python-sandbox",
     "conversational-router",
-    "sql-planner",
-    "risk-reviewer",
-    "data-analyst",
+    "tool-selector",
+    "data-agent",
     "pytest>=8",
     "pandas",
     "pyarrow",
@@ -28,7 +27,15 @@ packages = ["src/project_test"]
 
 [tool.pytest.ini_options]
 testpaths = ["."]
-pythonpath = [".", "../../agents/conversational-router/src", "../../agents/sql-planner/src", "../../agents/risk-reviewer/src", "../../agents/data-analyst/src", "../../agents/chat-gateway/src", "../../mcp-servers/sql-gateway/src", "../../mcp-servers/python-sandbox/src"]
+pythonpath = [
+    ".",
+    "../../agents/conversational-router/src",
+    "../../agents/tool-selector/src",
+    "../../agents/data-agent/src",
+    "../../agents/chat-gateway/src",
+    "../../mcp-servers/sql-gateway/src",
+    "../../mcp-servers/python-sandbox/src",
+]
 addopts = "-q"
 markers = [
     "unit: no network",

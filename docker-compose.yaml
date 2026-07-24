@@ -86,9 +86,10 @@ services:
     depends_on: [redis, mongodb]
 
   sql-planner:
+    profiles: ["classic-agents"]
     build:
       <<: *agent-build
-      dockerfile: agents/sql-planner/Dockerfile
+      dockerfile: agents/archived/sql-planner/Dockerfile
     env_file: .env
     restart: unless-stopped
     environment:
@@ -98,9 +99,10 @@ services:
     depends_on: [redis, mongodb]
 
   risk-reviewer:
+    profiles: ["classic-agents"]
     build:
       <<: *agent-build
-      dockerfile: agents/risk-reviewer/Dockerfile
+      dockerfile: agents/archived/risk-reviewer/Dockerfile
     env_file: .env
     restart: unless-stopped
     environment:
@@ -110,9 +112,10 @@ services:
     depends_on: [redis, mongodb]
 
   data-analyst:
+    profiles: ["classic-agents"]
     build:
       <<: *agent-build
-      dockerfile: agents/data-analyst/Dockerfile
+      dockerfile: agents/archived/data-analyst/Dockerfile
     env_file: .env
     restart: unless-stopped
     environment:
@@ -120,11 +123,41 @@ services:
       AGENT_HTTP_PORT: 18204
     ports: ["18204:18204"]
     depends_on: [redis, mongodb]
-    # Shared with chat-gateway: pipeline (in chat-gateway) writes query parquet +
-    # uploads here; Agent IV reads/writes analysis artifacts on the same paths.
     volumes:
       - supermarket-artifacts:/app/data/artifacts
       - supermarket-attachments:/app/data/attachments
+
+  tool-selector:
+    build:
+      <<: *agent-build
+      dockerfile: agents/tool-selector/Dockerfile
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18205
+    ports: ["18205:18205"]
+    depends_on: [redis, mongodb]
+    volumes:
+      - supermarket-state:/app/data/state
+
+  data-agent:
+    build:
+      <<: *agent-build
+      dockerfile: agents/data-agent/Dockerfile
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      <<: *agent-env
+      AGENT_HTTP_PORT: 18206
+      SQL_GATEWAY_URL: http://sql-gateway:18101
+      AGENT_TOOL_SELECTOR_URL: http://tool-selector:18205
+    ports: ["18206:18206"]
+    depends_on: [redis, mongodb, sql-gateway, tool-selector]
+    volumes:
+      - supermarket-artifacts:/app/data/artifacts
+      - supermarket-attachments:/app/data/attachments
+      - supermarket-state:/app/data/state
 
   chat-gateway:
     build:
@@ -138,9 +171,11 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
       - SQL_GATEWAY_URL=http://sql-gateway:18101
       - AGENT_I_URL=http://conversational-router:18201
-      - AGENT_II_URL=http://sql-planner:18202
-      - AGENT_III_URL=http://risk-reviewer:18203
-      - AGENT_IV_URL=http://data-analyst:18204
+      - AGENT_DATA_URL=http://data-agent:18206
+      - AGENT_TOOL_SELECTOR_URL=http://tool-selector:18205
+      - DATA_AGENT_V2=1
+      - ALLOW_LLM_STUB=0
+      - ALLOW_DEV_AUTH=1
     ports: ["18300:18300"]
     volumes:
       - supermarket-artifacts:/app/data/artifacts
@@ -149,7 +184,7 @@ services:
       - supermarket-state:/app/data/state
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]
+    depends_on: [redis, mongodb, sql-gateway, conversational-router, tool-selector, data-agent]
 
   analysis-worker:
     build:
@@ -163,16 +198,18 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/supermarket_agent
       - SQL_GATEWAY_URL=http://sql-gateway:18101
       - AGENT_I_URL=http://conversational-router:18201
-      - AGENT_II_URL=http://sql-planner:18202
-      - AGENT_III_URL=http://risk-reviewer:18203
-      - AGENT_IV_URL=http://data-analyst:18204
+      - AGENT_DATA_URL=http://data-agent:18206
+      - AGENT_TOOL_SELECTOR_URL=http://tool-selector:18205
+      - DATA_AGENT_V2=1
+      - ALLOW_LLM_STUB=0
+      - ALLOW_DEV_AUTH=1
     volumes:
       - supermarket-artifacts:/app/data/artifacts
       - supermarket-attachments:/app/data/attachments
       - supermarket-state:/app/data/state
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on: [redis, mongodb, sql-gateway, sql-planner, risk-reviewer, data-analyst, conversational-router]
+    depends_on: [redis, mongodb, sql-gateway, conversational-router, tool-selector, data-agent]
 
   frontend:
     build:

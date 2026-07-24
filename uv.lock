@@ -16,22 +16,23 @@ resolution-markers = [
 [manifest]
 members = [
     "agent-core",
-    "base-agent",
     "base-mcp-server",
-    "base-runner",
     "chat-gateway",
     "commons",
     "conversational-router",
-    "data-analyst",
+    "data-agent",
+    "data-query",
+    "dataframe-ops",
+    "deliverables",
     "mcp-core",
     "multi-agent-monorepo",
     "platform-core",
+    "product-lookup",
     "project-core",
     "project-test",
     "python-sandbox",
-    "risk-reviewer",
     "sql-gateway",
-    "sql-planner",
+    "tool-selector",
 ]
 
 [[package]]
@@ -304,27 +305,6 @@ wheels = [
 ]
 
 [[package]]
-name = "base-agent"
-version = "0.1.0"
-source = { editable = "agents/base-agent" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "openai" },
-    { name = "platform-core" },
-    { name = "project-core" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi" },
-    { name = "openai", specifier = ">=1.0" },
-    { name = "platform-core", editable = "libs/platform-core" },
-    { name = "project-core", editable = "packages/project-core" },
-    { name = "uvicorn", extras = ["standard"] },
-]
-
-[[package]]
 name = "base-mcp-server"
 version = "0.1.0"
 source = { editable = "mcp-servers/base-mcp-server" }
@@ -336,23 +316,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mcp-core", editable = "libs/mcp-core" },
-    { name = "project-core", editable = "packages/project-core" },
-]
-
-[[package]]
-name = "base-runner"
-version = "0.1.0"
-source = { editable = "agents/base-runner" }
-dependencies = [
-    { name = "base-agent" },
-    { name = "platform-core" },
-    { name = "project-core" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "base-agent", editable = "agents/base-agent" },
-    { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
 ]
 
@@ -924,16 +887,18 @@ wheels = [
 ]
 
 [[package]]
-name = "data-analyst"
+name = "data-agent"
 version = "0.1.0"
-source = { editable = "agents/data-analyst" }
+source = { editable = "agents/data-agent" }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "openai" },
+    { name = "pandas" },
     { name = "platform-core" },
     { name = "project-core" },
+    { name = "pyarrow" },
     { name = "pymongo" },
-    { name = "python-sandbox" },
     { name = "redis" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -941,13 +906,74 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "openai", specifier = ">=1.0" },
+    { name = "pandas", specifier = ">=2.0" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow", specifier = ">=14" },
     { name = "pymongo", specifier = ">=4.6" },
-    { name = "python-sandbox", editable = "mcp-servers/python-sandbox" },
     { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"] },
+]
+
+[[package]]
+name = "data-query"
+version = "0.1.0"
+source = { editable = "mcp-servers/data-query" }
+dependencies = [
+    { name = "httpx" },
+    { name = "mcp-core" },
+    { name = "pandas" },
+    { name = "project-core" },
+    { name = "pyarrow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mcp-core", editable = "libs/mcp-core" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow", specifier = ">=14" },
+]
+
+[[package]]
+name = "dataframe-ops"
+version = "0.1.0"
+source = { editable = "mcp-servers/dataframe-ops" }
+dependencies = [
+    { name = "mcp-core" },
+    { name = "pandas" },
+    { name = "project-core" },
+    { name = "pyarrow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp-core", editable = "libs/mcp-core" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow", specifier = ">=14" },
+]
+
+[[package]]
+name = "deliverables"
+version = "0.1.0"
+source = { editable = "mcp-servers/deliverables" }
+dependencies = [
+    { name = "mcp-core" },
+    { name = "pandas" },
+    { name = "project-core" },
+    { name = "pyarrow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mcp-core", editable = "libs/mcp-core" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow", specifier = ">=14" },
 ]
 
 [[package]]
@@ -2016,7 +2042,6 @@ name = "multi-agent-monorepo"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "base-runner" },
     { name = "platform-core" },
 ]
 
@@ -2024,14 +2049,13 @@ dependencies = [
 dev = [
     { name = "chat-gateway" },
     { name = "conversational-router" },
-    { name = "data-analyst" },
+    { name = "data-agent" },
     { name = "mypy" },
     { name = "project-test" },
     { name = "pytest" },
-    { name = "risk-reviewer" },
     { name = "ruff" },
     { name = "sql-gateway" },
-    { name = "sql-planner" },
+    { name = "tool-selector" },
 ]
 docker-agent = [
     { name = "fastapi" },
@@ -2051,23 +2075,19 @@ docker-project = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "base-runner", editable = "agents/base-runner" },
-    { name = "platform-core", editable = "libs/platform-core" },
-]
+requires-dist = [{ name = "platform-core", editable = "libs/platform-core" }]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "chat-gateway", editable = "agents/chat-gateway" },
     { name = "conversational-router", editable = "agents/conversational-router" },
-    { name = "data-analyst", editable = "agents/data-analyst" },
+    { name = "data-agent", editable = "agents/data-agent" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "project-test", editable = "packages/project-test" },
     { name = "pytest", specifier = ">=8" },
-    { name = "risk-reviewer", editable = "agents/risk-reviewer" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "sql-gateway", editable = "mcp-servers/sql-gateway" },
-    { name = "sql-planner", editable = "agents/sql-planner" },
+    { name = "tool-selector", editable = "agents/tool-selector" },
 ]
 docker-agent = [
     { name = "fastapi", specifier = ">=0.115" },
@@ -2811,6 +2831,27 @@ wheels = [
 ]
 
 [[package]]
+name = "product-lookup"
+version = "0.1.0"
+source = { editable = "mcp-servers/product-lookup" }
+dependencies = [
+    { name = "httpx" },
+    { name = "mcp-core" },
+    { name = "pandas" },
+    { name = "project-core" },
+    { name = "pyarrow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "mcp-core", editable = "libs/mcp-core" },
+    { name = "pandas", specifier = ">=2.0" },
+    { name = "project-core", editable = "packages/project-core" },
+    { name = "pyarrow", specifier = ">=14" },
+]
+
+[[package]]
 name = "project-core"
 version = "0.1.0"
 source = { editable = "packages/project-core" }
@@ -2862,7 +2903,7 @@ source = { editable = "packages/project-test" }
 dependencies = [
     { name = "chat-gateway" },
     { name = "conversational-router" },
-    { name = "data-analyst" },
+    { name = "data-agent" },
     { name = "pandas" },
     { name = "platform-core" },
     { name = "project-core" },
@@ -2870,16 +2911,15 @@ dependencies = [
     { name = "pyjwt" },
     { name = "pytest" },
     { name = "python-sandbox" },
-    { name = "risk-reviewer" },
     { name = "sql-gateway" },
-    { name = "sql-planner" },
+    { name = "tool-selector" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "chat-gateway", editable = "agents/chat-gateway" },
     { name = "conversational-router", editable = "agents/conversational-router" },
-    { name = "data-analyst", editable = "agents/data-analyst" },
+    { name = "data-agent", editable = "agents/data-agent" },
     { name = "pandas" },
     { name = "platform-core", editable = "libs/platform-core" },
     { name = "project-core", editable = "packages/project-core" },
@@ -2887,9 +2927,8 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.8" },
     { name = "pytest", specifier = ">=8" },
     { name = "python-sandbox", editable = "mcp-servers/python-sandbox" },
-    { name = "risk-reviewer", editable = "agents/risk-reviewer" },
     { name = "sql-gateway", editable = "mcp-servers/sql-gateway" },
-    { name = "sql-planner", editable = "agents/sql-planner" },
+    { name = "tool-selector", editable = "agents/tool-selector" },
 ]
 
 [[package]]
@@ -3741,31 +3780,6 @@ wheels = [
 ]
 
 [[package]]
-name = "risk-reviewer"
-version = "0.1.0"
-source = { editable = "agents/risk-reviewer" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "openai" },
-    { name = "platform-core" },
-    { name = "project-core" },
-    { name = "pymongo" },
-    { name = "redis" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi" },
-    { name = "openai", specifier = ">=1.0" },
-    { name = "platform-core", editable = "libs/platform-core" },
-    { name = "project-core", editable = "packages/project-core" },
-    { name = "pymongo", specifier = ">=4.6" },
-    { name = "redis", specifier = ">=5.0" },
-    { name = "uvicorn", extras = ["standard"] },
-]
-
-[[package]]
 name = "rpds-py"
 version = "2026.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4000,31 +4014,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "sql-planner"
-version = "0.1.0"
-source = { editable = "agents/sql-planner" }
-dependencies = [
-    { name = "fastapi" },
-    { name = "openai" },
-    { name = "platform-core" },
-    { name = "project-core" },
-    { name = "pymongo" },
-    { name = "redis" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi" },
-    { name = "openai", specifier = ">=1.0" },
-    { name = "platform-core", editable = "libs/platform-core" },
-    { name = "project-core", editable = "packages/project-core" },
-    { name = "pymongo", specifier = ">=4.6" },
-    { name = "redis", specifier = ">=5.0" },
-    { name = "uvicorn", extras = ["standard"] },
-]
-
-[[package]]
 name = "sqlglot"
 version = "30.12.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4125,6 +4114,31 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/dd/631b21433c771b1382535326f0eca80b9c9cee2e64961dd993bc9ac4669e/tokenizers-0.23.1-cp310-abi3-win32.whl", hash = "sha256:93120a930b919416da7cd10a2f606ac9919cc69cacae7980fa2140e277660948", size = 2536263, upload-time = "2026-04-27T14:43:29.888Z" },
     { url = "https://files.pythonhosted.org/packages/97/c9/2553f72aaf65a2797d4229e37fa7fbe38ffbf3e32912d31bdd78b3323e59/tokenizers-0.23.1-cp310-abi3-win_amd64.whl", hash = "sha256:e7bfaf995c1bdbbd21d13539decb6650967013759318627d85daeb7881af16b7", size = 2798223, upload-time = "2026-04-27T14:43:28.51Z" },
     { url = "https://files.pythonhosted.org/packages/cd/2b/2be299bab55fc595e3d38567edb1a87f86e594842968fa9515a07bdcf422/tokenizers-0.23.1-cp310-abi3-win_arm64.whl", hash = "sha256:a26197957d8e4425dfba746315f3c425ea00cfa8367c5fbc4ec73447893dcea9", size = 2664127, upload-time = "2026-04-27T14:43:26.949Z" },
+]
+
+[[package]]
+name = "tool-selector"
+version = "0.1.0"
+source = { editable = "agents/tool-selector" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "openai" },
+    { name = "platform-core" },
+    { name = "project-core" },
+    { name = "pymongo" },
+    { name = "redis" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi" },
+    { name = "openai", specifier = ">=1.0" },
+    { name = "platform-core", editable = "libs/platform-core" },
+    { name = "project-core", editable = "packages/project-core" },
+    { name = "pymongo", specifier = ">=4.6" },
+    { name = "redis", specifier = ">=5.0" },
+    { name = "uvicorn", extras = ["standard"] },
 ]
 
 [[package]]
