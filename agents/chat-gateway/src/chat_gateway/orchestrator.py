@@ -667,6 +667,8 @@ class ChatOrchestrator:
         metadata: dict[str, Any],
         budget: SessionTraceBudget,
         bundle: SessionBundle,
+        *,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         budget.record("I")
         meta = {
@@ -681,7 +683,7 @@ class ChatOrchestrator:
                 ).get("workflow_summary", {}),
             },
         }
-        out = invoker.invoke("I", payload, meta)
+        out = invoker.invoke("I", payload, meta, timeout=timeout)
         tokens = int(out.pop("usage_tokens", 0) or 0)
         if tokens:
             budget.trace_budget.charge("tokens", tokens=tokens)
@@ -1172,16 +1174,17 @@ class ChatOrchestrator:
         session_budget: SessionTraceBudget,
     ) -> ChatResponse:
         assert result.needs_clarification is not None
+        # Pipeline clarify path: hard ContextPack only — do NOT run context_curator LLM
+        # here (was a hang magnet: 600s httpx wait with no UI progress).
+        clarify_timeout = float(os.getenv("AGENT_I_CLARIFY_TIMEOUT_SECONDS", "90") or 90)
         try:
-            pack = self._prepare_context_pack(
-                bundle=bundle,
-                message="",
+            pack, _candidates, _need_curator = build_context_pack_hard(
+                transcript=bundle.transcript,
+                workflow=bundle.workflow,
+                current_message="",
+                cfg=self.cfg.stm.context_pack,
                 current_turn_id="pipeline-clarify",
                 external_sources=[],
-                invoker=invoker,
-                session_budget=session_budget,
-                actor_id=permissions.actor_id,
-                session_id=session_id,
             )
             bridge = self._invoke_agent_i(
                 invoker,
@@ -1195,6 +1198,7 @@ class ChatOrchestrator:
                 },
                 session_budget,
                 bundle,
+                timeout=clarify_timeout,
             )
         except BudgetExceededError as exc:
             bundle.workflow.budget_spent = session_budget.trace_budget.spent
@@ -1208,6 +1212,12 @@ class ChatOrchestrator:
                 message=str(exc),
                 error={"code": "BUDGET_EXCEEDED", "retryable": False},
             )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "clarification_bridge failed/timed out; fail-open ask_user analysis_id=%s",
+                analysis_id,
+            )
+            bridge = {"action": "ask_user"}
 
         if bridge.get("action") == "resolve_from_transcript":
             brief, should_rerun = self.clarify.on_pipeline_clarify(
@@ -1243,6 +1253,7 @@ class ChatOrchestrator:
                 },
                 session_budget,
                 bundle,
+                timeout=clarify_timeout,
             )
         except BudgetExceededError as exc:
             bundle.workflow.budget_spent = session_budget.trace_budget.spent
@@ -1256,6 +1267,17 @@ class ChatOrchestrator:
                 message=str(exc),
                 error={"code": "BUDGET_EXCEEDED", "retryable": False},
             )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "clarify voice failed/timed out; fail-open with raw request analysis_id=%s",
+                analysis_id,
+            )
+            clarify = {
+                "user_message": (
+                    result.needs_clarification.evidence_summary
+                    or "Cần thêm thông tin để tiếp tục phân tích."
+                ),
+            }
 
         bundle.workflow.budget_spent = session_budget.trace_budget.spent
         self.stm.save_clarification(session_id, result.needs_clarification.model_dump())

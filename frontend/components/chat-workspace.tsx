@@ -250,6 +250,30 @@ export function ChatWorkspace() {
   const send = async (content = draft) => {
     const text = content.trim();
     if (!text || busy) return;
+
+    // Resume pending clarification via /interactions — do not start a new analysis.
+    const pendingAssistant = [...(session?.messages ?? [])]
+      .reverse()
+      .find(
+        (item) =>
+          item.response?.pending_interaction?.interaction_id &&
+          (item.response.workflow_status === "awaiting_clarification" ||
+            item.response.workflow_status === "awaiting_interaction" ||
+            Boolean(item.response.clarification)),
+      );
+    if (pendingAssistant?.response) {
+      const questions = pendingAssistant.response.clarification?.questions ?? [];
+      const question =
+        questions[0] ??
+        ({
+          id: "open_clarify",
+          prompt: pendingAssistant.content || "Clarification",
+        } as ClarificationQuestion);
+      setDraft("");
+      await clarify(question, text, pendingAssistant.response);
+      return;
+    }
+
     const sessionId = activeId ?? ensureSession();
     setDraft("");
     const userMessage: ChatMessage = {
@@ -356,7 +380,9 @@ export function ChatWorkspace() {
               answers: [
                 {
                   question_id: question.id,
-                  selected_option_id: value,
+                  selected_option_id: question.options?.some((option) => option.id === value)
+                    ? value
+                    : "other",
                   other_text: question.options?.some((option) => option.id === value)
                     ? undefined
                     : value,

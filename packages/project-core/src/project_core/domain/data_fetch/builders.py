@@ -78,14 +78,56 @@ def _sku_code_match_clause(codes: list[str]) -> str:
     return "(" + " OR ".join(parts) + ")"
 
 
-def build_resolve_products(*, codes: Any, limit: Any = 50, hard_max: int = 500) -> str:
-    code_list = _codes(codes)
-    if not code_list:
-        raise ValueError("codes_required")
+def _looks_like_product_name(text: str) -> bool:
+    """Heuristic: display names have spaces or non-ASCII; SKU codes are compact alnum."""
+    t = str(text or "").strip()
+    if not t:
+        return False
+    if " " in t or any(ord(c) > 127 for c in t):
+        return True
+    return False
+
+
+def build_resolve_products(
+    *,
+    codes: Any = None,
+    name_contains: Any = None,
+    limit: Any = 50,
+    hard_max: int = 500,
+) -> str:
+    """Resolve SKU_DEF by exact SKU_CODE and/or fuzzy FULL_NAME_U contains."""
+    name_raw = str(name_contains).strip() if name_contains is not None else ""
+    code_list: list[str] = []
+    # Soft-split `codes`: valid SKU codes vs display-name keywords (Agent I often
+    # puts the spoken product name into brief.filters.product_code).
+    if codes is not None:
+        raw = codes if isinstance(codes, list) else [codes]
+        for item in raw:
+            text = str(item).strip()
+            if not text:
+                continue
+            if _CODE_RE.match(text) and len(text) <= 64 and not _looks_like_product_name(text):
+                code_list.append(text)
+            elif _looks_like_product_name(text):
+                if not name_raw:
+                    name_raw = text
+            else:
+                raise ValueError(f"invalid_code:{text[:40]}")
+    if not code_list and not name_raw:
+        raise ValueError("codes_or_name_required")
     top = _limit(limit, default=50, hard_max=min(500, hard_max))
-    where = _sku_code_match_clause(code_list)
+    predicates: list[str] = []
+    if code_list:
+        predicates.append(_sku_code_match_clause(code_list))
+    if name_raw:
+        lit = _sql_str(name_raw)
+        # Prefer FULL_NAME_U (search/display); FULL_NAME is often TCVN3 mojibake.
+        predicates.append(f"LOWER(FULL_NAME_U) LIKE '%' + LOWER({lit}) + '%'")
+    where = " OR ".join(predicates) if len(predicates) > 1 else predicates[0]
+    if len(predicates) > 1:
+        where = "(" + where + ")"
     return (
-        f"SELECT TOP {top} SKU_ID, SKU_CODE, FULL_NAME "
+        f"SELECT TOP {top} SKU_ID, SKU_CODE, FULL_NAME, FULL_NAME_U "
         f"FROM SKU_DEF WHERE {where} ORDER BY SKU_CODE"
     )
 

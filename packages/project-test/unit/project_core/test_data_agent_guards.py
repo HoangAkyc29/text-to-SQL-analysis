@@ -12,6 +12,8 @@ from project_core.domain.analysis.data_agent_guards import (
     infer_top_n,
     is_blocked_name_type_guess,
     is_blocked_premature_export,
+    is_nonblocking_type_clarify,
+    prefer_export_dataset_ref,
 )
 from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
 from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement, TimeRange
@@ -86,6 +88,154 @@ def test_block_catalog_export_when_bill_checklist():
         )
         is None
     )
+    ws.save_frame(
+        "joined_sales_data",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["B1", "B2"],
+                "SKU_ID": ["1", "1"],
+                "QTY": [1, 1],
+                "TRAN_DATE": ["2026-07-01", "2026-07-02"],
+            }
+        ),
+        source="join",
+        role="fact",
+    )
+    ws.save_frame(
+        "total_quantity_sold_per_product",
+        pd.DataFrame({"SKU_ID": ["1"], "QTY_sum": [2]}),
+        source="groupby_agg",
+        role="aggregate",
+    )
+    assert (
+        is_blocked_premature_export(
+            checklist={"top_n": 5, "min_bill_value": 600000},
+            dataset="total_quantity_sold_per_product",
+            working_set=ws,
+        )
+        is not None
+    )
+    assert prefer_export_dataset_ref(ws, needs_bill=True) in {
+        "joined_sales_data",
+        "sale_lines",
+    }
+
+
+def test_prefer_export_skips_empty_bill_frames():
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "filtered_sale_lines",
+        pd.DataFrame(
+            columns=["TRANS_NUM", "SKU_ID", "QTY", "TRAN_DATE"]
+        ),
+        source="filter",
+        role="fact",
+    )
+    ws.save_frame(
+        "joined_sales_data",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["B1", "B2"],
+                "SKU_ID": ["1", "1"],
+                "QTY": [1, 1],
+                "TRAN_DATE": ["2026-07-01", "2026-07-02"],
+            }
+        ),
+        source="join",
+        role="fact",
+    )
+    assert prefer_export_dataset_ref(ws, needs_bill=True) == "joined_sales_data"
+
+
+def test_prefer_export_prefers_partitioned_top_n_over_join():
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "joined_sales_data",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(20)],
+                "SKU_ID": ["1"] * 10 + ["2"] * 10,
+                "QTY": [1] * 20,
+                "TRAN_DATE": ["2026-07-01"] * 20,
+            }
+        ),
+        source="join",
+        role="fact",
+    )
+    ws.save_frame(
+        "top_5_bills_per_product",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(10)],
+                "SKU_ID": ["1"] * 5 + ["2"] * 5,
+                "QTY": [1] * 10,
+                "TRAN_DATE": ["2026-07-02"] * 10,
+            }
+        ),
+        source="top_n_per_group",
+        role="fact",
+        op_id="top_n_per_group",
+    )
+    assert prefer_export_dataset_ref(ws, needs_bill=True) == "top_5_bills_per_product"
+
+
+def test_rank_bill_frame_keeps_partitioned_top_n(tmp_path):
+    from project_core.domain.analysis.data_agent_guards import rank_bill_frame_for_export
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    out = tmp_path / "out"
+    out.mkdir()
+    ws.save_frame(
+        "top_5_bills_per_product",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(15)],
+                "SKU_ID": ["A"] * 5 + ["B"] * 5 + ["C"] * 5,
+                "TRAN_DATE": ["2026-07-01"] * 15,
+            }
+        ),
+        source="top_n_per_group",
+        role="fact",
+        op_id="top_n_per_group",
+    )
+    ref = rank_bill_frame_for_export(
+        ws,
+        source_ref="top_5_bills_per_product",
+        top_n=5,
+        out_dir=out,
+        save_as="bills_top_n",
+    )
+    assert ref == "bills_top_n"
+    assert len(ws.get("bills_top_n").frame()) == 15
+
+
+def test_coverage_allows_per_group_top_n_row_count():
+    from project_core.domain.analysis.data_agent_guards import assess_deliverable_coverage
+
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "top_5_bills_per_product",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(15)],
+                "SKU_ID": ["A"] * 5 + ["B"] * 5 + ["C"] * 5,
+                "TRAN_DATE": ["2026-07-01"] * 15,
+                "QTY": [1] * 15,
+            }
+        ),
+        source="top_n_per_group",
+        role="fact",
+        op_id="top_n_per_group",
+    )
+    brief = AnalysisBrief(
+        intent="5 bill moi ma",
+        filters={"product_code": ["A", "B", "C"], "top_n": 5},
+    )
+    cov = assess_deliverable_coverage(
+        brief, ws, product_codes=["A", "B", "C"], top_n=5
+    )
+    assert cov["ok"], cov
+    assert not any(str(g).startswith("top_n_mismatch") for g in cov["gaps"])
 
 
 def test_coverage_rejects_catalog_excel_when_top_n_bills(tmp_path):
@@ -185,11 +335,12 @@ def test_deliverable_coverage_top_n_and_sku_columns(tmp_path):
     brief = AnalysisBrief(
         intent="5 bill gan nhat",
         filters={"product_code": ["30344", "30348"], "top_n": 5},
+        metrics=["quantity"],
     )
     cov = assess_deliverable_coverage(brief, ws, product_codes=["30344", "30348"], top_n=5)
     assert cov["ok"] is False
     assert any(g.startswith("top_n_mismatch") for g in cov["gaps"])
-    # Bill-grained sheet without SKU cols is allowed when top_n bills is the ask.
+    # Quantity + product_codes must NOT invent a SKU-column evidence gap.
     assert "missing_sku_evidence_columns" not in cov["gaps"]
     assert coverage_forces_partial(cov["gaps"]) is True
 
@@ -215,6 +366,36 @@ def test_deliverable_coverage_top_n_and_sku_columns(tmp_path):
     assert not any(g.startswith("top_n_mismatch") for g in cov2["gaps"])
     assert any(c.startswith("fewer_than_requested") for c in cov2["caveats"])
     assert cov2["ok"] is True
+
+
+def test_coverage_allows_bill_export_without_sku_when_quantity_metric(tmp_path):
+    """UI-style case: joined bills without SKU cols + quantity metric → no sku gap."""
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    out = tmp_path / "out"
+    out.mkdir()
+    df = pd.DataFrame(
+        {
+            "TRANS_NUM": ["B1", "B2", "B3", "B4"],
+            "AMOUNT": [700000] * 4,
+            "QTY": [1, 2, 1, 1],
+        }
+    )
+    ws.save_frame("joined", df, role="analysis")
+    execute_op(
+        ws,
+        "export_excel",
+        {"dataset": "joined", "filename": "analysis_result.xlsx"},
+        out_dir=out,
+    )
+    brief = AnalysisBrief(
+        intent="5 bill",
+        filters={"product_code": "30325", "top_n": 5, "min_bill_value": 600000},
+        metrics=["quantity", "bill_value"],
+    )
+    cov = assess_deliverable_coverage(brief, ws, product_codes=["30325"], top_n=5)
+    assert "missing_sku_evidence_columns" not in cov["gaps"]
+    assert cov["ok"] is True
+    assert any(c.startswith("fewer_than_requested") for c in cov["caveats"])
 
 
 def test_brain_runtime_blocks_km_filter(tmp_path):
@@ -430,3 +611,110 @@ def test_brain_rejects_nonblocking_type_clarify_when_codes_present(tmp_path):
     obs = payload.get("observations") or []
     assert any(o.get("error") == "clarify_rejected_codes_sufficient" for o in obs)
     assert any(o.get("tool_id") == "query_rows" and o.get("ok") for o in obs)
+
+
+def test_is_nonblocking_type_clarify_markers_and_hard_blockers():
+    codes = ["30325"]
+    assert is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought="ITEM_TYPE empty sparse_column_unusable — ask user about gift type",
+        decision={"decision": "clarify", "reason": "filter ITEM_TYPE"},
+    )
+    assert is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought="confirm product_type quà tặng",
+        product_type_soft="quà tặng",
+    )
+    assert is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought="KM in FULL_NAME — is this gift?",
+        decision={"clarification_request": {"reason": "KM gift type?"}},
+    )
+    # Hard blockers must still clarify.
+    assert not is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought="missing time_range for analysis window",
+        decision={"reason": "thiếu ngày"},
+    )
+    assert not is_nonblocking_type_clarify(
+        product_codes=[],
+        thought="ITEM_TYPE empty",
+    )
+    # Join AMOUNT collision / header-vs-line is non-blocking when codes pin SKUs.
+    assert is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought=(
+            "filter_rows failed missing AMOUNT; ask whether header amount or "
+            "line amount (AMOUNT_x vs AMOUNT_y)"
+        ),
+        decision={"decision": "clarify", "reason": "column name collisions"},
+    )
+
+
+def test_rank_bill_frame_scopes_to_product_codes(tmp_path):
+    from project_core.domain.analysis.data_agent_guards import rank_bill_frame_for_export
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    out = tmp_path / "out"
+    out.mkdir()
+    ws.save_frame(
+        "joined",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(20)],
+                "SKU_ID": ["290003034400"] * 8 + ["OTHER"] * 12,
+                "TRAN_DATE": ["2026-07-0" + str((i % 6) + 1) for i in range(20)],
+            }
+        ),
+        source="join",
+        role="fact",
+    )
+    ws.save_frame(
+        "resolve_products",
+        pd.DataFrame({"SKU_ID": ["290003034400"], "SKU_CODE": ["00030344"]}),
+        source="resolve",
+        role="dim",
+    )
+    ref = rank_bill_frame_for_export(
+        ws,
+        source_ref="joined",
+        top_n=5,
+        out_dir=out,
+        partition_by=["SKU_ID"],
+        product_codes=["0030344"],
+    )
+    df = ws.get(ref).frame()
+    assert set(df["SKU_ID"].astype(str)) == {"290003034400"}
+    assert len(df) <= 5
+
+
+def test_coverage_flags_extra_skus_outside_brief():
+    from project_core.domain.analysis.data_agent_guards import assess_deliverable_coverage
+
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "resolve_products",
+        pd.DataFrame({"SKU_ID": ["GIFT1", "GIFT2"], "SKU_CODE": ["A", "B"]}),
+        source="resolve",
+        role="dim",
+    )
+    ws.save_frame(
+        "bills_top_n",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(30)],
+                "SKU_ID": ["GIFT1"] * 5 + ["GIFT2"] * 5 + [f"X{i}" for i in range(20)],
+                "TRAN_DATE": ["2026-07-01"] * 30,
+                "QTY": [1] * 30,
+            }
+        ),
+        source="top_n_per_group",
+        role="fact",
+        op_id="top_n_per_group",
+    )
+    brief = AnalysisBrief(intent="top 5", filters={"product_code": ["A", "B"], "top_n": 5})
+    cov = assess_deliverable_coverage(brief, ws, product_codes=["A", "B"], top_n=5)
+    assert not cov["ok"]
+    assert any(str(g).startswith("product_scope_extra_skus") for g in cov["gaps"])
+
+

@@ -1,0 +1,35 @@
+# Analysis grain roles for deliverable coverage / catalog heuristics.
+# Source of truth lives here (not hardcoded in guards/skills).
+# data_fetch builders may still use physical names when compiling SQL.
+
+product_id_columns:
+  - SKU_ID
+  - SKU_CODE
+
+bill_id_columns:
+  - TRANS_NUM
+  - BILL_NO
+  - TRANS_ID
+
+# Working-set roles treated as product-master / catalog (no bill grain).
+catalog_roles:
+  - catalog
+  - product
+  - products
+
+# Dataset ref substrings that look like resolve_products output.
+catalog_ref_substrings:
+  - resolved_sku
+  - resolved_product
+  - products
+  - sku_def
+
+# Display-name columns — do not use these to re-select SKUs when product_codes exist.
+display_name_columns:
+  - FULL_NAME
+  - SKU_NAME
+  - PRODUCT_NAME
+  - TEN_HANG
+  - NAME
+  - ITEM_NAME
+  - DESCRIPTION

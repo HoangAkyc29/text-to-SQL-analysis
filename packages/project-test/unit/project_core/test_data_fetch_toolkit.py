@@ -63,6 +63,24 @@ def test_resolve_products_sql_is_exact_not_substring():
     assert "PATINDEX" in sql
 
 
+def test_resolve_products_name_contains_uses_full_name_u():
+    sql = builders.build_resolve_products(name_contains="bánh chưng nương bắc", hard_max=100)
+    assert "FULL_NAME_U" in sql
+    assert "LIKE '%' + LOWER('bánh chưng nương bắc') + '%'" in sql
+    assert "SKU_CODE" not in sql.split("WHERE", 1)[1] or "LOWER(RTRIM(SKU_CODE))" not in sql
+
+
+def test_resolve_products_diverts_name_like_codes_to_full_name_u():
+    sql = builders.build_resolve_products(codes=["bánh chưng nương bắc"], hard_max=100)
+    assert "FULL_NAME_U" in sql
+    assert "LIKE '%' +" in sql
+
+
+def test_resolve_products_requires_codes_or_name():
+    with pytest.raises(ValueError, match="codes_or_name_required"):
+        builders.build_resolve_products(codes=[], hard_max=100)
+
+
 def test_query_rows_sale_lines_parity():
     sql = flex.build_query_rows(
         table="STRANS",

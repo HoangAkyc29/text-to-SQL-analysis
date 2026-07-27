@@ -47,6 +47,46 @@ def test_catalog_has_expected_ops():
     assert len(ids) >= 35
 
 
+def test_groupby_agg_empty_by_and_string_numeric(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    working.save_frame(
+        "str_qty",
+        pd.DataFrame({"SKU_ID": ["A", "A"], "QTY": ["1.000", "2.000"]}),
+        source="test",
+        role="fact",
+    )
+    # Empty by → global numeric sum (not string concat / pandas error)
+    r0 = execute_op(
+        working,
+        "groupby_agg",
+        {
+            "dataset": "str_qty",
+            "save_as": "total_qty",
+            "by": [],
+            "aggs": [{"column": "QTY", "func": "sum", "new_column_name": "qty_sum"}],
+        },
+        out_dir=out_dir,
+    )
+    assert r0.status == "ok", r0.error
+    total = working.get("total_qty").frame()
+    assert float(total["qty_sum"].iloc[0]) == 3.0
+
+    r1 = execute_op(
+        working,
+        "groupby_agg",
+        {
+            "dataset": "str_qty",
+            "save_as": "by_sku",
+            "by": ["SKU_ID"],
+            "aggs": [{"column": "QTY", "func": "sum", "as": "qty_sum"}],
+        },
+        out_dir=out_dir,
+    )
+    assert r1.status == "ok", r1.error
+    assert float(working.get("by_sku").frame()["qty_sum"].iloc[0]) == 3.0
+
+
 def test_groupby_agg_accepts_llm_agg_shapes(ws):
     working, out_dir = ws
     out_dir.mkdir(parents=True)
@@ -91,6 +131,26 @@ def test_groupby_agg_accepts_llm_agg_shapes(ws):
         out_dir=out_dir,
     )
     assert r3.status == "ok", r3.error
+
+
+def test_top_n_per_group_global_when_partition_empty(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "top_n_per_group",
+        {
+            "dataset": "q0",
+            "partition_by": [],
+            "order_by": ["TRAN_DATE"],
+            "n": 2,
+            "ascending": False,
+            "save_as": "top2",
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert len(working.get("top2").frame()) == 2
 
 
 def test_filter_rows_expands_dataset_column_ref(ws):
@@ -238,6 +298,49 @@ def test_top_n_per_group(ws):
     )
     assert r.status == "ok"
     assert r.result["row_count"] == 4  # 2 for A, 2 for B (B has 3)
+
+
+def test_top_n_per_group_accepts_string_group_by_and_dict_order(ws):
+    """LLM often passes group_by as a string and order_by as [{column, ascending}]."""
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "top_n_per_group",
+        {
+            "dataset": "q0",
+            "save_as": "top2_str",
+            "group_by": "SKU_CODE",
+            "order_by": [{"column": "TRAN_DATE", "ascending": False}],
+            "n": 2,
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "ok", r.error
+    assert r.result["row_count"] == 4
+
+
+def test_filter_rows_rejects_brief_slice_prose_value(ws):
+    working, out_dir = ws
+    out_dir.mkdir(parents=True)
+    r = execute_op(
+        working,
+        "filter_rows",
+        {
+            "dataset": "q0",
+            "save_as": "bad",
+            "filters": [
+                {
+                    "column": "SKU_CODE",
+                    "op": "in",
+                    "value": "brief_slice.filters.product_code",
+                }
+            ],
+        },
+        out_dir=out_dir,
+    )
+    assert r.status == "error"
+    assert "prose_filter_value" in str(r.error)
 
 
 def test_expr_dsl_add_column(ws):
@@ -461,3 +564,57 @@ def test_execute_op_repairs_common_cast_argument_aliases(tmp_path):
     assert result.status == "ok"
     assert result.result["arg_repairs"] == ["columns->column", "dtype->to"]
     assert str(working_set.get("casted").frame()["amount"].dtype) == "float64"
+
+
+def test_join_uses_hdr_line_suffixes_and_filter_resolves_amount(tmp_path):
+    from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    out = tmp_path / "out"
+    out.mkdir()
+    ws.save_frame(
+        "headers",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["B1", "B2"],
+                "AMOUNT": [700000, 100000],
+                "TRAN_DATE": ["2026-07-02", "2026-07-01"],
+            }
+        ),
+        source="query",
+        role="fact",
+    )
+    ws.save_frame(
+        "lines",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["B1", "B2"],
+                "SKU_ID": ["A", "A"],
+                "AMOUNT": [0, 0],
+                "QTY": [1, 1],
+            }
+        ),
+        source="query",
+        role="fact",
+    )
+    joined = execute_op(
+        ws,
+        "join_datasets",
+        {"left": "headers", "right": "lines", "on": ["TRANS_NUM"], "save_as": "joined"},
+        out_dir=out,
+    )
+    assert joined.status == "ok"
+    cols = set(ws.get("joined").frame().columns)
+    assert "AMOUNT_hdr" in cols and "AMOUNT_line" in cols
+    filtered = execute_op(
+        ws,
+        "filter_rows",
+        {
+            "dataset": "joined",
+            "save_as": "ok_bills",
+            "filters": [{"column": "AMOUNT", "op": "gte", "value": 600000}],
+        },
+        out_dir=out,
+    )
+    assert filtered.status == "ok"
+    assert len(ws.get("ok_bills").frame()) == 1

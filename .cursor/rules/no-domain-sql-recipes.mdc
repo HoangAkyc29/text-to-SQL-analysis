@@ -1,9 +1,9 @@
 ---
-description: Never hardcode domain SQL recipes into agents; keep reasoning in LLM + RAG / DataFetch tools
+description: No domain SQL recipes and no hardcoding domain-specific retail semantics outside dictionary/config/fetch builders
 alwaysApply: true
 ---
 
-# No domain SQL recipes in agent path
+# No domain SQL recipes / no domain hardcoding
 
 ## Absolute bans (this repo)
 
@@ -12,15 +12,22 @@ alwaysApply: true
 3. **Do not** write Cursor/developer self-notes into agent prompts (e.g. “never expect pipeline to hand you SQL”). That guidance is for the coding agent only — put it in `.cursor/rules/`, not in `skills/`.
 4. **Do not** “fix” prod by copying trial cases (specific SKUs, dates, bill thresholds as SQL) into skills or pipeline helpers.
 5. **Do not** store executable SQL strings in Mongo case studies / recipes for Data Agent — use `data_agent_chain` (fetch tool_id + args templates + catalog ops).
+6. **Do not hardcode domain-specific retail semantics** outside the allowed grounding paths below. Examples of banned hardcoding:
+   - Evidence / grain column allowlists baked into guards, coverage checks, finalize, or router copy maps — e.g. requiring deliverable columns `SKU_ID` / `SKU_CODE` / `TRANS_NUM` because “product + quantity implies SKU evidence”
+   - Business metric synonym sets used as policy (`quantity`/`qty`/`revenue`/`sales` → force SKU columns)
+   - Document codes, gift/bill thresholds, product-type speech labels (`quà tặng`), pad-SKU rules, store/bill ranking recipes in skills, guards, or pipeline helpers
+   - Trial-specific SKUs, dates, or amounts copied into production code or prompts
+
+   Prefer: load grain/roles from `data_dictionary/` (or project config YAML), brief field *values* from Agent I, and parameterized fetch sugar in `data_fetch` — not frozen retail vocabulary scattered through agents.
 
 ## Where domain knowledge / grounding belongs
 
-- `data_dictionary/` (tables, columns, domain_definitions)
+- `data_dictionary/` (tables, columns, domain_definitions) — **source of truth for column roles / grain**
 - **`data_dictionary/table_samples/{db1|db2}/*.json`** — static 5-row samples (legacy II path + Data Agent grounding)
-- **`project_core.domain.data_fetch`** — parameterized SQL **only inside coded fetch handlers** (LLM never authors/edits SQL)
+- **`project_core.domain.data_fetch`** — parameterized SQL **only inside coded fetch handlers** (LLM never authors/edits SQL). Physical column names may appear *here* when compiling args → SQL under PolicyEngine; do not duplicate those business rules into skills/guards/router.
 - **db1 monthly shards** — expand at runtime from `shard_range.from` → `archive_newest_ym`
 - RAG / case studies (Mongo) as **tool_chain** descriptions, parameterized by the LLM
-- Brief fields from Agent I — values, not SQL
+- Brief fields from Agent I — **values**, not SQL and not hardcoded column recipes
 
 ## Topology naming
 
@@ -30,11 +37,13 @@ alwaysApply: true
 ## What is allowed
 
 - **Meta format rules** without business recipes (LIKE/LOWER placeholders).
-- **Topology/policy**: db1/db2, allowlist tables, readonly SELECT.
+- **Topology/policy**: db1/db2, allowlist tables from config/ACL, readonly SELECT.
 - **SQL inside `data_fetch/builders.py` + unit tests** behind PolicyEngine — not in skills.
+- **Guards that check structural facts** without baking retail recipes: e.g. “row_count vs brief top_n”, “artifact exists/readable”, generic missing-column-if-declared-in-brief — not “SKU_ID is always the product evidence column”.
 - **`ALLOW_LLM_STUB=1` / unit-test stubs** may contain deterministic behavior behind the stub gate.
 
 ## If unsure
 
 Prefer: dictionary + fetch tools + `inbox`/working-set samples + RAG; **handlers** write SQL.  
-Never: paste a working trial query into a skill, case study executable SQL, or `suggested_sql`.
+Never: paste a working trial query into a skill, case study executable SQL, or `suggested_sql`.  
+Never: grow new `{"SKU_ID","SKU_CODE"}`-style domain allowlists in guards/router when the dictionary or config can own that role.

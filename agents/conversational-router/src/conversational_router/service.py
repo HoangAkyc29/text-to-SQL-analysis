@@ -245,6 +245,12 @@ def _deterministic_synthesis(summary: dict[str, Any]) -> dict[str, Any]:
                 "missing_metric": "chỉ số",
                 "missing_dimension": "chiều phân tích",
                 "unmapped_requirement": "liên kết yêu cầu",
+                "missing_bill_evidence_columns": "bằng chứng bill trên file kết quả",
+                "catalog_export_without_bills": "file catalog thay vì bill",
+                "deliverable_unreadable": "file kết quả đọc được",
+                "top_n_mismatch": "số dòng so với top-N",
+                "fewer_than_requested": "đủ số bill như yêu cầu",
+                "missing_sku_evidence_columns": "bằng chứng mã hàng trên file kết quả",
             }.get(prefix, "một yêu cầu đầu ra")
             readable.append(f"{label}{f' ({detail})' if detail else ''}")
         sentences.append("Chưa xác minh được: " + ", ".join(readable) + ".")

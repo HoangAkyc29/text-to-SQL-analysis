@@ -225,16 +225,30 @@ class ToolSelectorService(SupermarketAgentService):
                     "server": "deliverables",
                     "tool_id": "export_excel",
                     "reason": "stub: export",
-                    "args_hints": {"dataset": "latest analytical frame"},
+                    "args_hints": {
+                        "sheets": (
+                            "bills=<top_n_per_group or ranked bill ref>; "
+                            "optional summary=<qty agg> — do not globally limit a per-group frame"
+                        ),
+                    },
                 }
             )
         if any(k in goal for k in ("join", "filter", "top", "group", "rank")):
+            per_product = any(k in goal for k in ("per product", "per sku", "mỗi mã", "moi ma", "group"))
             tools.append(
                 {
                     "server": "dataframe-ops",
                     "tool_id": "filter_rows" if "filter" in goal else "top_n_per_group",
                     "reason": "stub: transform",
-                    "args_hints": {},
+                    "args_hints": (
+                        {
+                            "group_by": "SKU_ID",
+                            "order_by": "TRAN_DATE",
+                            "n": "from brief top_n",
+                        }
+                        if per_product and "filter" not in goal
+                        else {}
+                    ),
                 }
             )
         if not tools:

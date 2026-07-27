@@ -146,12 +146,20 @@ class ClarificationCoordinator:
         clarify_payload: dict[str, Any],
         workflow_status: str,
     ) -> ChatResponse:
-        msg = request.evidence_summary or clarify_payload.get("user_message", "")
+        from project_core.domain.clarification.ensure import ensure_clarification_questions
+
+        request = ensure_clarification_questions(request)
+        msg = (
+            str(clarify_payload.get("user_message") or "").strip()
+            or request.evidence_summary
+            or request.reason
+            or "Cần thêm thông tin để tiếp tục phân tích."
+        )
         return ChatResponse(
             session_id=session_id,
             analysis_id=analysis_id,
             workflow_status=workflow_status,
             outcome="needs_clarification",
-            message=msg or clarify_payload.get("user_message", ""),
+            message=msg,
             clarification=request,
         )

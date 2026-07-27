@@ -12,9 +12,11 @@ FETCH_TOOL_IDS: tuple[str, ...] = (
 
 FETCH_CATALOG: dict[str, str] = {
     "resolve_products": (
-        "Lookup display product codes on SKU_DEF → SKU_ID, SKU_CODE, FULL_NAME. "
-        "Exact SKU_CODE or leading-zero-normalized match. Call before sale-line queries "
-        "when the brief has product_code."
+        "Lookup SKU_DEF → SKU_ID, SKU_CODE, FULL_NAME, FULL_NAME_U. "
+        "Pass codes= for exact SKU_CODE (leading-zero-normalized), or "
+        "name_contains= for case-insensitive substring on FULL_NAME_U "
+        "(product keyword / display name — not FULL_NAME). "
+        "Call before sale-line queries when the brief has product_code or a product name."
     ),
     "preview_table": (
         "TOP-N inspect of one allowlisted logical table (dictionary ∩ permissions). "

@@ -1,4 +1,4 @@
-"""Data Agent brain — CoT phases with fetch tools + catalog ops (no free SQL)."""
+﻿"""Data Agent brain â€” CoT phases with fetch tools + catalog ops (no free SQL)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from project_core.config.loader import load_project_config
 from project_core.domain.analysis.data_agent_guards import (
     assess_deliverable_coverage,
     coverage_forces_partial,
-    dataset_looks_like_product_catalog,
     infer_top_n,
     is_blocked_name_type_guess,
     is_blocked_premature_export,
     is_nonblocking_type_clarify,
+    prefer_export_dataset_ref,
     soft_product_type,
 )
 from project_core.domain.analysis.iv_sufficiency import assess_sufficiency
@@ -47,12 +47,12 @@ _DEFAULT_SYSTEM = """You are the supermarket Data Agent (fetch + analyze). Never
 Return JSON only with fields: phase, thought, decision, and tool/op/status as needed.
 
 Phases (follow in order; you may briefly revisit earlier phases after evidence):
-orient → ground → probe → narrow → assemble → verify → deliver
+orient â†’ ground â†’ probe â†’ narrow â†’ assemble â†’ verify â†’ deliver
 
 Decisions:
 - fetch: call a parameterized fetch tool {tool_id, args, save_as}
 - run_op: call a catalog op {op_id, dataset?, save_as?, args?}
-  Put column/op/operator/value/to/by/aggs inside args (or flat on op — both work).
+  Put column/op/operator/value/to/by/aggs inside args (or flat on op â€” both work).
   filter_rows: args.conditions|clauses=[{column, op|operator, value}] OR column+op+value.
   cast_column: args.column + optional args.to (float|int|str|datetime).
 - verify: ask runtime to run coverage/grain checks
@@ -62,7 +62,10 @@ Decisions:
   from display-name text when product_codes already select SKUs.
 
 Hard rules:
-1. If brief has product_code, call resolve_products before query_rows on fact tables.
+1. If brief has product_code, call resolve_products(codes=…) before query_rows on fact tables.
+   If brief has a product name/keyword only (no codes), call resolve_products(name_contains=…)
+   — searches SKU_DEF.FULL_NAME_U (case-insensitive). Do not pass the name as codes.
+   Alternative: query_rows on SKU_DEF with contains on FULL_NAME_U.
 2. Fact fetches require time_range; never pull unfiltered STRANS/TRANSHDR.
 3. Do not pass trans_code/TRANS_CODE unless brief filters request a document type.
 4. For min_bill_value, use query_rows on TRANSHDR with min_amount / AMOUNT filter,
@@ -73,13 +76,20 @@ Hard rules:
    (toolkit expands SKU_ID / TRANS_NUM). Prefer dataset refs after resolve/select_columns.
 8. When product_codes are present they are the source of truth:
    - Do not invent extra filters on display-name columns (FULL_NAME/NAME) to "confirm" type.
-   - product_type_soft is optional context only — continue the pipeline; finalize may caveat
+   - product_type_soft is optional context only â€” continue the pipeline; finalize may caveat
      product_type_unverified. Do not stop to clarify type/name when codes already pin SKUs.
    - Clarify product_type only when there are no product_codes (or resolve is ambiguous) and
      schema/dictionary does not provide a type column.
-9. Final export MUST keep SKU_CODE (or SKU_ID) when product_codes were requested.
-10. If checklist.top_n is set (e.g. 5 nearest bills), final table rows must be <= top_n;
-    call verify before finalize. Prefer status=partial when fewer rows than requested.
+9. Prefer exports that preserve enough columns for the brief (ids, amounts, dates);
+    do not invent display-name filters to "prove" product type. Coverage checks are structural
+    (readable artifact, top-N row counts, catalog-vs-bills) â€” not a mandate to keep specific
+    retail column names on every sheet.
+10. If checklist.top_n is set:
+    - Global top-N (no per-product wording): final bills rows should be <= top_n.
+    - Top-N **per product/SKU**: use top_n_per_group; final bills rows may be
+      top_n × product count — do not flatten with global limit_rows(top_n).
+    Call export_excel (bills=<ranked ref>, optional summary) before finalize.
+    Prefer status=partial when fewer rows than requested.
 """
 
 
@@ -162,37 +172,6 @@ def _time_range(brief: AnalysisBrief) -> dict[str, str]:
 
 def _needs_bill_deliverable(brief: AnalysisBrief) -> bool:
     return infer_top_n(brief) is not None or (brief.filters or {}).get("min_bill_value") is not None
-
-
-def _frame_has_bill_id(df: Any) -> bool:
-    cols = {str(c).upper() for c in getattr(df, "columns", [])}
-    return bool(cols & {"TRANS_NUM", "BILL_NO", "TRANS_ID"})
-
-
-def _prefer_export_dataset(
-    working_set: DatasetWorkingSet,
-    *,
-    needs_bill: bool,
-) -> str | None:
-    """Pick an export ref by grain/shape only — never force a domain recipe."""
-    ranked: list[tuple[int, str]] = []
-    for ref in working_set.refs():
-        try:
-            df = working_set.get(ref).frame()
-        except Exception:  # noqa: BLE001
-            continue
-        if needs_bill and dataset_looks_like_product_catalog(df):
-            continue
-        score = 0
-        if needs_bill and _frame_has_bill_id(df):
-            score += 100
-        # Prefer smaller analytical frames over huge probes.
-        score += max(0, 50 - min(len(df), 50))
-        ranked.append((score, ref))
-    if not ranked:
-        return None
-    ranked.sort(key=lambda x: (-x[0], x[1]))
-    return ranked[0][1]
 
 
 def _stub_decision(brief: AnalysisBrief, phase: str, observations: list[dict[str, Any]], working_set: DatasetWorkingSet) -> dict[str, Any]:
@@ -288,14 +267,14 @@ def _stub_decision(brief: AnalysisBrief, phase: str, observations: list[dict[str
         }
 
     if not any(o.get("op_id") == "export_excel" and o.get("ok") for o in observations):
-        dataset = _prefer_export_dataset(working_set, needs_bill=needs_bill)
+        dataset = prefer_export_dataset_ref(working_set, needs_bill=needs_bill)
         if dataset is None:
             return {
                 "phase": "assemble",
                 "thought": "No non-catalog frame ready for export; keep assembling",
                 "decision": "finalize",
                 "status": "partial",
-                "insight_vi": "Chưa có bảng deliverable đúng grain để xuất.",
+                "insight_vi": "ChÆ°a cÃ³ báº£ng deliverable Ä‘Ãºng grain Ä‘á»ƒ xuáº¥t.",
                 "caveats": ["export_blocked_no_suitable_dataset"],
             }
         return {
@@ -314,7 +293,7 @@ def _stub_decision(brief: AnalysisBrief, phase: str, observations: list[dict[str
         "thought": "Done",
         "decision": "finalize",
         "status": "complete",
-        "insight_vi": "Đã hoàn tất phân tích qua Data Agent (stub).",
+        "insight_vi": "ÄÃ£ hoÃ n táº¥t phÃ¢n tÃ­ch qua Data Agent (stub).",
         "headline_metrics": {},
         "caveats": [],
     }
@@ -452,7 +431,7 @@ def run_data_agent_brain(
             else:
                 out = {
                     "action": "partial",
-                    "insight_vi": "Data Agent không hoàn tất vòng suy luận.",
+                    "insight_vi": "Data Agent khÃ´ng hoÃ n táº¥t vÃ²ng suy luáº­n.",
                     "caveats": [f"planner_failed:{exc}"],
                     "artifact_paths": list(working_set.artifact_paths),
                     "steps_trace": steps_trace,
@@ -483,7 +462,7 @@ def run_data_agent_brain(
         )
 
         if decision_name == "clarify":
-            # Clarify is for true blockers — not soft type/name debates when codes exist.
+            # Clarify is for true blockers â€” not soft type/name debates when codes exist.
             if is_nonblocking_type_clarify(
                 product_codes=list(checklist.get("product_codes") or []),
                 thought=thought,
@@ -496,8 +475,8 @@ def run_data_agent_brain(
                         "error": "clarify_rejected_codes_sufficient",
                         "hint": (
                             "product_codes already select SKUs — do not clarify about "
-                            "soft product_type / display-name. Continue fetch/analyze; "
-                            "finalize may caveat product_type_unverified."
+                            "soft product_type / display-name / AMOUNT_x vs AMOUNT_y. "
+                            "Prefer AMOUNT_hdr/AMOUNT_x for bill totals; continue fetch/analyze."
                         ),
                     }
                 )
@@ -577,7 +556,7 @@ def run_data_agent_brain(
                 if decision_name != "fetch":
                     return {
                         "action": "partial",
-                        "insight_vi": "Data Agent bị chặn finalize khi chưa có dữ liệu.",
+                        "insight_vi": "Data Agent bá»‹ cháº·n finalize khi chÆ°a cÃ³ dá»¯ liá»‡u.",
                         "caveats": ["finalize_blocked_empty_working_set"],
                         "artifact_paths": [],
                         "steps_trace": steps_trace,
@@ -590,7 +569,7 @@ def run_data_agent_brain(
                 status = str(decision.get("status") or "complete")
                 arts = list(working_set.artifact_paths)
                 if not arts and working_set.refs():
-                    ref0 = _prefer_export_dataset(
+                    ref0 = prefer_export_dataset_ref(
                         working_set,
                         needs_bill=_needs_bill_deliverable(brief),
                     )
@@ -691,7 +670,7 @@ def run_data_agent_brain(
                     status = "partial" if legacy == "partial" else "complete"
                     arts = list(working_set.artifact_paths)
                     if not arts:
-                        ref0 = _prefer_export_dataset(
+                        ref0 = prefer_export_dataset_ref(
                             working_set,
                             needs_bill=_needs_bill_deliverable(brief),
                         )
@@ -823,15 +802,13 @@ def run_data_agent_brain(
                         "op_id": op_id,
                         "args": oargs,
                         "hint": (
-                            "product_codes already identify SKUs — do not guess type from "
-                            "display-name columns when product_codes exist. Keep SKU_CODE "
-                            "in the final export; use clarify only for true blockers, or "
-                            "caveat product_type_unverified if needed."
+                            "product_codes already identify products â€” do not re-filter on "
+                            "display-name columns. Continue fetch/ops; caveat soft type if needed."
                             if blocked == "blocked_name_type_guess"
                             else (
                                 "checklist asks for bill-grained deliverable (top_n / "
-                                "min_bill_value) — do not export product-catalog frames "
-                                "(resolved_skus). Assemble TRANS_NUM rows first, then export."
+                                "min_bill_value) â€” do not export product-catalog frames "
+                                "before bill rows exist. Assemble bill-level rows first, then export."
                             )
                         ),
                     }
@@ -933,7 +910,7 @@ def run_data_agent_brain(
 
     out = {
         "action": "partial",
-        "insight_vi": "Data Agent hết ngân sách vòng lặp trước khi finalize.",
+        "insight_vi": "Data Agent háº¿t ngÃ¢n sÃ¡ch vÃ²ng láº·p trÆ°á»›c khi finalize.",
         "caveats": ["max_planner_turns"],
         "artifact_paths": list(working_set.artifact_paths),
         "steps_trace": steps_trace,
@@ -947,7 +924,7 @@ def run_data_agent_brain(
     # Best-effort export so partial runs still leave deliverables when data exists.
     if not working_set.artifact_paths and working_set.refs():
         try:
-            export_ref = _prefer_export_dataset(
+            export_ref = prefer_export_dataset_ref(
                 working_set,
                 needs_bill=_needs_bill_deliverable(brief),
             )
@@ -996,3 +973,4 @@ def run_data_agent_brain(
     out["coverage"] = coverage
     _persist_trace({"action": out["action"], "caveats": out["caveats"], "coverage": coverage})
     return out
+

@@ -72,7 +72,14 @@ class HttpAgentInvoker(AgentInvoker):
         if analysis_id is not None:
             self._analysis_id = analysis_id
 
-    def invoke(self, agent: str, payload: dict[str, Any], metadata: dict[str, Any]) -> dict[str, Any]:
+    def invoke(
+        self,
+        agent: str,
+        payload: dict[str, Any],
+        metadata: dict[str, Any],
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         if self._circuit.is_open():
             raise AgentUnavailableError(f"Circuit open for agent {agent}")
         url = f"{self.urls[agent]}/run"
@@ -92,7 +99,11 @@ class HttpAgentInvoker(AgentInvoker):
         if self._analysis_id:
             headers["X-Analysis-Id"] = self._analysis_id
         try:
-            resp = self._get_client().post(url, json=req.model_dump(), headers=headers)
+            client = self._get_client()
+            post_kwargs: dict[str, Any] = {"url": url, "json": req.model_dump(), "headers": headers}
+            if timeout is not None:
+                post_kwargs["timeout"] = timeout
+            resp = client.post(**post_kwargs)
             resp.raise_for_status()
             data = resp.json()
             self._circuit.record_success()

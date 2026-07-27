@@ -26,7 +26,17 @@ from project_core.domain.sql.shard_resolver import suggest_query_plan
 logger = logging.getLogger(__name__)
 
 _ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
-    "resolve_products": {"codes": ("product_codes", "sku_codes", "products", "codes")},
+    "resolve_products": {
+        "codes": ("product_codes", "sku_codes", "products", "codes"),
+        "name_contains": (
+            "product_name",
+            "product_keyword",
+            "name",
+            "name_contains",
+            "query",
+            "keyword",
+        ),
+    },
     "preview_table": {"table": ("table_name",)},
     "query_rows": {
         "table": ("table_name",),
@@ -522,6 +532,7 @@ class DataFetchToolkit:
         if tool_id == "resolve_products":
             sql = builders.build_resolve_products(
                 codes=args.get("codes"),
+                name_contains=args.get("name_contains"),
                 limit=args.get("limit", 50),
                 hard_max=hard_max,
             )

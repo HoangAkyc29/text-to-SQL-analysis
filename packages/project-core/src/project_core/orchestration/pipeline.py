@@ -1963,17 +1963,23 @@ class SupermarketAnalysisPipeline:
 
         action = str(payload.get("action") or "partial")
         if action == "suggest_clarify":
-            needs = ClarificationRequest(
-                source_agent="IV",
-                reason=str(
-                    (payload.get("suggest_clarify") or {}).get("reason")
-                    or payload.get("reason")
-                    or "clarify"
-                ),
-                partial_brief=brief,
-                questions=list(
-                    (payload.get("suggest_clarify") or {}).get("questions") or []
-                ),
+            from project_core.domain.clarification.ensure import ensure_clarification_questions
+
+            raw_clarify = payload.get("suggest_clarify") or {}
+            if not isinstance(raw_clarify, dict):
+                raw_clarify = {"reason": str(raw_clarify)}
+            needs = ensure_clarification_questions(
+                ClarificationRequest(
+                    source_agent="IV",
+                    reason=str(
+                        raw_clarify.get("reason")
+                        or payload.get("reason")
+                        or "clarify"
+                    ),
+                    partial_brief=brief,
+                    questions=list(raw_clarify.get("questions") or []),
+                    evidence_summary=str(raw_clarify.get("evidence_summary") or ""),
+                )
             )
             workflow.status = WorkflowStatus.AWAITING_CLARIFICATION
             self._log_pipeline_timing(workflow, AnalysisOutcome.NEEDS_CLARIFICATION.value)

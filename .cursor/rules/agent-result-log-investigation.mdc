@@ -1,0 +1,34 @@
+---
+description: Treat incomplete/inaccurate agent results as failures — dig logs, find root cause, improve
+alwaysApply: true
+---
+
+# Agent results: incomplete = wrong
+
+## Absolute standard
+
+Any agent/pipeline deliverable that is **not fully correct for the brief** is a **failed result** — including:
+
+- `outcome=partial`, empty Excel sheets, wrong sheet/frame exported
+- Missing required dimensions (e.g. top-N **per product** when brief asked for it)
+- Soft clarify / hang / 0-row traps when codes/filters were already sufficient
+- “Succeeded” UI with downloadable file that does not answer the user request
+
+Do **not** treat surface success (`status=succeeded`, xlsx link present, no hang) as done.
+
+## Required response when result is wrong
+
+1. **Pull evidence immediately** — do not stop at status/outcome:
+   - `data/artifacts/<trace_id>/out/data_agent_trace.json`
+   - parquet row counts under `ws/`
+   - Excel sheet names + **data row counts** (not headers only)
+   - worker / data-agent logs for the analysis_id
+2. **Locate the break** in the reasoning/tool chain (wrong filter literal, ops coerce bug, prefer empty export frame, LLM 402, etc.).
+3. **Fix or propose a concrete fix** for the root cause — not only a quality score narrative.
+4. Re-test when the user expects verification; re-check Excel/trace after the fix.
+
+## Anti-patterns
+
+- Reporting “partial but OK” without opening the trace
+- Celebrating fetch_ok / no-clarify while the export frame is wrong or empty
+- Asking the user what went wrong when logs/artifacts already exist in the sandbox

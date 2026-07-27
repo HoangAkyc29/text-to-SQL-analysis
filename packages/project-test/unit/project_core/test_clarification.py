@@ -92,3 +92,33 @@ def test_can_emit_clarify_within_round_cap():
     wf = new_workflow("s", "u")
     wf.clarify_round = 2
     assert can_emit_clarify(wf) is True
+
+
+def test_ensure_clarification_questions_synthesizes_amount_mcq():
+    from project_core.domain.clarification.ensure import ensure_clarification_questions
+
+    raw = ClarificationRequest(
+        source_agent="IV",
+        reason="missing AMOUNT after join — header amount or line amount (AMOUNT_x vs AMOUNT_y)?",
+        partial_brief=AnalysisBrief(intent="gift bills"),
+        questions=[],
+    )
+    fixed = ensure_clarification_questions(raw)
+    assert len(fixed.questions) == 1
+    assert fixed.questions[0].id == "bill_amount_grain"
+    assert len(fixed.questions[0].options) >= 2
+
+
+def test_ensure_clarification_questions_open_free_text():
+    from project_core.domain.clarification.ensure import ensure_clarification_questions
+
+    raw = ClarificationRequest(
+        source_agent="IV",
+        reason="Need store id for this report",
+        partial_brief=AnalysisBrief(intent="x"),
+        questions=[],
+    )
+    fixed = ensure_clarification_questions(raw)
+    assert len(fixed.questions) == 1
+    assert fixed.questions[0].options == []
+    assert "store" in fixed.questions[0].prompt.lower() or "Need store" in fixed.questions[0].prompt

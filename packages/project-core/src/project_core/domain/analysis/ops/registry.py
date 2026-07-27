@@ -35,7 +35,11 @@ OP_CATALOG: dict[str, str] = {
     "pivot_table": "Pivot table",
     "melt": "Unpivot / melt",
     "window_rank": "Rank within partition",
-    "top_n_per_group": "Keep top n rows per group",
+    "top_n_per_group": (
+        "Keep top n rows per partition (group_by/partition_by). "
+        "For 'top N per product/SKU', set group_by=SKU_ID and order_by date/time "
+        "(not a global limit_rows). Empty partition_by = global top-N."
+    ),
     "percent_of_total": "Add percent-of-total column",
     "cumulative_sum": "Add cumulative sum column",
     "join_datasets": "Join two datasets",
@@ -48,7 +52,11 @@ OP_CATALOG: dict[str, str] = {
     "compare_datasets": "Compare datasets by keys or row-hash multiset",
     "get_lineage": "Return dataset/artifact lineage",
     "export_csv": "Write CSV under out/",
-    "export_excel": "Write Excel (optional multi-sheet map)",
+    "export_excel": (
+        "Write Excel under out/. Prefer sheets={bills:<top_n_per_group_ref>, summary:<agg_ref>} "
+        "when the brief asks for top-N bills per product plus quantity. "
+        "Never replace a per-group top-N bills frame with a global 5-row slice."
+    ),
     "plot_chart": "Write PNG chart bar|line|pie|hist",
     "bundle_deliverables": "Mark primary artifacts for sufficiency",
     "match_brief_coverage": "Compare brief metrics/dims vs available columns",

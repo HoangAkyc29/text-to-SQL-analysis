@@ -18,6 +18,14 @@ sys.path.insert(0, str(ROOT / "packages" / "project-core" / "src"))
 from project_core.config.env import load_project_env  # noqa: E402
 from project_core.llm.embedding_client import EmbeddingClient  # noqa: E402
 
+# Stable rule_id so re-seed upserts cleanly without duplicating teach-UI noise.
+_FACT_TYPE: dict[str, str] = {
+    "seed-bill-value-formula": "formula",
+    "seed-three-stores-stk": "classification",
+    "seed-loyalty-points-floor": "formula",
+    "seed-sku-fullname-full-name-u-tcvn3": "definition",
+}
+
 CASES: list[dict[str, Any]] = [
     {
         "source_trace_id": "seed-bill-value-formula",
@@ -149,7 +157,106 @@ CASES: list[dict[str, Any]] = [
             {"chunk_group": "table", "ref": "db2:crdtrans"},
         ],
     },
+    {
+        "source_trace_id": "seed-sku-fullname-full-name-u-tcvn3",
+        "text": (
+            "Tìm sản phẩm theo tên (gần đúng / không phân biệt hoa thường): dùng cột "
+            "SKU_DEF.FULL_NAME_U — không dựa vào FULL_NAME. Hầu hết chuỗi text trên hệ thống "
+            "được lưu kiểu TCVN3 nên khi đọc raw thường bị mojibake; FULL_NAME_U là cột "
+            "ưu tiên để search tên hàng và gắn nhãn hiển thị sau join. "
+            "Tool gợi ý: query_rows / lookup_distinct trên SKU_DEF với filter contains "
+            "case-insensitive trên FULL_NAME_U; resolve_products chỉ khớp mã SKU_CODE."
+        ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "SKU_DEF",
+                    "filters": [
+                        {
+                            "column": "FULL_NAME_U",
+                            "op": "contains",
+                            "value": "{{product_name}}",
+                            "case_insensitive": True,
+                        }
+                    ],
+                    "limit": 50,
+                },
+                "save_as": "matched_skus",
+            }
+        ],
+        "stages": [
+            {
+                "stage_id": "ground",
+                "goal": "query_rows SKU_DEF FULL_NAME_U contains product name (case-insensitive)",
+            }
+        ],
+        "brief_template": {
+            "intent": "Tìm SKU theo tên hàng gần đúng trên FULL_NAME_U",
+            "filters": {"product_name": "{{product_name}}"},
+        },
+        "links": [
+            {"chunk_group": "column", "ref": "sku_def__full_name_u"},
+            {"chunk_group": "column", "ref": "sku_def__full_name"},
+            {"chunk_group": "column", "ref": "sku_id_ref"},
+            {"chunk_group": "table", "ref": "db2:sku_def"},
+            {"chunk_group": "table", "ref": "db1:sku_def"},
+        ],
+    },
 ]
+
+
+def _seed_domain_rule(db: Any, case: dict[str, Any], *, now: datetime) -> None:
+    """Upsert confirmed domain fact with the same schema_links as the case study."""
+    source = str(case["source_trace_id"])
+    rule_id = f"seed-rule:{source}"
+    links = list(case.get("links") or [])
+    statement = str(case["text"]).strip()
+    record = {
+        "rule_id": rule_id,
+        "fact_type": _FACT_TYPE.get(source, "definition"),
+        "scope": "global",
+        "actor_id": "system",
+        "tenant_id": "",
+        "statement": statement,
+        "evidence_trace_ids": [source],
+        "evidence": [
+            {
+                "evidence_id": f"{rule_id}:dict",
+                "source_kind": "dictionary",
+                "source_ref": source,
+                "quote": statement[:400],
+                "actor_id": "system",
+                "trace_id": source,
+                "schema_links": links,
+                "confidence": 1.0,
+                "independent_group": "seed_script",
+                "observed_at": now,
+            }
+        ],
+        "schema_links": links,
+        "confidence": 1.0,
+        "authority": "admin",
+        "valid_from": None,
+        "valid_to": None,
+        "supersedes_rule_id": None,
+        "status": "confirmed",
+        "stale": False,
+        "conflict": False,
+        "confirmed_by": "seed_script",
+        "confirmed_at": now,
+        "decision_reason": "explicit_admin_seed",
+        "updated_at": now,
+        "created_at": now,
+    }
+    existing = db["domain_rules"].find_one({"rule_id": rule_id})
+    if existing and existing.get("created_at"):
+        record["created_at"] = existing["created_at"]
+    db["domain_rules"].update_one({"rule_id": rule_id}, {"$set": record}, upsert=True)
+    print(f"  domain_rule {rule_id} links={len(links)} status=confirmed")
 
 
 def main() -> None:
@@ -185,7 +292,8 @@ def main() -> None:
             "embedding": vec,
         }
         coll.update_one({"source_trace_id": case["source_trace_id"]}, {"$set": record}, upsert=True)
-        print(f"Seeded {case['source_trace_id']} case_id={case_id} links={len(case['links'])}")
+        print(f"Seeded case_study {case['source_trace_id']} case_id={case_id} links={len(case['links'])}")
+        _seed_domain_rule(db, case, now=now)
 
 
 if __name__ == "__main__":

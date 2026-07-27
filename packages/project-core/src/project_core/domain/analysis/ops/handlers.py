@@ -33,6 +33,70 @@ def _require_cols(df: pd.DataFrame, cols: list[str]) -> str | None:
     return None
 
 
+def _as_col_list(value: Any) -> list[str]:
+    """Normalize group_by/partition_by/order column specs.
+
+    LLMs often pass a bare string (\"SKU_ID\"); iterating that yields characters.
+    Also accept {column: ...} and list[{column, ascending}].
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else []
+    if isinstance(value, dict):
+        col = value.get("column") or value.get("col") or value.get("field") or value.get("by")
+        if col is None:
+            return []
+        text = str(col).strip()
+        return [text] if text else []
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_as_col_list(item))
+        return out
+    text = str(value).strip()
+    return [text] if text else []
+
+
+def _as_order_by(
+    value: Any,
+    *,
+    default_ascending: Any = False,
+) -> tuple[list[str], list[bool] | bool]:
+    """Normalize order_by to (columns, ascending flags)."""
+    if value is None:
+        return [], default_ascending
+    if isinstance(value, str):
+        cols = _as_col_list(value)
+        return cols, default_ascending
+    if isinstance(value, dict):
+        cols = _as_col_list(value)
+        if "ascending" in value:
+            return cols, bool(value.get("ascending"))
+        return cols, default_ascending
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return [], default_ascending
+        if all(isinstance(item, dict) for item in value):
+            cols: list[str] = []
+            ascs: list[bool] = []
+            fallback = (
+                bool(default_ascending[0])
+                if isinstance(default_ascending, list) and default_ascending
+                else bool(default_ascending)
+            )
+            for item in value:
+                part = _as_col_list(item)
+                if not part:
+                    continue
+                cols.append(part[0])
+                ascs.append(bool(item["ascending"]) if "ascending" in item else fallback)
+            return cols, ascs if ascs else default_ascending
+        return _as_col_list(value), default_ascending
+    return _as_col_list(value), default_ascending
+
+
 def _save(
     ws: DatasetWorkingSet,
     save_as: str | None,
@@ -248,6 +312,8 @@ def op_drop_null(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> 
 
 def _expand_filter_value(ws: DatasetWorkingSet, value: Any) -> Any:
     """Expand dataset / dataset.column refs in filter values (meta tooling)."""
+    from project_core.domain.data_fetch.arg_coerce import looks_like_prose_placeholder
+
     if isinstance(value, dict):
         ref = (
             value.get("dataset")
@@ -279,6 +345,9 @@ def _expand_filter_value(ws: DatasetWorkingSet, value: Any) -> Any:
         text = value.strip()
         if not text:
             return value
+        # Never treat brief/checklist path placeholders as literal filter values.
+        if looks_like_prose_placeholder(text):
+            raise ValueError(f"prose_filter_value:{text}")
         # dataset.COLUMN
         if "." in text:
             ref_s, _, col_s = text.partition(".")
@@ -325,14 +394,56 @@ def _normalize_filter_clause(clause: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _resolve_collided_column(
+    df: pd.DataFrame,
+    col: str,
+    *,
+    prefer_left: bool = True,
+) -> str | None:
+    """Map bare names (AMOUNT) onto join suffixes (AMOUNT_hdr / AMOUNT_x).
+
+    After header⋈line joins, bill totals usually live on the left/header side.
+    Prefer ``*_hdr`` / ``*_x`` so min_bill filters keep working without clarify.
+    """
+    if col in df.columns:
+        return col
+    upper = {str(c).upper(): str(c) for c in df.columns}
+    base = str(col).upper()
+    if base in upper:
+        return upper[base]
+    preferred = [f"{base}_HDR", f"{base}_HEADER", f"{base}_X", f"{base}_LEFT"]
+    fallback = [f"{base}_LINE", f"{base}_Y", f"{base}_RIGHT"]
+    order = preferred + fallback if prefer_left else fallback + preferred
+    for cand in order:
+        if cand in upper:
+            return upper[cand]
+    matches = [c for u, c in upper.items() if u.startswith(base + "_")]
+    if not matches:
+        return None
+    if prefer_left:
+        for c in matches:
+            if str(c).upper().endswith(("_HDR", "_HEADER", "_X", "_LEFT")):
+                return c
+    return matches[0]
+
+
+def _default_join_suffixes(left: pd.DataFrame, right: pd.DataFrame) -> tuple[str, str]:
+    overlap = {str(c).upper() for c in left.columns} & {str(c).upper() for c in right.columns}
+    if overlap & {"AMOUNT", "TOTAL", "QTY", "TRAN_DATE", "TRAN_TIME", "STK_ID"}:
+        return ("_hdr", "_line")
+    return ("_x", "_y")
+
+
 def _clause_mask(df: pd.DataFrame, clause: dict[str, Any]) -> pd.Series:
     clause = _normalize_filter_clause(clause)
     col = str(clause["column"])
     op = str(clause.get("op") or "eq").lower()
     value = clause.get("value")
     case_insensitive = bool(clause.get("case_insensitive", False))
-    if col not in df.columns:
+    resolved = _resolve_collided_column(df, col)
+    if resolved is None:
         raise KeyError(f"missing_columns:[{col}]")
+    col = resolved
     s = df[col]
     # Soft/descriptive filters on all-empty columns produce false zeros (e.g. ITEM_TYPE).
     if op in {"eq", "contains", "in"} and isinstance(value, str) and value.strip():
@@ -567,6 +678,9 @@ def _normalize_groupby_aggs(raw: Any) -> list[dict[str, str]] | dict[str, Any]:
     return out
 
 
+_NUMERIC_AGGS = frozenset({"sum", "mean", "median", "std", "min", "max"})
+
+
 def op_groupby_agg(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
     by = [str(c) for c in (args.get("by") or [])]
@@ -587,8 +701,17 @@ def op_groupby_agg(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -
         named[out_name] = (col, _AGG_MAP[fn])
     if not named:
         return {"error": "aggs_required"}
-    grouped = handle.frame().groupby(by, dropna=False).agg(**{k: v for k, v in named.items()})
-    grouped = grouped.reset_index()
+    df = handle.frame().copy()
+    for col, fn in named.values():
+        if fn in _NUMERIC_AGGS:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    if not by:
+        # Global aggregate (LLM often passes empty group_by for a single total).
+        row = {out: getattr(df[col], fn)() for out, (col, fn) in named.items()}
+        grouped = pd.DataFrame([row])
+    else:
+        grouped = df.groupby(by, dropna=False).agg(**{k: v for k, v in named.items()})
+        grouped = grouped.reset_index()
     return _save(ws, args.get("save_as"), grouped, source="groupby_agg", role="aggregate")
 
 
@@ -631,9 +754,9 @@ def op_melt(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[
 
 def op_window_rank(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
-    partition_by = [str(c) for c in (args.get("partition_by") or [])]
-    order_by = [str(c) for c in (args.get("order_by") or [])]
-    ascending = args.get("ascending", False)
+    partition_by = _as_col_list(args.get("partition_by"))
+    order_by, order_asc = _as_order_by(args.get("order_by"), default_ascending=args.get("ascending", False))
+    ascending = order_asc if isinstance(order_asc, list) else args.get("ascending", False)
     method = str(args.get("method") or "row_number").lower()
     rank_col = str(args.get("rank_column") or "rn")
     err = _require_cols(handle.frame(), partition_by + order_by)
@@ -667,18 +790,34 @@ def op_window_rank(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -
 
 def op_top_n_per_group(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
-    partition_by = [str(c) for c in (args.get("partition_by") or args.get("group_by") or [])]
-    order_by = [str(c) for c in (args.get("order_by") or [])]
+    # Prefer explicit partition_by (including []) for global top-N; else group_by.
+    if "partition_by" in args:
+        partition_by = _as_col_list(args.get("partition_by"))
+    else:
+        partition_by = _as_col_list(args.get("group_by"))
+    order_by, order_asc = _as_order_by(args.get("order_by"), default_ascending=args.get("ascending", False))
     n = int(args.get("n") or 5)
-    ascending = args.get("ascending", False)
+    ascending = order_asc if isinstance(order_asc, list) else args.get("ascending", False)
     err = _require_cols(handle.frame(), partition_by + order_by)
     if err:
         return {"error": err}
     if isinstance(ascending, list):
         asc = [bool(x) for x in ascending]
     else:
-        asc = [bool(ascending)] * len(order_by)
-    df = handle.frame().sort_values(by=partition_by + order_by, ascending=[True] * len(partition_by) + asc)
+        asc = [bool(ascending)] * max(len(order_by), 1)
+    df = handle.frame()
+    if not partition_by:
+        # Global top-N (e.g. 5 most recent bills).
+        sort_cols = order_by or list(df.columns[:1])
+        if isinstance(ascending, list):
+            asc_g = [bool(x) for x in ascending][: len(sort_cols)]
+            if len(asc_g) < len(sort_cols):
+                asc_g = asc_g + [bool(ascending[-1] if ascending else False)] * (len(sort_cols) - len(asc_g))
+        else:
+            asc_g = [bool(ascending)] * len(sort_cols)
+        out = df.sort_values(by=sort_cols, ascending=asc_g).head(n).copy()
+        return _save(ws, args.get("save_as"), out, source="top_n_per_group", role=handle.role)
+    df = df.sort_values(by=partition_by + order_by, ascending=[True] * len(partition_by) + asc)
     df = df.copy()
     df["_rn"] = df.groupby(partition_by, dropna=False).cumcount() + 1
     out = df.loc[df["_rn"] <= n].drop(columns=["_rn"])
@@ -689,7 +828,7 @@ def op_percent_of_total(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Pa
     handle = ws.get(str(args["dataset"]))
     col = str(args["column"])
     out_col = str(args.get("as") or f"{col}_pct")
-    group_by = [str(c) for c in (args.get("group_by") or [])]
+    group_by = _as_col_list(args.get("group_by"))
     err = _require_cols(handle.frame(), [col] + group_by)
     if err:
         return {"error": err}
@@ -707,7 +846,7 @@ def op_cumulative_sum(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path
     handle = ws.get(str(args["dataset"]))
     col = str(args["column"])
     out_col = str(args.get("as") or f"{col}_cumsum")
-    group_by = [str(c) for c in (args.get("group_by") or [])]
+    group_by = _as_col_list(args.get("group_by"))
     err = _require_cols(handle.frame(), [col] + group_by)
     if err:
         return {"error": err}
@@ -730,16 +869,21 @@ def op_join_datasets(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path)
     on = args.get("on")
     left_on = args.get("left_on")
     right_on = args.get("right_on")
+    suffixes = args.get("suffixes")
+    if not suffixes:
+        suffixes = _default_join_suffixes(left, right)
+    else:
+        suffixes = tuple(suffixes)
     try:
         if on:
-            merged = left.merge(right, how=how, on=on, suffixes=args.get("suffixes") or ("_x", "_y"))
+            merged = left.merge(right, how=how, on=on, suffixes=suffixes)
         else:
             merged = left.merge(
                 right,
                 how=how,
                 left_on=left_on,
                 right_on=right_on,
-                suffixes=args.get("suffixes") or ("_x", "_y"),
+                suffixes=suffixes,
             )
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}

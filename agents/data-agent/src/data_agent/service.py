@@ -18,6 +18,13 @@ from project_core.domain.analysis.data_agent_guards import (
     assess_deliverable_coverage,
     coverage_forces_partial,
     infer_top_n,
+    is_blocked_premature_export,
+    is_nonblocking_type_clarify,
+    is_partitioned_top_n_ref,
+    prefer_export_dataset_ref,
+    rank_bill_frame_for_export,
+    resolved_sku_ids_from_working_set,
+    soft_product_type,
 )
 from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
 from project_core.domain.contracts.brief import AnalysisBrief
@@ -163,6 +170,7 @@ class DataAgentService(SupermarketAgentService):
             "min_bill_value": (brief.filters or {}).get("min_bill_value"),
             "top_n": infer_top_n(brief),
             "metrics": list(brief.metrics or []),
+            "product_type_soft": soft_product_type(brief),
         }
         observations: list[dict[str, Any]] = []
         steps_trace: list[dict[str, Any]] = []
@@ -214,6 +222,7 @@ class DataAgentService(SupermarketAgentService):
                 observations=observations,
                 domain_excerpt=domain_excerpt,
                 use_stub=use_stub,
+                working_set=working_set,
             )
             tokens += int(chunk.get("usage_tokens") or 0)
             decision = str(chunk.get("decision") or "chunk")
@@ -242,14 +251,56 @@ class DataAgentService(SupermarketAgentService):
                 )
                 _persist_trace({"finalize": {"action": result.get("action"), "caveats": result.get("caveats")}})
                 return self.json_response(ctx, result, usage_tokens=tokens)
-            if decision in {"clarify", "impossible"}:
+            if decision == "impossible":
                 return self.json_response(
                     ctx,
                     {
-                        "action": "suggest_clarify" if decision == "clarify" else "impossible",
+                        "action": "impossible",
+                        "impossible_reason": chunk.get("reason") or chunk_goal,
+                        "steps_trace": steps_trace,
+                        "stages": stages_trail,
+                        "usage_tokens": tokens,
+                    },
+                    usage_tokens=tokens,
+                )
+            if decision == "clarify":
+                # Soft type/name/ITEM_TYPE debates must not stop the run when codes pin SKUs.
+                if is_nonblocking_type_clarify(
+                    product_codes=list(checklist.get("product_codes") or []),
+                    thought=thought or chunk_goal,
+                    decision=chunk if isinstance(chunk, dict) else {},
+                    product_type_soft=checklist.get("product_type_soft"),
+                ):
+                    observations.append(
+                        {
+                            "ok": False,
+                            "error": "clarify_rejected_codes_sufficient",
+                            "hint": (
+                                "product_codes already select SKUs — skip soft "
+                                "product_type / ITEM_TYPE / display-name / code-confirm clarify. "
+                                "Join collisions: filter AMOUNT on AMOUNT_hdr/AMOUNT_x (bill total), "
+                                "not AMOUNT_line/AMOUNT_y; or skip re-filter if TRANSHDR already used "
+                                "min_amount. Call describe_columns, then top_n_per_group + export_excel."
+                            ),
+                        }
+                    )
+                    _audit_turn(
+                        turn=turn + 1,
+                        phase="chunk",
+                        decision="clarify",
+                        thought=thought,
+                        chunk_goal=chunk_goal,
+                        ok=False,
+                        error="clarify_rejected_codes_sufficient",
+                    )
+                    _persist_trace()
+                    continue
+                return self.json_response(
+                    ctx,
+                    {
+                        "action": "suggest_clarify",
                         "suggest_clarify": chunk.get("clarification_request")
                         or {"reason": chunk_goal or decision},
-                        "impossible_reason": chunk.get("reason") or chunk_goal,
                         "steps_trace": steps_trace,
                         "stages": stages_trail,
                         "usage_tokens": tokens,
@@ -316,7 +367,9 @@ class DataAgentService(SupermarketAgentService):
             for tip in suggested[:3]:
                 tool_id = str(tip.get("tool_id") or "")
                 args = self._args_from_hints(tip, brief, checklist, working_set)
-                obs = self._execute_tool(tool_id, args, fetch, working_set, out_dir)
+                obs = self._execute_tool(
+                    tool_id, args, fetch, working_set, out_dir, checklist=checklist
+                )
                 observations.append(obs)
                 stages_trail[-1]["outcome_note"] = "ok" if obs.get("ok") else str(obs.get("error") or "fail")
                 is_fetch = bool(obs.get("tool_id"))
@@ -362,9 +415,10 @@ class DataAgentService(SupermarketAgentService):
         observations: list[dict[str, Any]],
         domain_excerpt: str,
         use_stub: bool,
+        working_set: DatasetWorkingSet | None = None,
     ) -> dict[str, Any]:
         if use_stub:
-            return self._stub_chunk(brief, checklist, observations)
+            return self._stub_chunk(brief, checklist, observations, working_set=working_set)
         client = OpenRouterClient()
         state = {
             "brief": brief.model_dump(mode="json"),
@@ -375,29 +429,57 @@ class DataAgentService(SupermarketAgentService):
             ],
             "now": datetime.now(timezone.utc).isoformat(),
         }
+        messages = [
+            {"role": "system", "content": self.llm_system_prompt(guide="chunk_guide")},
+            {"role": "user", "content": json.dumps(state, ensure_ascii=False, default=str)},
+        ]
         result = client.chat(
             profile_name=agent_profile("data_agent"),
-            messages=[
-                {"role": "system", "content": self.llm_system_prompt(guide="chunk_guide")},
-                {"role": "user", "content": json.dumps(state, ensure_ascii=False, default=str)},
-            ],
+            messages=messages,
             response_format={"type": "json_object"},
         )
+        tokens = int(getattr(result, "usage_tokens", 0) or 0)
         try:
             payload = parse_llm_json(result)
         except Exception as exc:  # noqa: BLE001
             logger.warning("data_agent chunk parse failed: %s", exc)
-            return self._stub_chunk(brief, checklist, observations) | {
-                "usage_tokens": int(getattr(result, "usage_tokens", 0) or 0),
-                "thought": f"parse_failed:{exc}",
-            }
+            # One retry — truncated JSON was a common failure mode mid-rank/export.
+            retry_messages = messages + [
+                {
+                    "role": "user",
+                    "content": (
+                        "Previous reply was invalid/truncated JSON. "
+                        "Return ONE complete JSON object only "
+                        "(keys: decision, chunk_goal, thought; "
+                        "decision in chunk|finalize|clarify|impossible)."
+                    ),
+                }
+            ]
+            try:
+                result2 = client.chat(
+                    profile_name=agent_profile("data_agent"),
+                    messages=retry_messages,
+                    response_format={"type": "json_object"},
+                )
+                tokens += int(getattr(result2, "usage_tokens", 0) or 0)
+                payload = parse_llm_json(result2)
+            except Exception as exc2:  # noqa: BLE001
+                logger.warning("data_agent chunk parse retry failed: %s", exc2)
+                return self._stub_chunk(brief, checklist, observations, working_set=working_set) | {
+                    "usage_tokens": tokens,
+                    "thought": f"parse_failed:{exc2}",
+                }
         if not isinstance(payload, dict):
-            payload = self._stub_chunk(brief, checklist, observations)
-        payload["usage_tokens"] = int(getattr(result, "usage_tokens", 0) or 0)
+            payload = self._stub_chunk(brief, checklist, observations, working_set=working_set)
+        payload["usage_tokens"] = tokens
         return payload
 
     def _stub_chunk(
-        self, brief: AnalysisBrief, checklist: dict[str, Any], observations: list[dict[str, Any]]
+        self,
+        brief: AnalysisBrief,
+        checklist: dict[str, Any],
+        observations: list[dict[str, Any]],
+        working_set: DatasetWorkingSet | None = None,
     ) -> dict[str, Any]:
         codes = checklist.get("product_codes") or []
         tr = checklist.get("time_range") or {}
@@ -425,10 +507,20 @@ class DataAgentService(SupermarketAgentService):
             )
             for o in observations
         )
+        has_join = any(o.get("op_id") == "join_datasets" and o.get("ok") for o in observations)
+        has_rank = any(
+            o.get("ok")
+            and o.get("op_id") in {"top_n_per_group", "sort_rows", "limit_rows"}
+            for o in observations
+        )
         has_export = any(
             (o.get("op_id") == "export_excel" or o.get("tool_id") == "export_excel") and o.get("ok")
             for o in observations
         )
+        needs_bill = checklist.get("top_n") is not None or checklist.get("min_bill_value") is not None
+        bill_ready = has_bills or has_join
+        if working_set is not None and needs_bill:
+            bill_ready = bill_ready or prefer_export_dataset_ref(working_set, needs_bill=True) is not None
         if codes and not has_resolve:
             return {
                 "decision": "chunk",
@@ -447,11 +539,24 @@ class DataAgentService(SupermarketAgentService):
                 "chunk_goal": "Fetch TRANSHDR bills with min_bill_value from brief via query_rows",
                 "thought": "stub query transhdr",
             }
-        if (has_sale_lines or has_bills) and not has_export:
+        if needs_bill and bill_ready and not has_rank:
+            return {
+                "decision": "chunk",
+                "chunk_goal": "Rank top-N bills then export excel",
+                "thought": "stub rank bills before export",
+            }
+        if (has_sale_lines or has_bills or has_join) and not has_export:
             return {
                 "decision": "chunk",
                 "chunk_goal": "Assemble deliverable and export excel",
                 "thought": "stub deliver",
+            }
+        # Export exists but may be aggregate-only while bills are ready — force bill export path.
+        if needs_bill and bill_ready and has_export and not has_rank:
+            return {
+                "decision": "chunk",
+                "chunk_goal": "Rank top-N bills then export excel",
+                "thought": "stub re-export bills after premature aggregate export",
             }
         return {
             "decision": "finalize",
@@ -557,10 +662,25 @@ class DataAgentService(SupermarketAgentService):
         known_refs = list(working_set.refs())
 
         if tool_id == "resolve_products":
-            return {
+            name_hint = (
+                hints.get("name_contains")
+                or hints.get("product_name")
+                or hints.get("product_keyword")
+                or hints.get("name")
+                or hints.get("keyword")
+            )
+            name_contains = (
+                str(name_hint).strip()
+                if name_hint is not None and str(name_hint).strip() and not looks_like_prose_placeholder(name_hint)
+                else ""
+            )
+            out: dict[str, Any] = {
                 "codes": coerce_product_codes(hints.get("codes"), fallback=codes),
                 "limit": hints.get("limit", 50) if isinstance(hints.get("limit"), int) else 50,
             }
+            if name_contains:
+                out["name_contains"] = name_contains
+            return out
 
         if tool_id in {"query_rows", "preview_table", "aggregate_rows", "lookup_distinct"}:
             default_table = "STRANS"
@@ -648,22 +768,125 @@ class DataAgentService(SupermarketAgentService):
 
         if tool_id == "export_excel":
             refs = known_refs
+            needs_bill = checklist.get("top_n") is not None or checklist.get("min_bill_value") is not None
+            preferred = prefer_export_dataset_ref(
+                working_set,
+                needs_bill=needs_bill,
+                product_codes=list(checklist.get("product_codes") or []),
+            )
+            filename = hints.get("filename") or "analysis_result.xlsx"
+            # Honor multi-sheet maps from the planner when refs exist.
+            raw_sheets = hints.get("sheets") or hints.get("sheet_map") or hints.get("workbook")
+            if isinstance(raw_sheets, dict) and raw_sheets:
+                cleaned_sheets: dict[str, str] = {}
+                for sheet_name, ref in raw_sheets.items():
+                    if not isinstance(ref, str) or looks_like_prose_placeholder(ref):
+                        continue
+                    if refs and ref not in refs:
+                        continue
+                    if not working_set.has(ref):
+                        continue
+                    cleaned_sheets[str(sheet_name)] = ref
+                if cleaned_sheets:
+                    bills_ref = cleaned_sheets.get("bills")
+                    if (
+                        needs_bill
+                        and preferred
+                        and bills_ref
+                        and is_blocked_premature_export(
+                            checklist=checklist, dataset=bills_ref, working_set=working_set
+                        )
+                        and not is_partitioned_top_n_ref(working_set, bills_ref)
+                    ):
+                        cleaned_sheets["bills"] = preferred
+                    return {"sheets": cleaned_sheets, "filename": filename}
+
             dataset = hints.get("dataset")
             if not isinstance(dataset, str) or looks_like_prose_placeholder(dataset) or (refs and dataset not in refs):
-                dataset = refs[-1] if refs else None
-            return {"dataset": dataset, "filename": hints.get("filename") or "analysis_result.xlsx"}
+                dataset = preferred or (refs[-1] if refs else None)
+            elif needs_bill and preferred and is_blocked_premature_export(
+                checklist=checklist, dataset=dataset, working_set=working_set
+            ):
+                dataset = preferred
+            if needs_bill and preferred and dataset == preferred:
+                return {
+                    "sheets": {"bills": preferred},
+                    "filename": filename,
+                    "dataset": preferred,
+                }
+            return {"dataset": dataset, "filename": filename}
 
         if tool_id in {"filter_rows", "top_n_per_group", "join_datasets", "groupby_agg", "select_columns"}:
             args = {k: v for k, v in hints.items() if not looks_like_prose_placeholder(v)}
             if "dataset" not in args and known_refs:
-                args["dataset"] = known_refs[-1]
+                needs_bill = checklist.get("top_n") is not None or checklist.get("min_bill_value") is not None
+                args["dataset"] = prefer_export_dataset_ref(
+                    working_set,
+                    needs_bill=needs_bill,
+                    product_codes=list(checklist.get("product_codes") or []),
+                ) or known_refs[-1]
             elif isinstance(args.get("dataset"), str) and args["dataset"] not in known_refs and known_refs:
                 args["dataset"] = known_refs[-1]
+            if tool_id == "filter_rows":
+                raw_filters = args.get("filters") or args.get("clauses") or args.get("conditions")
+                cleaned = sanitize_filter_clauses(raw_filters)
+                prose_sku = False
+                if isinstance(raw_filters, list):
+                    for clause in raw_filters:
+                        if not isinstance(clause, dict):
+                            continue
+                        col = str(
+                            clause.get("column") or clause.get("col") or clause.get("field") or ""
+                        ).strip().upper()
+                        if col in {"SKU_ID", "SKU_CODE"} and looks_like_prose_placeholder(
+                            clause.get("value")
+                        ):
+                            prose_sku = True
+                            break
+                codes = [str(c).strip() for c in (checklist.get("product_codes") or []) if str(c).strip()]
+                # Empty after sanitize / prose SKU → inject resolved product scope.
+                if (not cleaned or prose_sku) and codes:
+                    resolved_ref = next(
+                        (ref for ref in known_refs if "resolv" in ref.lower()),
+                        None,
+                    )
+                    sku_ids = resolved_sku_ids_from_working_set(working_set, codes)
+                    if resolved_ref and working_set.has(resolved_ref):
+                        cleaned = [
+                            {
+                                "column": "SKU_ID",
+                                "op": "in",
+                                "value": f"{resolved_ref}.SKU_ID",
+                            }
+                        ]
+                    elif sku_ids:
+                        cleaned = [{"column": "SKU_ID", "op": "in", "value": sku_ids}]
+                args.pop("filters", None)
+                args.pop("clauses", None)
+                args.pop("conditions", None)
+                if cleaned:
+                    args["filters"] = cleaned
+                elif not cleaned and codes:
+                    # Still no usable filter — fail closed so planner retries with inject hint.
+                    args["filters"] = []
+                    args["_inject_failed"] = "product_scope_filter_unavailable"
             if tool_id == "top_n_per_group":
-                args.setdefault("partition_by", "TRANS_NUM")
-                args.setdefault("order_by", "TRAN_DATE")
+                # Global top-N bills by default (empty partition); avoid per-TRANS_NUM which keeps all bills.
+                if "partition_by" not in args and "group_by" not in args:
+                    args["partition_by"] = []
+                order_hint = args.get("order_by")
+                if not order_hint:
+                    ds_ref = str(args.get("dataset") or "")
+                    order_cols: list[str] = []
+                    if ds_ref and working_set.has(ds_ref):
+                        cols = set(working_set.get(ds_ref).frame().columns)
+                        for c in ("TRAN_DATE", "TRAN_DATE_y", "TRAN_DATE_x", "TRAN_TIME", "TRAN_TIME_y"):
+                            if c in cols:
+                                order_cols.append(c)
+                    args["order_by"] = order_cols or ["TRAN_DATE"]
                 args.setdefault("n", checklist.get("top_n") or 5)
                 args.setdefault("ascending", False)
+                args.setdefault("save_as", "bills_top_n")
             return args
 
         # Drop obvious prose values from residual hints.
@@ -676,25 +899,69 @@ class DataAgentService(SupermarketAgentService):
         fetch: DataFetchToolkit,
         working_set: DatasetWorkingSet,
         out_dir: str,
+        *,
+        checklist: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         from project_core.domain.data_fetch.catalog import FETCH_TOOL_IDS
         from project_core.domain.analysis.ops.registry import list_op_ids
 
+        checklist = checklist or {}
         if tool_id in FETCH_TOOL_IDS:
             save_as = args.pop("save_as", tool_id)
             return fetch.execute(tool_id, args, save_as=save_as, brief=json.loads(os.environ.get("DATA_AGENT_BRIEF_JSON") or "{}"))
         if tool_id in set(list_op_ids()):
-            # Fix top_n defaults
             if tool_id == "top_n_per_group":
-                args.setdefault("partition_by", "TRANS_NUM")
-                args.setdefault("order_by", "TRAN_DATE")
-                args.setdefault("n", 5)
+                if "partition_by" not in args and "group_by" not in args:
+                    args.setdefault("partition_by", [])
+                args.setdefault("order_by", args.get("order_by") or ["TRAN_DATE"])
+                args.setdefault("n", checklist.get("top_n") or 5)
                 args.setdefault("ascending", False)
+            if tool_id == "export_excel":
+                dataset = str(args.get("dataset") or "") or None
+                blocked = is_blocked_premature_export(
+                    checklist=checklist,
+                    dataset=dataset,
+                    working_set=working_set,
+                )
+                if blocked:
+                    preferred = prefer_export_dataset_ref(
+                        working_set,
+                        needs_bill=checklist.get("top_n") is not None
+                        or checklist.get("min_bill_value") is not None,
+                        product_codes=list(checklist.get("product_codes") or []),
+                    )
+                    if preferred:
+                        args = {
+                            "sheets": {"bills": preferred},
+                            "filename": args.get("filename") or "analysis_result.xlsx",
+                            "dataset": preferred,
+                        }
+                    else:
+                        return {"ok": False, "op_id": tool_id, "error": blocked, "args": args}
             try:
+                if args.pop("_inject_failed", None) and tool_id == "filter_rows" and not (
+                    args.get("filters") or args.get("clauses") or args.get("conditions")
+                ):
+                    return {
+                        "ok": False,
+                        "op_id": tool_id,
+                        "error": "product_scope_filter_unavailable",
+                        "hint": "Call resolve_products first, then filter_rows with SKU_ID in resolve_products.SKU_ID",
+                        "args": args,
+                    }
                 result = execute_op(working_set, tool_id, args, out_dir=out_dir)
                 return {"ok": result.status == "ok", "op_id": tool_id, "args": args, **result.as_observation()}
             except Exception as exc:  # noqa: BLE001
-                return {"ok": False, "op_id": tool_id, "error": str(exc)}
+                err = str(exc)
+                obs: dict[str, Any] = {"ok": False, "op_id": tool_id, "error": err, "args": args}
+                # Soft descriptive filters on empty columns are skippable, not clarify triggers.
+                if err.startswith("sparse_column_unusable:"):
+                    obs["soft_skip"] = True
+                    obs["hint"] = (
+                        "skip soft/descriptive filter on empty column; "
+                        "continue with product_codes / bill filters"
+                    )
+                return obs
         return {"ok": False, "error": f"unknown_tool:{tool_id}"}
 
     def _finalize(
@@ -708,25 +975,113 @@ class DataAgentService(SupermarketAgentService):
         tokens: int,
         chunk: dict[str, Any],
     ) -> dict[str, Any]:
+        out_dir = str(working_set.output_root or "data/artifacts/out")
+        needs_bill = checklist.get("top_n") is not None or checklist.get("min_bill_value") is not None
+        codes = list(checklist.get("product_codes") or [])
+        preferred = prefer_export_dataset_ref(
+            working_set, needs_bill=needs_bill, product_codes=codes
+        )
+
         arts = list(working_set.artifact_paths)
+        coverage = assess_deliverable_coverage(
+            brief,
+            working_set,
+            product_codes=codes,
+            top_n=checklist.get("top_n"),
+        )
+        # Repair: bill frames exist but export is catalog/aggregate-only or out of product scope.
+        gaps = list(coverage.get("gaps") or [])
+        scope_gap = any(
+            g.startswith("product_scope_") or g == "product_codes_missing_from_deliverable"
+            for g in gaps
+        )
+        if needs_bill and preferred and (
+            not arts
+            or scope_gap
+            or any(
+                g in gaps
+                for g in (
+                    "missing_bill_evidence_columns",
+                    "catalog_export_without_bills",
+                )
+            )
+        ):
+            top_n = int(checklist.get("top_n") or 5)
+            partition_by: list[str] | None = None
+            try:
+                pref_df = working_set.get(preferred).frame()
+            except Exception:  # noqa: BLE001
+                pref_df = None
+            if (
+                not is_partitioned_top_n_ref(working_set, preferred)
+                and len(codes) > 1
+                and pref_df is not None
+                and "SKU_ID" in pref_df.columns
+            ):
+                partition_by = ["SKU_ID"]
+            ranked = rank_bill_frame_for_export(
+                working_set,
+                source_ref=preferred,
+                top_n=top_n,
+                out_dir=out_dir,
+                partition_by=partition_by,
+                product_codes=codes,
+                sku_ids=resolved_sku_ids_from_working_set(working_set, codes),
+            )
+            sheets: dict[str, str] = {"bills": ranked}
+            # Optional quantity summary sheet when an aggregate ref exists.
+            for ref in working_set.refs():
+                if ref == ranked or ref == preferred:
+                    continue
+                try:
+                    role = str(getattr(working_set.get(ref), "role", None) or "")
+                    if role == "aggregate" or "quantity" in ref.lower() or "qty" in ref.lower() or "summary" in ref.lower():
+                        sheets["summary"] = ref
+                        break
+                except Exception:  # noqa: BLE001
+                    continue
+            export = execute_op(
+                working_set,
+                "export_excel",
+                {"sheets": sheets, "filename": "analysis_result.xlsx"},
+                out_dir=out_dir,
+            )
+            observations.append(
+                {
+                    "ok": export.status == "ok",
+                    "op_id": "export_excel",
+                    "auto_repair_bill_export": True,
+                    "args": {"sheets": sheets},
+                    **export.as_observation(),
+                }
+            )
+            arts = list(working_set.artifact_paths)
+            coverage = assess_deliverable_coverage(
+                brief,
+                working_set,
+                product_codes=list(checklist.get("product_codes") or []),
+                top_n=checklist.get("top_n"),
+            )
+
         if not arts and working_set.refs():
-            ref = working_set.refs()[-1]
+            ref = preferred or working_set.refs()[-1]
             execute_op(
                 working_set,
                 "export_excel",
                 {"dataset": ref, "filename": "analysis_result.xlsx"},
-                out_dir=str(working_set.output_root or "data/artifacts/out"),
+                out_dir=out_dir,
             )
             arts = list(working_set.artifact_paths)
-        coverage = assess_deliverable_coverage(
-            brief,
-            working_set,
-            product_codes=list(checklist.get("product_codes") or []),
-            top_n=checklist.get("top_n"),
-        )
+            coverage = assess_deliverable_coverage(
+                brief,
+                working_set,
+                product_codes=list(checklist.get("product_codes") or []),
+                top_n=checklist.get("top_n"),
+            )
+
         caveats = list(chunk.get("caveats") or [])
-        caveats.extend(list(coverage.get("caveats") or []))
-        caveats.extend(list(coverage.get("gaps") or []))
+        caveats.extend(list(coverage.get("caveats") or []) if coverage else [])
+        caveats.extend(list(coverage.get("gaps") or []) if coverage else [])
         status = str(chunk.get("status") or "complete")
         action = "complete" if status == "complete" and arts else "partial"
         if coverage_forces_partial(list(coverage.get("gaps") or [])):
