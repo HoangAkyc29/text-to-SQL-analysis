@@ -1,4 +1,4 @@
-﻿"""Data Agent brain â€” CoT phases with fetch tools + catalog ops (no free SQL)."""
+"""Data Agent brain â€” CoT phases with fetch tools + catalog ops (no free SQL)."""
 
 from __future__ import annotations
 
@@ -462,12 +462,46 @@ def run_data_agent_brain(
         )
 
         if decision_name == "clarify":
-            # Clarify is for true blockers â€” not soft type/name debates when codes exist.
+            # Clarify is for true blockers — not soft type/name debates when codes exist.
+            resolved_sku_count: int | None = None
+            for obs in reversed(observations):
+                if obs.get("tool_id") == "resolve_products" and obs.get("ok"):
+                    try:
+                        resolved_sku_count = int(obs.get("row_count") or 0)
+                    except (TypeError, ValueError):
+                        resolved_sku_count = 0
+                    break
+            reject_count = sum(
+                1
+                for obs in observations
+                if obs.get("error") == "clarify_rejected_codes_sufficient"
+            )
+            # Cap swallow loops — escalate to UI after repeated soft-rejects.
+            if reject_count >= 2:
+                out = {
+                    "action": "suggest_clarify",
+                    "suggest_clarify": decision.get("clarification_request")
+                    or decision.get("suggest_clarify")
+                    or {
+                        "reason": decision.get("reason")
+                        or thought
+                        or "clarify_escalated_after_soft_rejects",
+                        "questions": [],
+                    },
+                    "steps_trace": steps_trace,
+                    "observations": observations,
+                    "planner_turns": turn + 1,
+                    "usage_tokens": tokens,
+                    "caveats": ["clarify_escalated_after_soft_rejects"],
+                }
+                _persist_trace({"action": "suggest_clarify"})
+                return out
             if is_nonblocking_type_clarify(
                 product_codes=list(checklist.get("product_codes") or []),
                 thought=thought,
                 decision=decision if isinstance(decision, dict) else {},
                 product_type_soft=checklist.get("product_type_soft"),
+                resolved_sku_count=resolved_sku_count,
             ):
                 observations.append(
                     {
@@ -921,12 +955,46 @@ def run_data_agent_brain(
         "fetch_attempts": getattr(fetch_toolkit, "fetch_attempts", 0),
         "fetch_errors": list(getattr(fetch_toolkit, "fetch_errors", []) or []),
     }
+    # Product identity never resolved → escalate clarify, do not auto-export empty/wrong.
+    product_codes = list(checklist.get("product_codes") or [])
+    product_name = str((brief.filters or {}).get("product_name") or "").strip()
+    needs_product = bool(product_codes or product_name)
+    resolve_obs = [
+        o
+        for o in observations
+        if o.get("tool_id") == "resolve_products" and o.get("ok")
+    ]
+    resolve_empty = bool(
+        resolve_obs and all(int(o.get("row_count") or 0) <= 0 for o in resolve_obs)
+    )
+    if needs_product and resolve_empty and not working_set.artifact_paths:
+        out = {
+            "action": "suggest_clarify",
+            "suggest_clarify": {
+                "reason": (
+                    "resolve_products returned 0 rows for the product identity in the brief. "
+                    "Confirm the exact product name or provide SKU/barcode."
+                ),
+                "questions": [],
+            },
+            "steps_trace": steps_trace,
+            "observations": observations,
+            "planner_turns": max_planner_turns,
+            "usage_tokens": tokens,
+            "caveats": ["resolve_products_empty", "export_blocked_no_evidence"],
+            "fetch_ok": out["fetch_ok"],
+            "fetch_attempts": out["fetch_attempts"],
+            "fetch_errors": out["fetch_errors"],
+        }
+        _persist_trace({"action": "suggest_clarify", "caveats": out["caveats"]})
+        return out
     # Best-effort export so partial runs still leave deliverables when data exists.
     if not working_set.artifact_paths and working_set.refs():
         try:
             export_ref = prefer_export_dataset_ref(
                 working_set,
                 needs_bill=_needs_bill_deliverable(brief),
+                product_codes=product_codes,
             )
             if export_ref:
                 export = execute_op(
@@ -947,6 +1015,8 @@ def run_data_agent_brain(
                 out["artifact_paths"] = list(working_set.artifact_paths)
                 if export.status == "ok" and out["artifact_paths"]:
                     out["caveats"] = list(out["caveats"]) + ["auto_export_on_budget"]
+                elif export.status != "ok":
+                    out["caveats"] = list(out["caveats"]) + ["export_blocked_no_evidence"]
             else:
                 observations.append(
                     {
@@ -964,9 +1034,12 @@ def run_data_agent_brain(
     coverage = assess_deliverable_coverage(
         brief,
         working_set,
-        product_codes=list(checklist.get("product_codes") or []),
+        product_codes=product_codes,
         top_n=checklist.get("top_n"),
     )
+    if resolve_empty:
+        gaps = list(coverage.get("gaps") or []) + ["resolve_products_empty"]
+        coverage = {**coverage, "gaps": gaps, "ok": False}
     out["caveats"] = list(dict.fromkeys(list(out.get("caveats") or []) + list(coverage.get("caveats") or []) + list(coverage.get("gaps") or [])))
     if coverage_forces_partial(list(coverage.get("gaps") or [])):
         out["action"] = "partial"

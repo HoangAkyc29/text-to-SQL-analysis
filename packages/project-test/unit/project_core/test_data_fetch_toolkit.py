@@ -66,7 +66,7 @@ def test_resolve_products_sql_is_exact_not_substring():
 def test_resolve_products_name_contains_uses_full_name_u():
     sql = builders.build_resolve_products(name_contains="bánh chưng nương bắc", hard_max=100)
     assert "FULL_NAME_U" in sql
-    assert "LIKE '%' + LOWER('bánh chưng nương bắc') + '%'" in sql
+    assert "LIKE '%' + LOWER(N'bánh chưng nương bắc') + '%'" in sql
     assert "SKU_CODE" not in sql.split("WHERE", 1)[1] or "LOWER(RTRIM(SKU_CODE))" not in sql
 
 

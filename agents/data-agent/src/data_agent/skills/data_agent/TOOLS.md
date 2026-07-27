@@ -18,6 +18,9 @@ Native only: trivial helpers such as current time (if added). Do not call sql-ga
   Pass `group_by`/`partition_by` (e.g. `SKU_ID`) and `order_by` time columns for
   “nearest/most recent”. Do **not** use a global `limit_rows(N)` for per-group asks.
   Empty `partition_by` means global top-N only.
+- **`tcvn3_converter`** (alias `TCVN3_converter`): decode TCVN3/legacy Vietnamese
+  text columns to Unicode before export when names/remarks look mojibaked.
+  Pass `columns=` or omit to convert all string columns.
 - **`export_excel`**: call **before** `finalize`. Prefer multi-sheet:
   `sheets={"bills": "<top_n_per_group dataset>", "summary": "<qty aggregate>"}`.
   Export the per-group ranked dataset as `bills` — do not re-slice it to N global rows.

@@ -114,11 +114,82 @@ def test_ensure_clarification_questions_open_free_text():
 
     raw = ClarificationRequest(
         source_agent="IV",
-        reason="Need store id for this report",
+        reason="Need product category clarification",
         partial_brief=AnalysisBrief(intent="x"),
         questions=[],
     )
     fixed = ensure_clarification_questions(raw)
     assert len(fixed.questions) == 1
     assert fixed.questions[0].options == []
-    assert "store" in fixed.questions[0].prompt.lower() or "Need store" in fixed.questions[0].prompt
+    assert fixed.questions[0].maps_to_brief_field == "filters.clarify_note"
+
+
+def test_ensure_store_clarify_maps_to_store_ids():
+    from project_core.domain.clarification.ensure import ensure_clarification_questions
+
+    raw = ClarificationRequest(
+        source_agent="IV",
+        reason="Need store id / STK_ID for 3 siêu thị",
+        partial_brief=AnalysisBrief(intent="x"),
+        questions=[],
+    )
+    fixed = ensure_clarification_questions(raw)
+    assert fixed.questions[0].maps_to_brief_field == "filters.store_ids"
+    assert fixed.questions[0].options == []
+
+
+def test_apply_free_text_prose_as_option_id_parses_store_ids():
+    """UI historically sent the whole free-text as selected_option_id (not 'other')."""
+    brief = AnalysisBrief(intent="bills", filters={"store_ids": ["3"]})
+    request = ClarificationRequest(
+        reason="clarify stores",
+        partial_brief=brief,
+        questions=[
+            ClarificationQuestion(
+                id="store_ids",
+                prompt="STK_ID?",
+                options=[],
+                maps_to_brief_field="filters.store_ids",
+            )
+        ],
+    )
+    reply = ClarificationReply(
+        analysis_id="a1",
+        answers=[
+            ClarificationAnswer(
+                question_id="store_ids",
+                selected_option_id="3 siêu thị là STK_ID 10001, 10004, 10005",
+            )
+        ],
+    )
+    updated = apply_clarification_reply(brief, reply, request)
+    assert updated.filters.get("store_ids") == ["10001", "10004", "10005"]
+
+
+def test_apply_other_text_on_clarify_note_also_sets_store_ids():
+    brief = AnalysisBrief(intent="bills", filters={})
+    request = ClarificationRequest(
+        reason="r",
+        partial_brief=brief,
+        questions=[
+            ClarificationQuestion(
+                id="open_clarify",
+                prompt="which stores?",
+                options=[],
+                maps_to_brief_field="filters.clarify_note",
+            )
+        ],
+    )
+    reply = ClarificationReply(
+        analysis_id="a1",
+        answers=[
+            ClarificationAnswer(
+                question_id="open_clarify",
+                selected_option_id="other",
+                other_text="STK_ID 10001, 10004 và 10005",
+            )
+        ],
+    )
+    updated = apply_clarification_reply(brief, reply, request)
+    assert updated.filters.get("clarify_note") == "STK_ID 10001, 10004 và 10005"
+    assert updated.filters.get("store_ids") == ["10001", "10004", "10005"]

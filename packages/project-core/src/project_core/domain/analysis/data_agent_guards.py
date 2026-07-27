@@ -590,6 +590,7 @@ def coverage_forces_partial(gaps: list[str]) -> bool:
             "deliverable_unreadable",
             "catalog_export_without_bills",
             "product_codes_missing_from_deliverable",
+            "resolve_products_empty",
         }
         for g in gaps
     )
@@ -601,14 +602,29 @@ def is_nonblocking_type_clarify(
     thought: str = "",
     decision: dict[str, Any] | None = None,
     product_type_soft: str | None = None,
+    resolved_sku_count: int | None = None,
 ) -> bool:
     """Meta: clarify about soft type / display-name while codes already pin SKUs.
 
     Hard blockers (missing identity/time/store) are NOT non-blocking — those still
     clarify. Soft descriptive filters (ITEM_TYPE empty, gift/KM labels, FULL_NAME)
     must not stop the run when product_codes already select SKUs.
+
+    ``resolved_sku_count``: when a resolve_products attempt already returned 0 rows,
+    codes do **not** pin SKUs — always escalate. Display-name-looking "codes"
+    (spaces / non-ASCII) also do not count as pinned identity.
     """
     if not product_codes:
+        return False
+    # Failed resolve → user must confirm name/code; do not swallow.
+    if resolved_sku_count is not None and int(resolved_sku_count) <= 0:
+        return False
+    # Spoken product names in brief.filters.product_code are not SKU pins.
+    if any(
+        (" " in str(c).strip()) or any(ord(ch) > 127 for ch in str(c))
+        for c in product_codes
+        if str(c).strip()
+    ):
         return False
     blob = " ".join(
         [
@@ -629,6 +645,13 @@ def is_nonblocking_type_clarify(
         "unknown product",
         "không rõ mã",
         "khong ro ma",
+        "0 rows",
+        "zero rows",
+        "not found",
+        "không tìm thấy",
+        "khong tim thay",
+        "no product",
+        "resolve_products",
     )
     if any(tok in blob for tok in hard):
         return False
@@ -697,11 +720,6 @@ def is_nonblocking_type_clarify(
     # Codes pin SKUs — "is this a gift/KM type?" debates are non-blocking.
     if any(tok in blob for tok in ("km", "gift", "quà", "qua ")) and any(
         tok in blob for tok in ("type", "loại", "loai", "filter", "lọc", "loc", "identify")
-    ):
-        return True
-    # Empty after filtering by the brief's own product_codes → continue/partial, don't quiz user.
-    if any(tok in blob for tok in ("0 rows", "zero rows", "empty dataset", "no sales")) and any(
-        tok in blob for tok in ("product code", "sku_id", "sku id", "mã")
     ):
         return True
     return False

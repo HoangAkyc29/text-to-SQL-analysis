@@ -649,6 +649,16 @@ def test_is_nonblocking_type_clarify_markers_and_hard_blockers():
         ),
         decision={"decision": "clarify", "reason": "column name collisions"},
     )
+    # Display-name "codes" / failed resolve must escalate to UI.
+    assert not is_nonblocking_type_clarify(
+        product_codes=["bánh chưng nương bắc"],
+        thought="resolve_products returned 0 rows for product name",
+    )
+    assert not is_nonblocking_type_clarify(
+        product_codes=codes,
+        thought="product name not found",
+        resolved_sku_count=0,
+    )
 
 
 def test_rank_bill_frame_scopes_to_product_codes(tmp_path):

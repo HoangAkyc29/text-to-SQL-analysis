@@ -73,6 +73,8 @@ class ContextPackMeta(BaseModel):
     archive_id: str | None = None
     pct_before: float | None = None
     pct_after: float | None = None
+    # ISO calendar date of this conversation turn (YYYY-MM-DD).
+    as_of_date: str | None = None
 
 
 class ContextPack(BaseModel):

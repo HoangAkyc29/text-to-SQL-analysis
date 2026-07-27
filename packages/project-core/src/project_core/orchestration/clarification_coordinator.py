@@ -9,6 +9,7 @@ from project_core.domain.contracts.clarification import ClarificationReply, Clar
 from project_core.domain.contracts.feedback import DomainEvidence, DomainRuleCandidate
 from project_core.domain.contracts.pipeline import ChatResponse, PipelineResult
 from project_core.domain.memory.session_bundle import SessionBundle, TranscriptTurn
+from project_core.domain.time import utc_now
 
 
 class ClarificationCoordinator:
@@ -29,7 +30,12 @@ class ClarificationCoordinator:
         user_message: str,
     ) -> dict[str, Any]:
         extended = transcript + [
-            TranscriptTurn(id="resume", role="user", content=user_message, at="now"),
+            TranscriptTurn(
+                id="resume",
+                role="user",
+                content=user_message,
+                at=utc_now().isoformat(),
+            ),
         ]
         return self.bridge.from_transcript_heuristic(request, extended).model_dump()
 

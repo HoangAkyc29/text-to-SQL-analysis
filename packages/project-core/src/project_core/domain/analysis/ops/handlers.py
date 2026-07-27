@@ -273,6 +273,34 @@ def op_cast_column(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -
     return _save(ws, args.get("save_as"), df, source="cast_column", role=handle.role)
 
 
+def op_tcvn3_converter(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
+    """Decode TCVN3 / legacy Vietnamese text columns to Unicode."""
+    from project_core.text.tcvn3 import tcvn3_to_unicode
+
+    handle = ws.get(str(args["dataset"]))
+    df = handle.frame().copy()
+    cols_arg = args.get("columns") or args.get("column") or args.get("column_name")
+    if cols_arg is None:
+        cols = [c for c in df.columns if df[c].dtype == object or str(df[c].dtype) == "string"]
+    elif isinstance(cols_arg, str):
+        cols = [cols_arg]
+    else:
+        cols = [str(c) for c in cols_arg]
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        return {"error": f"missing_columns:{missing}"}
+    converted: list[str] = []
+    for col in cols:
+        series = df[col]
+        if series.dtype != object and str(series.dtype) != "string":
+            continue
+        df[col] = series.map(lambda v: tcvn3_to_unicode(v) if isinstance(v, str) else v)
+        converted.append(col)
+    out = _save(ws, args.get("save_as"), df, source="tcvn3_converter", role=handle.role)
+    out["converted_columns"] = converted
+    return out
+
+
 def op_add_column_expr(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
     name = str(args["name"])
@@ -1197,19 +1225,27 @@ def op_export_excel(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) 
     name = _safe_filename(str(args.get("filename") or "analysis.xlsx"), ".xlsx")
     path, temp = _atomic_target(out_dir, name)
     source_refs: list[str] = []
+    frames: list[tuple[str, Any]] = []
     try:
+        if sheets:
+            for sheet, ref in sheets.items():
+                source_refs.append(str(ref))
+                frames.append((str(sheet)[:31], ws.get(str(ref)).frame()))
+        else:
+            ref = str(args["dataset"])
+            source_refs.append(ref)
+            frames.append(("data", ws.get(ref).frame()))
+        # Reject header-only / empty workbooks — never register as a deliverable.
+        if not frames or all(len(df) == 0 for _, df in frames):
+            return {
+                "error": "empty_export",
+                "row_count": 0,
+                "source_refs": source_refs,
+            }
         with pd.ExcelWriter(temp, engine="openpyxl") as writer:
-            if sheets:
-                for sheet, ref in sheets.items():
-                    source_refs.append(str(ref))
-                    neutralize_spreadsheet_formulas(ws.get(str(ref)).frame()).to_excel(
-                        writer, sheet_name=str(sheet)[:31], index=False
-                    )
-            else:
-                ref = str(args["dataset"])
-                source_refs.append(ref)
-                neutralize_spreadsheet_formulas(ws.get(ref).frame()).to_excel(
-                    writer, sheet_name="data", index=False
+            for sheet_name, df in frames:
+                neutralize_spreadsheet_formulas(df).to_excel(
+                    writer, sheet_name=sheet_name, index=False
                 )
         temp.replace(path)
     except Exception as exc:  # noqa: BLE001
@@ -1740,6 +1776,7 @@ HANDLERS: dict[str, OpHandler] = {
     "rename_columns": op_rename_columns,
     "drop_columns": op_drop_columns,
     "cast_column": op_cast_column,
+    "tcvn3_converter": op_tcvn3_converter,
     "add_column_expr": op_add_column_expr,
     "fill_null": op_fill_null,
     "drop_null": op_drop_null,

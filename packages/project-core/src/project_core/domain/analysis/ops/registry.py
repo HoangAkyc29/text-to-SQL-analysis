@@ -23,6 +23,10 @@ OP_CATALOG: dict[str, str] = {
     "rename_columns": "Rename via mapping; save_as",
     "drop_columns": "Drop columns; save_as",
     "cast_column": "Cast column to int|float|str|datetime",
+    "tcvn3_converter": (
+        "Decode TCVN3/legacy Vietnamese text columns to Unicode "
+        "(alias TCVN3_converter). Pass columns= or omit for all string cols."
+    ),
     "add_column_expr": "Add column from safe DSL expr",
     "fill_null": "Fill nulls with value",
     "drop_null": "Drop rows with nulls",
@@ -76,6 +80,7 @@ REQUIRED_ARGS: dict[str, tuple[str, ...]] = {
     "rename_columns": ("dataset", "mapping"),
     "drop_columns": ("dataset", "columns"),
     "cast_column": ("dataset", "column"),
+    "tcvn3_converter": ("dataset",),
     "add_column_expr": ("dataset", "name", "expr"),
     "fill_null": ("dataset",),
     "drop_null": ("dataset",),
@@ -109,6 +114,10 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
     "cast_column": {
         "column": ("column_name", "columns"),
         "to": ("dtype", "target_type", "type"),
+    },
+    "tcvn3_converter": {
+        "columns": ("column", "column_name", "cols", "fields"),
+        "dataset": ("data", "source", "frame", "table", "ref"),
     },
     "filter_rows": {
         "clauses": ("conditions", "filters", "predicates"),
@@ -149,11 +158,18 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
 
 MUTATING_OPS = {
     "select_columns", "rename_columns", "drop_columns", "cast_column",
+    "tcvn3_converter",
     "add_column_expr", "fill_null", "drop_null", "filter_rows", "sort_rows",
     "limit_rows", "distinct_rows", "drop_duplicates", "groupby_agg",
     "pivot_table", "melt", "window_rank", "top_n_per_group",
     "percent_of_total", "cumulative_sum", "join_datasets", "concat_datasets",
     "set_compare", "load_tabular", "reload_artifact",
+}
+
+# Planner / skill aliases → canonical op_id.
+OP_ID_ALIASES: dict[str, str] = {
+    "TCVN3_converter": "tcvn3_converter",
+    "tcvn3_convert": "tcvn3_converter",
 }
 
 
@@ -260,6 +276,7 @@ def execute_op(
     out_dir: str | Path,
 ) -> OpResult:
     """Validate op_id and run handler. Never executes free-form scripts."""
+    op_id = OP_ID_ALIASES.get(op_id, op_id)
     args, repairs = normalize_op_args(op_id, args)
     if op_id not in HANDLERS:
         return OpResult(op_id=op_id, status="error", error=f"unknown_op:{op_id}")

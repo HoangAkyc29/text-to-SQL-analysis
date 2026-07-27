@@ -8,6 +8,51 @@ from project_core.domain.contracts.clarification import (
     ClarificationRequest,
 )
 
+_STORE_TOKS = (
+    "store",
+    "stk_id",
+    "stk ",
+    "siêu thị",
+    "sieu thi",
+    "cửa hàng",
+    "cua hang",
+    "chi nhánh",
+    "chi nhanh",
+    "3 siêu thị",
+    "cả 3",
+)
+
+_AMOUNT_TOKS = (
+    "amount_x",
+    "amount_y",
+    "amount_hdr",
+    "amount_line",
+    "header amount",
+    "line amount",
+    "line item",
+    "tổng giá trị",
+    "tong gia tri",
+    "từng dòng",
+    "tung dong",
+    "hóa đơn",
+    "hoa don",
+    "min_bill",
+    "600k",
+    "600000",
+)
+
+
+def _looks_like_store(blob: str) -> bool:
+    return any(tok in blob for tok in _STORE_TOKS)
+
+
+def _maps_field_for_prompt(*, prompt: str, reason: str, evidence: str, current: str | None) -> str:
+    blob = f"{prompt} {reason} {evidence}".lower()
+    maps = (current or "").strip() or "filters.clarify_note"
+    if maps in ("filters.clarify_note", "clarify_note") and _looks_like_store(blob):
+        return "filters.store_ids"
+    return maps
+
 
 def ensure_clarification_questions(request: ClarificationRequest) -> ClarificationRequest:
     """Fill empty ``questions`` so the console can render ClarificationCard.
@@ -27,13 +72,19 @@ def ensure_clarification_questions(request: ClarificationRequest) -> Clarificati
         for idx, q in enumerate(questions):
             prompt = str(q.prompt or "").strip() or reason or evidence or "Vui lòng bổ sung thông tin."
             options = list(q.options or [])
+            maps = _maps_field_for_prompt(
+                prompt=prompt,
+                reason=reason,
+                evidence=evidence,
+                current=q.maps_to_brief_field,
+            )
             fixed.append(
                 q.model_copy(
                     update={
                         "id": q.id or f"q{idx + 1}",
                         "prompt": prompt,
                         "options": options,
-                        "maps_to_brief_field": q.maps_to_brief_field or "filters.clarify_note",
+                        "maps_to_brief_field": maps,
                     }
                 )
             )
@@ -44,27 +95,7 @@ def ensure_clarification_questions(request: ClarificationRequest) -> Clarificati
             }
         )
 
-    if any(
-        tok in blob
-        for tok in (
-            "amount_x",
-            "amount_y",
-            "amount_hdr",
-            "amount_line",
-            "header amount",
-            "line amount",
-            "line item",
-            "tổng giá trị",
-            "tong gia tri",
-            "từng dòng",
-            "tung dong",
-            "hóa đơn",
-            "hoa don",
-            "min_bill",
-            "600k",
-            "600000",
-        )
-    ):
+    if any(tok in blob for tok in _AMOUNT_TOKS):
         synthesized = ClarificationQuestion(
             id="bill_amount_grain",
             prompt=(
@@ -85,6 +116,14 @@ def ensure_clarification_questions(request: ClarificationRequest) -> Clarificati
             ],
             maps_to_brief_field="filters.min_bill_grain",
             fact_type="constraint",
+        )
+    elif _looks_like_store(blob):
+        prompt = reason or evidence or "Vui lòng cho biết mã siêu thị (STK_ID) cần phân tích."
+        synthesized = ClarificationQuestion(
+            id="store_ids",
+            prompt=prompt[:500],
+            options=[],
+            maps_to_brief_field="filters.store_ids",
         )
     else:
         prompt = reason or evidence or "Vui lòng bổ sung thông tin để tiếp tục phân tích."

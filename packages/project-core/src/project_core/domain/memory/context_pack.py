@@ -376,6 +376,7 @@ def assemble_context_pack(
             archive_id=archive_id,
             pct_before=pct_before,
             pct_after=round(pct, 4),
+            as_of_date=utc_now().date().isoformat(),
         ),
     )
 

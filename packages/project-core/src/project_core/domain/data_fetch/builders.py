@@ -18,6 +18,11 @@ def _sql_str(value: str) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def _sql_nvarchar(value: str) -> str:
+    """Unicode string literal for nvarchar columns (Vietnamese product names)."""
+    return "N'" + str(value).replace("'", "''") + "'"
+
+
 def _require_date(label: str, value: Any) -> str:
     text = str(value or "").strip()[:10]
     if not _DATE_RE.match(text):
@@ -120,8 +125,9 @@ def build_resolve_products(
     if code_list:
         predicates.append(_sku_code_match_clause(code_list))
     if name_raw:
-        lit = _sql_str(name_raw)
+        lit = _sql_nvarchar(name_raw)
         # Prefer FULL_NAME_U (search/display); FULL_NAME is often TCVN3 mojibake.
+        # N'…' keeps Vietnamese codepoints intact across ODBC varchar connections.
         predicates.append(f"LOWER(FULL_NAME_U) LIKE '%' + LOWER({lit}) + '%'")
     where = " OR ".join(predicates) if len(predicates) > 1 else predicates[0]
     if len(predicates) > 1:

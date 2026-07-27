@@ -16,7 +16,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ResultInspector } from "@/components/result-inspector";
 import { Badge, Button, Card, Textarea } from "@/components/ui";
 import { ensureSession, useConsoleStore } from "@/lib/store";
@@ -61,6 +61,15 @@ export function ChatWorkspace() {
   const latestResponse = [...(session?.messages ?? [])]
     .reverse()
     .find((item) => item.response)?.response;
+  const latestPendingClarifyMessageId = useMemo(() => {
+    let id: string | undefined;
+    for (const item of session?.messages ?? []) {
+      if (item.response?.pending_interaction?.interaction_id) {
+        id = item.id;
+      }
+    }
+    return id;
+  }, [session?.messages]);
 
   useEffect(() => {
     return () => {
@@ -254,13 +263,7 @@ export function ChatWorkspace() {
     // Resume pending clarification via /interactions — do not start a new analysis.
     const pendingAssistant = [...(session?.messages ?? [])]
       .reverse()
-      .find(
-        (item) =>
-          item.response?.pending_interaction?.interaction_id &&
-          (item.response.workflow_status === "awaiting_clarification" ||
-            item.response.workflow_status === "awaiting_interaction" ||
-            Boolean(item.response.clarification)),
-      );
+      .find((item) => item.id === latestPendingClarifyMessageId);
     if (pendingAssistant?.response) {
       const questions = pendingAssistant.response.clarification?.questions ?? [];
       const question =
@@ -270,7 +273,7 @@ export function ChatWorkspace() {
           prompt: pendingAssistant.content || "Clarification",
         } as ClarificationQuestion);
       setDraft("");
-      await clarify(question, text, pendingAssistant.response);
+      await clarify(question, text, pendingAssistant.response, pendingAssistant.id);
       return;
     }
 
@@ -333,7 +336,12 @@ export function ChatWorkspace() {
     }
   };
 
-  const clarify = async (question: ClarificationQuestion, value: string, response?: ChatResponse) => {
+  const clarify = async (
+    question: ClarificationQuestion,
+    value: string,
+    response?: ChatResponse,
+    sourceMessageId?: string,
+  ) => {
     if (!activeId || busy) return;
     const pending = response?.pending_interaction;
     const analysisId = response?.analysis_id;
@@ -341,6 +349,17 @@ export function ChatWorkspace() {
       return;
     }
     setBusy(true);
+    // Drop the answered card immediately so a later clarify does not show two cards.
+    if (sourceMessageId && response) {
+      patchMessage(activeId, sourceMessageId, {
+        response: {
+          ...response,
+          pending_interaction: undefined,
+          clarification: undefined,
+          workflow_status: "running",
+        },
+      });
+    }
     const assistantId = crypto.randomUUID();
     addMessage(activeId, {
       id: crypto.randomUUID(),
@@ -370,6 +389,7 @@ export function ChatWorkspace() {
         openEventStream(activeId, assistantId, job.analysis_id);
         return;
       } else {
+        const knownOption = question.options?.some((option) => option.id === value) ?? false;
         await api(`/api/bff/analyses/${encodeURIComponent(analysisId)}/interactions`, {
           method: "POST",
           body: JSON.stringify({
@@ -380,12 +400,9 @@ export function ChatWorkspace() {
               answers: [
                 {
                   question_id: question.id,
-                  selected_option_id: question.options?.some((option) => option.id === value)
-                    ? value
-                    : "other",
-                  other_text: question.options?.some((option) => option.id === value)
-                    ? undefined
-                    : value,
+                  // Always use sentinel "other" for free text — never the prose itself.
+                  selected_option_id: knownOption ? value : "other",
+                  other_text: knownOption ? undefined : value,
                   evidence: value,
                 },
               ],
@@ -395,6 +412,22 @@ export function ChatWorkspace() {
       }
       openEventStream(activeId, assistantId, analysisId);
     } catch (error) {
+      const detail = error instanceof Error ? error.message : "clarification_failed";
+      if (
+        sourceMessageId &&
+        response &&
+        (detail.includes("stale_or_already_answered") || detail.includes("interaction_not_found"))
+      ) {
+        patchMessage(activeId, sourceMessageId, {
+          response: {
+            ...response,
+            pending_interaction: undefined,
+            clarification: undefined,
+          },
+        });
+        setBusy(false);
+        return;
+      }
       finishAssistant(
         activeId,
         assistantId,
@@ -403,7 +436,7 @@ export function ChatWorkspace() {
           analysis_id: analysisId,
           workflow_status: "error",
           error: {
-            detail: error instanceof Error ? error.message : "clarification_failed",
+            detail,
           },
         },
         "That response could not be applied. Please try again.",
@@ -468,8 +501,9 @@ export function ChatWorkspace() {
                   key={message.id}
                   message={message}
                   sessionId={session.id}
+                  showClarify={message.id === latestPendingClarifyMessageId}
                   onClarify={(question, value) =>
-                    void clarify(question, value, message.response)
+                    void clarify(question, value, message.response, message.id)
                   }
                   onRetry={() =>
                     void send(
@@ -610,11 +644,13 @@ function EmptyState({ onSelect }: { onSelect: (value: string) => void }) {
 function MessageBubble({
   message,
   sessionId,
+  showClarify,
   onClarify,
   onRetry,
 }: {
   message: ChatMessage;
   sessionId: string;
+  showClarify: boolean;
   onClarify: (question: ClarificationQuestion, value: string) => void;
   onRetry: () => void;
 }) {
@@ -688,14 +724,16 @@ function MessageBubble({
             </div>
           </Card>
         )}
-        {message.response?.clarification?.questions.map((question) => (
-          <ClarificationCard
-            key={question.id}
-            question={question}
-            onSelect={(value) => onClarify(question, value)}
-          />
-        ))}
-        {confirmation && (
+        {showClarify &&
+          !!message.response?.pending_interaction?.interaction_id &&
+          message.response?.clarification?.questions.map((question) => (
+            <ClarificationCard
+              key={question.id}
+              question={question}
+              onSelect={(value) => onClarify(question, value)}
+            />
+          ))}
+        {showClarify && !!message.response?.pending_interaction?.interaction_id && confirmation && (
           <ClarificationCard
             question={{
               id: confirmation.id ?? "confirmation",

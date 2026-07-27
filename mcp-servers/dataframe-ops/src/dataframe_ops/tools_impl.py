@@ -74,6 +74,37 @@ def value_counts(dataset: str, column: str, n: int = 20) -> dict[str, Any]:
     return _call("value_counts", {"dataset": dataset, "column": column, "n": n})
 
 
+def cast_column(
+    dataset: str,
+    column: str,
+    to: str = "str",
+    save_as: str | None = None,
+) -> dict[str, Any]:
+    """Cast a column dtype."""
+    args: dict[str, Any] = {"dataset": dataset, "column": column, "to": to}
+    if save_as:
+        args["save_as"] = save_as
+    return _call("cast_column", args)
+
+
+def tcvn3_converter(
+    dataset: str,
+    columns: list[str] | str | None = None,
+    save_as: str | None = None,
+) -> dict[str, Any]:
+    """Decode TCVN3/legacy Vietnamese text columns to Unicode (alias TCVN3_converter)."""
+    args: dict[str, Any] = {"dataset": dataset}
+    if columns is not None:
+        args["columns"] = columns
+    if save_as:
+        args["save_as"] = save_as
+    return _call("tcvn3_converter", args)
+
+
+# Public alias matching the product name used in skills / prompts.
+TCVN3_converter = tcvn3_converter
+
+
 def filter_rows(
     dataset: str,
     column: str | None = None,
