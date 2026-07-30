@@ -1,0 +1,28 @@
+[project]
+name = "data-access-app"
+version = "0.1.0"
+description = "Independent supermarket data access desktop app (Flet)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "flet>=0.25.0",
+  "pyodbc>=5.1.0",
+  "pandas>=2.2.0",
+  "openpyxl>=3.1.0",
+  "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+data-access-app = "app.main:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
