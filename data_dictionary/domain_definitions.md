@@ -89,6 +89,23 @@ Join path: user barcode → `BARCODE` → `SKU_ID` → `STRANS.SKU_ID`.
 
 Khi query chính trả 0 dòng nhưng probe master có kết quả → **identifier mismatch**, không phải “không bán”.
 
+## Grain bill / dòng / khách (quan hệ — không SQL)
+
+| Grain | Khóa chính | Bảng gợi ý |
+|-------|------------|------------|
+| Bill header | `TRANS_NUM` (+ `STK_ID` khi multi-store) | `TRANSHDR` (db2) / `TRANSHDR_ARC` (db1) |
+| Sale line | `TRANS_NUM` + `SKU_ID` (+ `IDX`) | `STRANS` / `PMTRANS` (+ shard db1) |
+| Product master | `SKU_ID` / `SKU_CODE` | `SKU_DEF` (db2) |
+| Loyalty card / profile | `CARD_ID` | `CSCARD`, `CUSTOMER`, `CRD_INFO` |
+
+**Companion / basket trên cùng bill:** khi đã có dòng khớp sản phẩm, các mặt hàng khác trên bill nằm ở **cùng `TRANS_NUM`**, không phải ở header. Lấy bằng `query_rows` với `trans_nums=<product_lines_ref>` hoặc `expand_bill_lines=true` (bỏ `sku_ids` ở bước expand). Join product-only lines × `TRANSHDR` **không** thêm SKU khác.
+
+**Hồ sơ khách trên bill:** join master thẻ/khách trên **`CARD_ID`** (không lấy `CUST_ID` làm khóa chính khi bill đã mang thẻ). Bỏ dòng không thẻ nếu brief chỉ hỏi khách có thẻ.
+
+**Xếp hạng mặt hàng (top-N theo doanh thu/SL):** deliverable là frame **aggregate theo `SKU_ID`** (đã rank), không phải dump probe hàng nghìn dòng `STRANS`. Có thể gắn nhãn qua `SKU_DEF` (`SKU_CODE`, `FULL_NAME_U`).
+
+Role cột chi tiết: `data_dictionary/analysis_grain.yaml`.
+
 ### Tên hiển thị (`SKU_DEF.FULL_NAME`) vs loại hàng
 
 - Prefix / từ trong `FULL_NAME` (vd. ký hiệu khuyến mãi trên nhãn) **không** phải ontology “loại hàng” ổn định.

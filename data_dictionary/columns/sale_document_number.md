@@ -106,4 +106,7 @@ Số chứng từ / bill (TRANS_NUM) — khóa join TRANSHDR ↔ STRANS ↔ PMTR
 
 ## Ghi chú thêm
 
-- Số chứng từ / bill; join header ↔ dòng ↔ thanh toán
+- Số chứng từ / bill; join header ↔ dòng ↔ thanh toán.
+- Companion / basket: các dòng khác trên cùng bill chia sẻ `TRANS_NUM` — lấy bằng
+  `query_rows` với `trans_nums` từ dòng sản phẩm đã khớp (bỏ `sku_ids` ở bước expand).
+  Join product-only lines × `TRANSHDR` không thêm SKU khác trên bill.

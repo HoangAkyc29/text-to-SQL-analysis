@@ -24,6 +24,10 @@ _FACT_TYPE: dict[str, str] = {
     "seed-three-stores-stk": "classification",
     "seed-loyalty-points-floor": "formula",
     "seed-sku-fullname-full-name-u-tcvn3": "definition",
+    "seed-bill-companion-lines": "relationship",
+    "seed-customer-profile-on-card": "relationship",
+    "seed-bill-companion-with-customer": "relationship",
+    "seed-product-metric-ranking": "classification",
 }
 
 CASES: list[dict[str, Any]] = [
@@ -204,6 +208,347 @@ CASES: list[dict[str, Any]] = [
             {"chunk_group": "column", "ref": "sku_id_ref"},
             {"chunk_group": "table", "ref": "db2:sku_def"},
             {"chunk_group": "table", "ref": "db1:sku_def"},
+        ],
+    },
+    {
+        "source_trace_id": "seed-bill-companion-lines",
+        "text": (
+            "Khi brief cần các mặt hàng khác trên cùng bill với sản phẩm đã khớp: "
+            "grain bill = TRANS_NUM. Bước 1: resolve_products (codes hoặc name_contains). "
+            "Bước 2: query_rows STRANS/PMTRANS với sku_ids=<resolve ref> + time_range "
+            "(dòng sản phẩm khớp). Bước 3: query_rows lại cùng bảng với "
+            "trans_nums=<product_lines_ref> hoặc expand_bill_lines=true — bỏ sku_ids ở bước này "
+            "để lấy mọi dòng trên các TRANS_NUM đó (companion / basket). "
+            "Join product-only STRANS × TRANSHDR không thêm SKU khác. "
+            "Không nhúng SQL; tham số từ brief (product identity, time_range, store scope)."
+        ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "product-lookup",
+                "tool_id": "resolve_products",
+                "args": {
+                    "name_contains": "{{product_name}}",
+                    "codes": "{{sku_codes}}",
+                    "limit": 50,
+                },
+                "save_as": "resolve_products",
+            },
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "sku_ids": "resolve_products",
+                    "limit": 5000,
+                },
+                "save_as": "product_lines",
+            },
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "trans_nums": "product_lines",
+                    "expand_bill_lines": True,
+                    "limit": 5000,
+                },
+                "save_as": "bill_lines_all",
+            },
+            {
+                "kind": "op",
+                "server": "deliverables",
+                "tool_id": "export_excel",
+                "args": {"dataset": "bill_lines_all", "filename": "analysis_result.xlsx"},
+            },
+        ],
+        "stages": [
+            {"stage_id": "ground", "goal": "resolve_products from brief identity"},
+            {"stage_id": "probe", "goal": "query_rows STRANS sku_ids=resolve_products"},
+            {
+                "stage_id": "narrow",
+                "goal": "query_rows STRANS trans_nums=product_lines (companion lines)",
+            },
+            {"stage_id": "deliver", "goal": "export_excel companion bill lines"},
+        ],
+        "brief_template": {
+            "intent": (
+                "Lấy dòng bán của sản phẩm {{product_name}}/{{sku_codes}} rồi "
+                "các mặt hàng khác trên cùng bill trong {{date_start}}–{{date_end}}"
+            ),
+            "filters": {"product_name": "{{product_name}}", "product_code": "{{sku_codes}}"},
+            "time_range": {"start": "{{date_start}}", "end": "{{date_end}}", "grain": "day"},
+            "output_format": ["table"],
+        },
+        "links": [
+            {"chunk_group": "column", "ref": "sale_document_number"},
+            {"chunk_group": "column", "ref": "sale_line_sku_id"},
+            {"chunk_group": "column", "ref": "product_display_sku_code"},
+            {"chunk_group": "column", "ref": "sku_def__full_name_u"},
+            {"chunk_group": "column", "ref": "store_id_ref"},
+            {"chunk_group": "table", "ref": "db2:strans"},
+            {"chunk_group": "table", "ref": "db2:sku_def"},
+            {"chunk_group": "table", "ref": "db2:transhdr"},
+            {"chunk_group": "table", "ref": "db1:strans"},
+        ],
+    },
+    {
+        "source_trace_id": "seed-customer-profile-on-card",
+        "text": (
+            "Khi brief cần hồ sơ khách (mã thẻ, tên, SĐT) gắn với bill/dòng bán: "
+            "định danh thẻ trên fact là CARD_ID (không dùng CUST_ID làm khóa join chính "
+            "khi bill đã mang thẻ). Join CSCARD hoặc CUSTOMER trên CARD_ID sau khi có "
+            "bill/line frames. Lọc bỏ dòng không thẻ nếu brief chỉ hỏi khách có thẻ. "
+            "Tool gợi ý: join_datasets left=<bill_or_lines> right=CSCARD/CUSTOMER "
+            "left_on/right_on=CARD_ID; hoặc query_rows CSCARD với card_ids=<bill_ref>. "
+            "Không nhúng SQL."
+        ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "CSCARD",
+                    "card_ids": "{{bill_lines_ref}}",
+                    "limit": 5000,
+                },
+                "save_as": "customer_cards",
+            },
+            {
+                "kind": "op",
+                "server": "dataframe-ops",
+                "tool_id": "join_datasets",
+                "args": {
+                    "left": "{{bill_lines_ref}}",
+                    "right": "customer_cards",
+                    "left_on": "CARD_ID",
+                    "right_on": "CARD_ID",
+                    "how": "left",
+                    "save_as": "bills_with_customer",
+                },
+            },
+            {
+                "kind": "op",
+                "server": "deliverables",
+                "tool_id": "export_excel",
+                "args": {
+                    "dataset": "bills_with_customer",
+                    "filename": "analysis_result.xlsx",
+                },
+            },
+        ],
+        "stages": [
+            {"stage_id": "assemble", "goal": "fetch CSCARD by card_ids from bill frame"},
+            {"stage_id": "assemble", "goal": "join_datasets on CARD_ID"},
+            {"stage_id": "deliver", "goal": "export_excel joined customer+bill frame"},
+        ],
+        "brief_template": {
+            "intent": (
+                "Xuất mã thẻ / tên / SĐT khách gắn với bill hoặc dòng bán đã lấy"
+            ),
+            "dimensions": ["CARD_ID", "CUST_NAME", "PHONE"],
+            "output_format": ["table"],
+        },
+        "links": [
+            {"chunk_group": "column", "ref": "loyalty_card_master_id"},
+            {"chunk_group": "column", "ref": "sale_line_loyalty_card_ref"},
+            {"chunk_group": "column", "ref": "sale_document_number"},
+            {"chunk_group": "table", "ref": "db2:cscard"},
+            {"chunk_group": "table", "ref": "db2:customer"},
+            {"chunk_group": "table", "ref": "db2:strans"},
+            {"chunk_group": "table", "ref": "db2:transhdr"},
+        ],
+    },
+    {
+        "source_trace_id": "seed-bill-companion-with-customer",
+        "text": (
+            "Khi brief cần (1) các mặt hàng trên cùng bill với sản phẩm khớp và "
+            "(2) hồ sơ khách (mã thẻ, tên, SĐT) gắn bill đó: ghép hai mối quan hệ — "
+            "companion theo TRANS_NUM rồi profile theo CARD_ID. "
+            "Chuỗi gợi ý: resolve_products → query_rows STRANS sku_ids=<resolve> + time_range → "
+            "query_rows STRANS trans_nums=<product_lines> (bỏ sku_ids / expand_bill_lines) → "
+            "query_rows CSCARD card_ids=<bill_lines> hoặc join_datasets on CARD_ID → "
+            "export_excel frame đã join (có thể nhiều sheet: dòng bill + khách). "
+            "Không nhúng SQL; không coi join product-only × TRANSHDR là đủ companion."
+        ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "product-lookup",
+                "tool_id": "resolve_products",
+                "args": {
+                    "name_contains": "{{product_name}}",
+                    "codes": "{{sku_codes}}",
+                    "limit": 50,
+                },
+                "save_as": "resolve_products",
+            },
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "sku_ids": "resolve_products",
+                    "limit": 5000,
+                },
+                "save_as": "product_lines",
+            },
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "trans_nums": "product_lines",
+                    "expand_bill_lines": True,
+                    "limit": 5000,
+                },
+                "save_as": "bill_lines_all",
+            },
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "query_rows",
+                "args": {
+                    "table": "CSCARD",
+                    "card_ids": "bill_lines_all",
+                    "limit": 5000,
+                },
+                "save_as": "customer_cards",
+            },
+            {
+                "kind": "op",
+                "server": "dataframe-ops",
+                "tool_id": "join_datasets",
+                "args": {
+                    "left": "bill_lines_all",
+                    "right": "customer_cards",
+                    "left_on": "CARD_ID",
+                    "right_on": "CARD_ID",
+                    "how": "left",
+                    "save_as": "bills_with_customer",
+                },
+            },
+            {
+                "kind": "op",
+                "server": "deliverables",
+                "tool_id": "export_excel",
+                "args": {
+                    "dataset": "bills_with_customer",
+                    "filename": "analysis_result.xlsx",
+                },
+            },
+        ],
+        "stages": [
+            {"stage_id": "ground", "goal": "resolve_products from brief identity"},
+            {"stage_id": "probe", "goal": "query_rows STRANS product lines"},
+            {"stage_id": "narrow", "goal": "expand companion lines by TRANS_NUM"},
+            {"stage_id": "assemble", "goal": "CSCARD / join_datasets on CARD_ID"},
+            {"stage_id": "deliver", "goal": "export_excel joined bill+customer frame"},
+        ],
+        "brief_template": {
+            "intent": (
+                "Khách (mã thẻ, tên, SĐT) có bill chứa {{product_name}}/{{sku_codes}} "
+                "và chi tiết các mặt hàng trên bill trong {{date_start}}–{{date_end}}"
+            ),
+            "filters": {"product_name": "{{product_name}}", "product_code": "{{sku_codes}}"},
+            "dimensions": ["CARD_ID", "CUST_NAME", "PHONE", "TRANS_NUM", "SKU_ID"],
+            "time_range": {"start": "{{date_start}}", "end": "{{date_end}}", "grain": "day"},
+            "output_format": ["table"],
+        },
+        "links": [
+            {"chunk_group": "column", "ref": "sale_document_number"},
+            {"chunk_group": "column", "ref": "sale_line_sku_id"},
+            {"chunk_group": "column", "ref": "sale_line_loyalty_card_ref"},
+            {"chunk_group": "column", "ref": "loyalty_card_master_id"},
+            {"chunk_group": "column", "ref": "sku_def__full_name_u"},
+            {"chunk_group": "column", "ref": "store_id_ref"},
+            {"chunk_group": "table", "ref": "db2:strans"},
+            {"chunk_group": "table", "ref": "db2:cscard"},
+            {"chunk_group": "table", "ref": "db2:sku_def"},
+            {"chunk_group": "table", "ref": "db2:transhdr"},
+        ],
+    },
+    {
+        "source_trace_id": "seed-product-metric-ranking",
+        "text": (
+            "Khi brief xếp hạng mặt hàng theo metric (doanh thu / số lượng) top-N: "
+            "grain deliverable là SKU (aggregate), không phải dump mọi dòng STRANS. "
+            "Tool gợi ý: query_rows hoặc aggregate_rows STRANS trong time_range "
+            "(+/- store_ids từ brief/ACL) → groupby_agg hoặc aggregate_rows theo SKU_ID "
+            "với sum(AMOUNT)/sum(QTY) → top_n_per_group hoặc sort+limit với n từ brief → "
+            "export_excel frame đã xếp hạng. Có thể join SKU_DEF để gắn SKU_CODE/FULL_NAME_U. "
+            "Không nhúng SQL; không export probe 5000 dòng thô khi đã có frame top-N."
+        ),
+        "sql_template": [],
+        "tool_chain": [
+            {
+                "kind": "fetch",
+                "server": "data-query",
+                "tool_id": "aggregate_rows",
+                "args": {
+                    "table": "STRANS",
+                    "time_range": {"start": "{{date_start}}", "end": "{{date_end}}"},
+                    "group_by": ["SKU_ID"],
+                    "aggs": [
+                        {"fn": "sum", "column": "AMOUNT", "as": "total_revenue"},
+                        {"fn": "sum", "column": "QTY", "as": "total_quantity"},
+                    ],
+                    "limit": 5000,
+                },
+                "save_as": "sku_metrics",
+            },
+            {
+                "kind": "op",
+                "server": "dataframe-ops",
+                "tool_id": "top_n_per_group",
+                "args": {
+                    "dataset": "sku_metrics",
+                    "partition_by": [],
+                    "order_by": [{"column": "total_revenue", "ascending": False}],
+                    "n": "{{top_n}}",
+                    "save_as": "top_skus",
+                },
+            },
+            {
+                "kind": "op",
+                "server": "deliverables",
+                "tool_id": "export_excel",
+                "args": {"dataset": "top_skus", "filename": "analysis_result.xlsx"},
+            },
+        ],
+        "stages": [
+            {"stage_id": "narrow", "goal": "aggregate_rows STRANS by SKU_ID"},
+            {"stage_id": "deliver", "goal": "top_n_per_group then export_excel ranked SKUs"},
+        ],
+        "brief_template": {
+            "intent": (
+                "Top {{top_n}} mặt hàng theo doanh thu/số lượng "
+                "{{date_start}}–{{date_end}}"
+            ),
+            "metrics": ["revenue", "quantity"],
+            "time_range": {"start": "{{date_start}}", "end": "{{date_end}}", "grain": "day"},
+            "output_format": ["table"],
+        },
+        "links": [
+            {"chunk_group": "column", "ref": "sale_line_sku_id"},
+            {"chunk_group": "column", "ref": "amount_line_item"},
+            {"chunk_group": "column", "ref": "sale_line_quantity"},
+            {"chunk_group": "column", "ref": "product_display_sku_code"},
+            {"chunk_group": "column", "ref": "sku_def__full_name_u"},
+            {"chunk_group": "table", "ref": "db2:strans"},
+            {"chunk_group": "table", "ref": "db2:sku_def"},
         ],
     },
 ]

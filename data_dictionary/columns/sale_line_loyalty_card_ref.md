@@ -48,8 +48,10 @@ Thẻ loyalty gắn trên dòng STRANS khi POS ghi nhận quét thẻ lúc bán.
 
 ## Join
 
-Thường join: `TRANS_NUM`, `CUST_ID`
+Thường join hồ sơ khách: `CARD_ID` → `CSCARD` / `CUSTOMER` (không lấy `CUST_ID`
+làm khóa chính khi bill/dòng đã mang thẻ).
 
 ## Ghi chú thêm
 
-- Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng
+- Mã thẻ loyalty; prefix A/E/F/H có thể phân hạng.
+- Dòng không quét thẻ thường để trống `CARD_ID` — lọc bỏ nếu brief chỉ hỏi khách có thẻ.

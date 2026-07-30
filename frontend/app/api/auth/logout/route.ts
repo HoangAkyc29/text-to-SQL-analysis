@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assertSameOrigin, AUTH_COOKIE, PROFILE_COOKIE } from "@/lib/server-bff";
+import { assertSameOrigin, clearSessionCookies } from "@/lib/server-bff";
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,8 +7,5 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ detail: "cross_origin_request" }, { status: 403 });
   }
-  const response = NextResponse.json({ ok: true });
-  response.cookies.delete(AUTH_COOKIE);
-  response.cookies.delete(PROFILE_COOKIE);
-  return response;
+  return clearSessionCookies(NextResponse.json({ ok: true }));
 }

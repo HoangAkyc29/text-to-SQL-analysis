@@ -46,11 +46,35 @@ def _looks_like_store(blob: str) -> bool:
     return any(tok in blob for tok in _STORE_TOKS)
 
 
+def _looks_like_time(blob: str) -> bool:
+    time_toks = (
+        "time_range",
+        "time range",
+        "date range",
+        "khoảng thời gian",
+        "khoang thoi gian",
+        "từ ngày",
+        "tu ngay",
+        "đến ngày",
+        "den ngay",
+        "start date",
+        "end date",
+        "ngày",
+        "ngay",
+        "đến nay",
+        "den nay",
+        "hiện nay",
+    )
+    return any(tok in blob for tok in time_toks)
+
+
 def _maps_field_for_prompt(*, prompt: str, reason: str, evidence: str, current: str | None) -> str:
     blob = f"{prompt} {reason} {evidence}".lower()
     maps = (current or "").strip() or "filters.clarify_note"
     if maps in ("filters.clarify_note", "clarify_note") and _looks_like_store(blob):
         return "filters.store_ids"
+    if maps in ("filters.clarify_note", "clarify_note", "") and _looks_like_time(blob):
+        return "time_range"
     return maps
 
 
@@ -124,6 +148,14 @@ def ensure_clarification_questions(request: ClarificationRequest) -> Clarificati
             prompt=prompt[:500],
             options=[],
             maps_to_brief_field="filters.store_ids",
+        )
+    elif _looks_like_time(blob):
+        prompt = reason or evidence or "Vui lòng xác nhận khoảng thời gian phân tích (từ ngày — đến ngày)."
+        synthesized = ClarificationQuestion(
+            id="time_range",
+            prompt=prompt[:500],
+            options=[],
+            maps_to_brief_field="time_range",
         )
     else:
         prompt = reason or evidence or "Vui lòng bổ sung thông tin để tiếp tục phân tích."

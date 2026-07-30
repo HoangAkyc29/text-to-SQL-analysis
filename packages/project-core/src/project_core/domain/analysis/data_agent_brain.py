@@ -9,12 +9,14 @@ from typing import TYPE_CHECKING, Any
 
 from project_core.config.loader import load_project_config
 from project_core.domain.analysis.data_agent_guards import (
+    as_str_list,
     assess_deliverable_coverage,
     coverage_forces_partial,
     infer_top_n,
     is_blocked_name_type_guess,
     is_blocked_premature_export,
     is_nonblocking_type_clarify,
+    needs_bill_deliverable,
     prefer_export_dataset_ref,
     soft_product_type,
 )
@@ -62,34 +64,22 @@ Decisions:
   from display-name text when product_codes already select SKUs.
 
 Hard rules:
-1. If brief has product_code, call resolve_products(codes=…) before query_rows on fact tables.
-   If brief has a product name/keyword only (no codes), call resolve_products(name_contains=…)
-   — searches SKU_DEF.FULL_NAME_U (case-insensitive). Do not pass the name as codes.
-   Alternative: query_rows on SKU_DEF with contains on FULL_NAME_U.
-2. Fact fetches require time_range; never pull unfiltered STRANS/TRANSHDR.
-3. Do not pass trans_code/TRANS_CODE unless brief filters request a document type.
-4. For min_bill_value, use query_rows on TRANSHDR with min_amount / AMOUNT filter,
-   not SUM of one SKU's line amounts.
-5. Probe with small limits first; then narrow; then assemble joins/aggs; verify before finalize.
+1. Resolve product identity when the brief has codes (resolve_products codes=…) or
+   names (name_contains=… / SKU_DEF contains). Do not pass a display name as codes.
+2. Fact fetches require time_range; never pull unfiltered fact tables.
+3. Do not pass TRANS_CODE unless the brief filters request a document type.
+4. Prefer the table/grain that matches the brief; use tool sugar (min_amount, sku_ids,
+   trans_nums, card_ids as lists or dataset refs) when you choose those args.
+5. Probe with small limits first; then narrow; assemble; verify before finalize.
 6. thought must name the checklist item and hypothesis from latest samples.
-7. sku_ids / trans_nums may be either concrete ID lists OR a working-set dataset name
-   (toolkit expands SKU_ID / TRANS_NUM). Prefer dataset refs after resolve/select_columns.
-8. When product_codes are present they are the source of truth:
-   - Do not invent extra filters on display-name columns (FULL_NAME/NAME) to "confirm" type.
-   - product_type_soft is optional context only â€” continue the pipeline; finalize may caveat
-     product_type_unverified. Do not stop to clarify type/name when codes already pin SKUs.
-   - Clarify product_type only when there are no product_codes (or resolve is ambiguous) and
-     schema/dictionary does not provide a type column.
-9. Prefer exports that preserve enough columns for the brief (ids, amounts, dates);
-    do not invent display-name filters to "prove" product type. Coverage checks are structural
-    (readable artifact, top-N row counts, catalog-vs-bills) â€” not a mandate to keep specific
-    retail column names on every sheet.
-10. If checklist.top_n is set:
-    - Global top-N (no per-product wording): final bills rows should be <= top_n.
-    - Top-N **per product/SKU**: use top_n_per_group; final bills rows may be
-      top_n × product count — do not flatten with global limit_rows(top_n).
-    Call export_excel (bills=<ranked ref>, optional summary) before finalize.
-    Prefer status=partial when fewer rows than requested.
+7. sku_ids / trans_nums / card_ids may be ID lists OR working-set dataset names
+   (toolkit expands columns). To expand all lines on matching bills, you must call
+   query_rows with trans_nums / expand_bill_lines yourself — nothing auto-fetches.
+8. When product_codes are present they are the source of truth for SKU identity;
+   do not invent display-name filters to "confirm" type. Soft product_type is context only.
+9. Export the frame that answers the brief; coverage checks are structural feedback.
+10. Ranking: use top_n_per_group when the brief asks for top-N per group; otherwise
+    global top-N / sort+limit as you choose. Call export_excel before finalize.
 """
 
 
@@ -149,6 +139,14 @@ def _product_codes(brief: AnalysisBrief) -> list[str]:
 _OP_META_KEYS = frozenset({"op_id", "kind", "tool_id", "steps", "args", "recipe_id"})
 
 
+def _as_str_list(value: Any) -> list[str]:
+    return as_str_list(value)
+
+
+def _needs_bill_deliverable(brief: AnalysisBrief) -> bool:
+    return needs_bill_deliverable(brief)
+
+
 def _merge_op_args(op: dict[str, Any]) -> dict[str, Any]:
     """Merge nested args with flat op fields (LLM often puts column/to at top level)."""
     oargs = dict(op.get("args") or {})
@@ -168,10 +166,6 @@ def _time_range(brief: AnalysisBrief) -> dict[str, str]:
         "end": str(getattr(tr, "end", None) or ""),
         "grain": str(getattr(tr, "grain", None) or ""),
     }
-
-
-def _needs_bill_deliverable(brief: AnalysisBrief) -> bool:
-    return infer_top_n(brief) is not None or (brief.filters or {}).get("min_bill_value") is not None
 
 
 def _stub_decision(brief: AnalysisBrief, phase: str, observations: list[dict[str, Any]], working_set: DatasetWorkingSet) -> dict[str, Any]:
@@ -335,16 +329,44 @@ def run_data_agent_brain(
         )
 
     brief_dump = brief.model_dump(mode="json")
+    # Normalize time_range (incl. off-by-one-year "today" slips) before planning.
+    from project_core.domain.data_fetch.arg_coerce import coerce_time_range
+
+    coerced_tr = coerce_time_range(_time_range(brief))
+    if coerced_tr:
+        brief_dump["time_range"] = coerced_tr
+        if brief.time_range is not None:
+            if coerced_tr.get("start"):
+                brief.time_range.start = str(coerced_tr["start"])
+            if coerced_tr.get("end"):
+                brief.time_range.end = str(coerced_tr["end"])
+            if coerced_tr.get("grain"):
+                brief.time_range.grain = str(coerced_tr["grain"])
+    product_name = str((brief.filters or {}).get("product_name") or "").strip()
+    if not product_name:
+        product_name = str((brief.filters or {}).get("name_contains") or "").strip()
+    if not product_name:
+        import re as _re
+
+        for match in _re.findall(r"['\"]([^'\"]{3,80})['\"]", str(brief.intent or "")):
+            product_name = match.strip()
+            break
     checklist = {
         "product_codes": _product_codes(brief),
-        "time_range": _time_range(brief),
+        "product_name": product_name or None,
+        "time_range": coerced_tr or _time_range(brief),
         "min_bill_value": (brief.filters or {}).get("min_bill_value"),
         "product_type_soft": soft_product_type(brief),
         "top_n": infer_top_n(brief),
-        "require_sku_evidence": bool(_product_codes(brief)),
+        "require_sku_evidence": bool(_product_codes(brief) or product_name),
         "metrics": list(brief.metrics or []),
         "output_format": list(brief.output_format or []),
     }
+    if product_name and not (brief.filters or {}).get("product_name"):
+        brief.filters = {**(brief.filters or {}), "product_name": product_name}
+        brief_dump = brief.model_dump(mode="json")
+        if coerced_tr:
+            brief_dump["time_range"] = coerced_tr
 
     def _audit_turn(**kwargs: Any) -> None:
         logger.info(
@@ -602,27 +624,14 @@ def run_data_agent_brain(
             else:
                 status = str(decision.get("status") or "complete")
                 arts = list(working_set.artifact_paths)
-                if not arts and working_set.refs():
-                    ref0 = prefer_export_dataset_ref(
-                        working_set,
-                        needs_bill=_needs_bill_deliverable(brief),
-                    )
-                    if ref0:
-                        execute_op(
-                            working_set,
-                            "export_excel",
-                            {"dataset": ref0, "filename": "analysis_result.xlsx"},
-                            out_dir=out_dir,
-                        )
-                        arts = list(working_set.artifact_paths)
                 coverage = assess_deliverable_coverage(
                     brief,
                     working_set,
                     product_codes=list(checklist.get("product_codes") or []),
                     top_n=checklist.get("top_n"),
                 )
-                caveats = list(decision.get("caveats") or [])
-                caveats.extend(list(coverage.get("caveats") or []))
+                caveats = _as_str_list(decision.get("caveats"))
+                caveats.extend(_as_str_list(coverage.get("caveats")))
                 for gap in coverage.get("gaps") or []:
                     if gap not in caveats:
                         caveats.append(gap)
@@ -703,24 +712,11 @@ def run_data_agent_brain(
                     # fall through by recursive-style: jump to finalize return
                     status = "partial" if legacy == "partial" else "complete"
                     arts = list(working_set.artifact_paths)
-                    if not arts:
-                        ref0 = prefer_export_dataset_ref(
-                            working_set,
-                            needs_bill=_needs_bill_deliverable(brief),
-                        )
-                        if ref0:
-                            execute_op(
-                                working_set,
-                                "export_excel",
-                                {"dataset": ref0, "filename": "analysis_result.xlsx"},
-                                out_dir=out_dir,
-                            )
-                            arts = list(working_set.artifact_paths)
                     return {
                         "action": "complete" if status == "complete" and arts else "partial",
                         "insight_vi": decision.get("insight_vi") or "",
                         "headline_metrics": decision.get("headline_metrics") or {},
-                        "caveats": list(decision.get("caveats") or ["legacy_action_mapped"]),
+                        "caveats": _as_str_list(decision.get("caveats")) or ["legacy_action_mapped"],
                         "artifact_paths": arts,
                         "steps_trace": steps_trace,
                         "observations": observations,
@@ -988,49 +984,6 @@ def run_data_agent_brain(
         }
         _persist_trace({"action": "suggest_clarify", "caveats": out["caveats"]})
         return out
-    # Best-effort export so partial runs still leave deliverables when data exists.
-    if not working_set.artifact_paths and working_set.refs():
-        try:
-            export_ref = prefer_export_dataset_ref(
-                working_set,
-                needs_bill=_needs_bill_deliverable(brief),
-                product_codes=product_codes,
-            )
-            if export_ref:
-                export = execute_op(
-                    working_set,
-                    "export_excel",
-                    {"dataset": export_ref, "filename": "analysis_result.xlsx"},
-                    out_dir=out_dir,
-                )
-                observations.append(
-                    {
-                        "ok": export.status == "ok",
-                        "op_id": "export_excel",
-                        "auto_export_on_budget": True,
-                        "dataset": export_ref,
-                        **export.as_observation(),
-                    }
-                )
-                out["artifact_paths"] = list(working_set.artifact_paths)
-                if export.status == "ok" and out["artifact_paths"]:
-                    out["caveats"] = list(out["caveats"]) + ["auto_export_on_budget"]
-                elif export.status != "ok":
-                    out["caveats"] = list(out["caveats"]) + ["export_blocked_no_evidence"]
-            else:
-                observations.append(
-                    {
-                        "ok": False,
-                        "op_id": "export_excel",
-                        "auto_export_on_budget": True,
-                        "error": "export_blocked_no_suitable_dataset",
-                    }
-                )
-                out["caveats"] = list(out["caveats"]) + ["export_blocked_no_suitable_dataset"]
-        except Exception as exc:  # noqa: BLE001
-            observations.append(
-                {"ok": False, "op_id": "export_excel", "auto_export_on_budget": True, "error": str(exc)}
-            )
     coverage = assess_deliverable_coverage(
         brief,
         working_set,

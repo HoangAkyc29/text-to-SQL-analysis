@@ -100,6 +100,8 @@ def normalize_sugar_to_filters(args: dict[str, Any]) -> tuple[list[dict[str, Any
         _add("SKU_ID", "in", args["sku_ids"], "sku_ids")
     if args.get("trans_nums") is not None:
         _add("TRANS_NUM", "in", args["trans_nums"], "trans_nums")
+    if args.get("card_ids") is not None:
+        _add("CARD_ID", "in", args["card_ids"], "card_ids")
     if args.get("min_amount") is not None and str(args.get("min_amount")).strip() != "":
         _add("AMOUNT", "gte", args["min_amount"], "min_amount")
     if args.get("store_ids") is not None:
@@ -135,15 +137,15 @@ def build_query_rows(
         cols = "*"
     predicates: list[str] = []
     tr = time_range or {}
-    if require_time or tr.get("start") or tr.get("end"):
+    # Only fact tables (require_time=True) get TRAN_DATE pushdown.
+    # Passing brief time_range onto masters (CUSTOMER/CSCARD) must not invent TRAN_DATE.
+    if require_time:
         if not tr.get("start"):
             raise ValueError("pushdown_required:time_range")
         start = _require_date("start", tr.get("start"))
         end = _require_date("end", tr.get("end") or start)
         predicates.append(f"TRAN_DATE >= {_sql_str(start)}")
         predicates.append(f"TRAN_DATE <= {_sql_str(end)}")
-    elif require_time:
-        raise ValueError("pushdown_required:time_range")
     for clause in filters or []:
         predicates.append(_compile_filter(clause))
     where = (" WHERE " + " AND ".join(predicates)) if predicates else ""
@@ -207,15 +209,13 @@ def build_aggregate_rows(
     groups = [_require_ident(g) for g in (group_by or [])]
     predicates: list[str] = []
     tr = time_range or {}
-    if require_time or tr.get("start") or tr.get("end"):
+    if require_time:
         if not tr.get("start"):
             raise ValueError("pushdown_required:time_range")
         start = _require_date("start", tr.get("start"))
         end = _require_date("end", tr.get("end") or start)
         predicates.append(f"TRAN_DATE >= {_sql_str(start)}")
         predicates.append(f"TRAN_DATE <= {_sql_str(end)}")
-    elif require_time:
-        raise ValueError("pushdown_required:time_range")
     for clause in filters or []:
         predicates.append(_compile_filter(clause))
     where = (" WHERE " + " AND ".join(predicates)) if predicates else ""
@@ -241,15 +241,12 @@ def build_lookup_distinct(
     top = _limit(limit, default=30, hard_max=min(100, hard_max))
     predicates: list[str] = []
     tr = time_range or {}
-    if require_time or tr.get("start") or tr.get("end"):
-        if not tr.get("start") and require_time:
+    if require_time:
+        if not tr.get("start"):
             raise ValueError("pushdown_required:time_range")
-        if tr.get("start"):
-            start = _require_date("start", tr.get("start"))
-            end = _require_date("end", tr.get("end") or start)
-            predicates.append(f"TRAN_DATE >= {_sql_str(start)} AND TRAN_DATE <= {_sql_str(end)}")
-    elif require_time:
-        raise ValueError("pushdown_required:time_range")
+        start = _require_date("start", tr.get("start"))
+        end = _require_date("end", tr.get("end") or start)
+        predicates.append(f"TRAN_DATE >= {_sql_str(start)} AND TRAN_DATE <= {_sql_str(end)}")
     if contains is not None and str(contains).strip():
         predicates.append(
             f"LOWER({col}) LIKE '%' + LOWER({_sql_str(str(contains).strip())}) + '%'"

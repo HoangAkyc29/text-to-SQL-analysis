@@ -65,3 +65,60 @@ def test_remark_string_no_double_replace() -> None:
 def test_copyright_to_circumflex() -> None:
     assert tcvn3_to_unicode("©") == "â"
     assert tcvn3_to_unicode("ng©n") == "ngân"
+
+
+def test_is_unicode_text_column() -> None:
+    from project_core.text.tcvn3 import is_unicode_text_column
+
+    assert is_unicode_text_column("CUST_NAME_U")
+    assert is_unicode_text_column("FULL_NAME_U")
+    assert is_unicode_text_column("full_name_u")
+    assert not is_unicode_text_column("CUST_NAME")
+    assert not is_unicode_text_column("FULL_NAME")
+
+
+def test_maybe_decode_row_skips_u_suffix() -> None:
+    from project_core.text.tcvn3 import maybe_decode_row
+
+    unicode_name = "Nguyễn Văn Á"
+    legacy = "NguyÔn V¨n A"  # typical TCVN3-ish; conversion need not be perfect here
+    row = maybe_decode_row({"CUST_NAME": legacy, "CUST_NAME_U": unicode_name})
+    assert row["CUST_NAME_U"] == unicode_name
+    assert row["CUST_NAME"] != legacy or tcvn3_to_unicode(legacy) == legacy
+
+
+def test_op_tcvn3_converter_skips_u_suffix(tmp_path) -> None:
+    import pandas as pd
+    from project_core.domain.analysis.ops.handlers import op_tcvn3_converter
+    from project_core.domain.analysis.ops.working_set import DatasetWorkingSet
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    # lowercase á overlaps a TCVN3 codepoint; re-decode would remap it (á→ỏ).
+    unicode_name = "Nguyễn Thị Lan á"
+    assert tcvn3_to_unicode(unicode_name) != unicode_name
+    ws.save_frame(
+        "cust",
+        pd.DataFrame(
+            {
+                "CUST_NAME": ["NguyÔn"],
+                "CUST_NAME_U": [unicode_name],
+                "FULL_NAME_U": [unicode_name],
+            }
+        ),
+        role="dim",
+        source="test",
+    )
+    out = op_tcvn3_converter(
+        ws,
+        {
+            "dataset": "cust",
+            "columns": ["CUST_NAME", "CUST_NAME_U", "FULL_NAME_U"],
+            "save_as": "cust",
+        },
+        tmp_path / "out",
+    )
+    assert "CUST_NAME" in out["converted_columns"]
+    assert out.get("skipped_unicode_columns") == ["CUST_NAME_U", "FULL_NAME_U"]
+    got = ws.get("cust").frame()
+    assert list(got["CUST_NAME_U"]) == [unicode_name]
+    assert list(got["FULL_NAME_U"]) == [unicode_name]

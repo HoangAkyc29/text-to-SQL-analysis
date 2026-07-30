@@ -2,22 +2,19 @@
 
 Given brief + checklist + recent observations, choose ONE next chunk_goal.
 
-Examples of chunk_goal phrasing (not a fixed path):
-- Resolve product codes from the brief
-- Query TRANSHDR rows in time_range with min bill amount from brief
-- Query STRANS lines for resolved SKUs
-- Rank top-N **per product** (`top_n_per_group` + `group_by=SKU_ID`, order by date/time) then `export_excel`
-- Export excel with sheets bills=<ranked per-group ref> and optional summary=<qty agg>
+You are the planner. Tools and observations are hints — do not assume a fixed path.
 
-When the brief asks for **both** a quantity/metric **and** top-N bills:
-1. Fetch / join bill-grained rows first.
-2. If top-N is **per product/SKU**, call `top_n_per_group` (not global `limit_rows`).
-3. Call **`export_excel` before finalize** — `bills` sheet must be the per-group ranked
-   dataset (row count may be top_n × number of products). Optional `summary` sheet for qty.
-4. Never finalize with only a SKU/qty aggregate when bill rows already exist.
-5. Do not replace a correct per-group bills frame with a global 5-row slice.
+Examples of chunk_goal phrasing (optional, not mandatory):
+- Resolve product identity from the brief
+- Fetch fact rows for the chosen table/grain in time_range
+- Aggregate / rank / join working-set frames as needed
+- Export the frame that answers the brief, then finalize
 
-If coverage looks sufficient **and** an excel artifact exists, decision=finalize.
-If blocked on missing identity/time, decision=clarify.
-Do **not** clarify for soft/descriptive filters that fail (e.g. empty `ITEM_TYPE`, speech labels like product type text) when sale lines / bill headers already exist — skip that filter and continue to rank/export.
-Return JSON only.
+Rules:
+1. Call `export_excel` before `finalize` when a deliverable is ready.
+2. Do not finalize with only a catalog/resolve frame when the brief needs fact rows you have not fetched.
+3. Prefer tools that match the brief grain; observations and coverage gaps are feedback, not recipes.
+4. If `domain_rules_excerpt` / `case_hints` / `recipe_candidates` describe a matching
+   relationship (companion by `TRANS_NUM`, customer on `CARD_ID`, metric top-N as
+   aggregate), pick the next chunk that advances that chain — do not stop at
+   product-only lines or raw probe dumps when the brief needs more.

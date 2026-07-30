@@ -815,7 +815,7 @@ def get_artifact(
         raise HTTPException(status_code=404, detail="not_found")
     if session_id:
         get_orchestrator().record_artifact_download(session_id, trace_id)
-    return FileResponse(path)
+    return FileResponse(path, filename=resolved_name, content_disposition_type="attachment")
 
 
 def main() -> None:

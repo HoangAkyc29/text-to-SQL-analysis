@@ -22,6 +22,15 @@ Return:
 }
 ```
 
+## case_hints
+
+- When `case_hints` include a `tool_chain` whose goal matches `chunk_goal`, suggest
+  the next tool(s) from that chain (same `server`/`tool_id`, structural
+  `args_hints` only). Do not paste SQL; Data Agent binds brief values / dataset refs.
+- Typical structural patterns in hints: companion expand = second `query_rows` by
+  `trans_nums` without `sku_ids`; customer = `CSCARD`/`join_datasets` on `CARD_ID`;
+  metric ranking = `aggregate_rows` / groupby then `top_n_per_group`, not raw dump export.
+
 ## args_hints rules
 
 - Prefer **structural** hints only: `table`, `save_as`, `column`, `group_by`, `aggs`, numeric `limit`.

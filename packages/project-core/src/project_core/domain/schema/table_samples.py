@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from project_core.paths import ROOT
-from project_core.text.tcvn3 import tcvn3_to_unicode
+from project_core.text.tcvn3 import is_unicode_text_column, tcvn3_to_unicode
 
 DEFAULT_SAMPLES_ROOT = ROOT / "data_dictionary" / "table_samples"
 MAX_TABLES_PER_ATTEMPT = 6
@@ -88,6 +88,8 @@ def sanitize_sample_value(column: str, value: Any) -> Any:
         return str(value).strip()
     if isinstance(value, bytes):
         text = value.decode("utf-8", errors="replace").strip()
+        if is_unicode_text_column(column):
+            return text
         return tcvn3_to_unicode(text) if text else text
 
     if looks_like_code_or_id_column(column):
@@ -103,10 +105,14 @@ def sanitize_sample_value(column: str, value: Any) -> Any:
 
     if isinstance(value, str):
         text = value.strip()
+        if is_unicode_text_column(column):
+            return text
         return tcvn3_to_unicode(text) if text else text
     if isinstance(value, (int, float)):
         return value
     text = str(value).strip()
+    if is_unicode_text_column(column):
+        return text
     return tcvn3_to_unicode(text) if text else text
 
 

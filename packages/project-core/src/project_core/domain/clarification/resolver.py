@@ -5,6 +5,7 @@ from typing import Any
 
 from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement
 from project_core.domain.contracts.clarification import ClarificationReply
+from project_core.domain.data_fetch.arg_coerce import effective_time_range_from_brief
 
 # Prefer explicit STK_ID=…; else 4–6 digit tokens (typical STK_ID width).
 _STK_ID_EXPLICIT = re.compile(r"STK[_\s-]?ID\s*[=:]?\s*['\"]?(\d{4,6})", re.IGNORECASE)
@@ -64,9 +65,18 @@ def _value_for_field(field: str, prose: str) -> Any:
     if field.endswith("store_ids") or field == "filters.store_ids":
         ids = extract_store_ids(prose)
         return ids if ids else ([prose] if prose else [])
+    if field == "time_range" or field.endswith(".time_range"):
+        parsed = _extract_time_range_from_clarify(prose)
+        return parsed if parsed else prose
     if field.endswith("clarify_note"):
         return prose
     return prose
+
+
+def _extract_time_range_from_clarify(prose: str) -> dict[str, Any]:
+    return effective_time_range_from_brief(
+        {"filters": {"clarify_note": prose}, "intent": prose}
+    )
 
 
 def apply_clarification_reply(brief: AnalysisBrief, reply: ClarificationReply, request) -> AnalysisBrief:
@@ -89,6 +99,11 @@ def apply_clarification_reply(brief: AnalysisBrief, reply: ClarificationReply, r
                 store_ids = extract_store_ids(prose)
                 if store_ids:
                     _set_nested(data, "filters.store_ids", store_ids)
+                parsed_tr = _extract_time_range_from_clarify(prose)
+                if parsed_tr.get("start") or parsed_tr.get("end"):
+                    existing = data.get("time_range") if isinstance(data.get("time_range"), dict) else {}
+                    merged_tr = {**existing, **{k: v for k, v in parsed_tr.items() if v}}
+                    _set_nested(data, "time_range", merged_tr)
             continue
         value = option_map.get((answer.question_id, answer.selected_option_id)) or {}
         leaf = field.split(".")[-1]

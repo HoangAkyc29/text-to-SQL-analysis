@@ -38,6 +38,9 @@ sources:
 
 ## Ý nghĩa nghiệp vụ
 
+Thành tiền dòng hàng. Xếp hạng mặt hàng theo doanh thu = **SUM(`AMOUNT`) theo `SKU_ID`**
+(aggregate), không export dump mọi dòng probe khi brief chỉ cần top-N.
+
 Thành tiền / giá trị trên dòng STRANS (`AMOUNT`). Có thể bằng 0 với quà tặng hoặc khuyến mãi. Không thay `TRANSHDR.AMOUNT` khi lọc min bill trừ khi domain/case study chỉ rõ cách tính giá trị dòng/bill.
 
 ## Bảng & vai trò

@@ -88,17 +88,26 @@ def tcvn3_to_unicode(value: str | None) -> str | None:
     return "".join(out)
 
 
+def is_unicode_text_column(name: str | None) -> bool:
+    """True for dictionary Unicode text columns (suffix ``_U`` / ``_u``).
+
+    Re-running ``tcvn3_to_unicode`` on these remaps legitimate Vietnamese
+    glyphs that overlap TCVN3 codepoints (e.g. á→ỏ) and corrupts display.
+    """
+    if not name:
+        return False
+    upper = str(name).upper()
+    return upper.endswith("_U")
+
+
 def maybe_decode_row(row: dict[str, object]) -> dict[str, object]:
     """Return row copy with TCVN3-legacy string columns converted to Unicode.
 
     Skip columns that are already Unicode in the dictionary (e.g. FULL_NAME_U).
-    Re-decoding those maps legitimate Vietnamese glyphs that overlap TCVN3
-    codepoints (á→ỏ) and corrupts search/display text.
     """
-    skip = {"FULL_NAME_U", "full_name_u"}
     out: dict[str, object] = {}
     for key, val in row.items():
-        if isinstance(val, str) and str(key) not in skip:
+        if isinstance(val, str) and not is_unicode_text_column(str(key)):
             out[key] = tcvn3_to_unicode(val)
         else:
             out[key] = val

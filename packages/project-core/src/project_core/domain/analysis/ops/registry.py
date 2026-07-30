@@ -25,7 +25,8 @@ OP_CATALOG: dict[str, str] = {
     "cast_column": "Cast column to int|float|str|datetime",
     "tcvn3_converter": (
         "Decode TCVN3/legacy Vietnamese text columns to Unicode "
-        "(alias TCVN3_converter). Pass columns= or omit for all string cols."
+        "(alias TCVN3_converter). Pass columns= or omit for all string cols. "
+        "Columns ending in _U are already Unicode and are never converted."
     ),
     "add_column_expr": "Add column from safe DSL expr",
     "fill_null": "Fill nulls with value",
@@ -119,11 +120,6 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "columns": ("column", "column_name", "cols", "fields"),
         "dataset": ("data", "source", "frame", "table", "ref"),
     },
-    "filter_rows": {
-        "clauses": ("conditions", "filters", "predicates"),
-        "column": ("column_name", "col", "field"),
-        "op": ("operator", "cmp", "predicate"),
-    },
     "groupby_agg": {
         "by": ("group_by", "groupby"),
         "aggs": ("aggregations", "aggregate"),
@@ -148,11 +144,21 @@ ARG_ALIASES: dict[str, dict[str, tuple[str, ...]]] = {
         "filename": ("path", "file", "file_name", "name", "output"),
     },
     "join_datasets": {
-        "left": ("left_dataset", "left_dataset_name", "left_ref", "lhs"),
-        "right": ("right_dataset", "right_dataset_name", "right_ref", "rhs"),
+        "left": ("left_dataset", "left_dataset_name", "left_ref", "left_df", "lhs"),
+        "right": ("right_dataset", "right_dataset_name", "right_ref", "right_df", "rhs"),
         "on": ("join_on", "keys", "key"),
         "left_on": ("left_key", "left_keys"),
         "right_on": ("right_key", "right_keys"),
+    },
+    "filter_rows": {
+        "clauses": ("conditions", "filters", "predicates"),
+        "column": ("column_name", "col", "field"),
+        "op": ("operator", "cmp", "predicate"),
+        "dataset": ("data", "source", "frame", "table", "ref", "input_df"),
+    },
+    "select_columns": {
+        "dataset": ("data", "source", "frame", "table", "ref", "input_df"),
+        "columns": ("cols", "fields", "column_list"),
     },
 }
 

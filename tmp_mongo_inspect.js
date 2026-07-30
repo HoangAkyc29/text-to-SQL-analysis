@@ -1,15 +1,21 @@
-const j = db.analysis_jobs.findOne({analysis_id: '989abea0-8dbf-4151-b50b-2b3c92f42a6b'});
-print('job status', j && j.status, 'pending', j && j.pending_interaction_id);
-print('collections', db.getCollectionNames().join(','));
-const names = db.getCollectionNames();
-for (const c of names) {
+printjson(db.getCollectionNames());
+const cols = db.getCollectionNames();
+for (const c of cols) {
   const hit = db.getCollection(c).findOne({
     $or: [
-      {interaction_id: '399ee20b-ceb7-4505-b8ed-3644154aa648'},
-      {analysis_id: '989abea0-8dbf-4151-b50b-2b3c92f42a6b'},
-    ]
+      { analysis_id: "e16b4117-6083-4aad-81c4-8ef2e7dc2422" },
+      { _id: "e16b4117-6083-4aad-81c4-8ef2e7dc2422" },
+      { "analysis.analysis_id": "e16b4117-6083-4aad-81c4-8ef2e7dc2422" },
+    ],
   });
   if (hit) {
-    print('HIT', c, Object.keys(hit).join('|'));
+    print("COL=" + c);
+    print("keys=" + Object.keys(hit));
+    print("status=" + hit.status);
+    print("outcome=" + hit.outcome);
+    print("trace_id=" + hit.trace_id);
+    print("sandbox=" + (hit.sandbox_id || hit.sandbox_root || hit.artifact_dir || ""));
+    if (hit.progress) print("progress=" + JSON.stringify(hit.progress).slice(0, 800));
+    print("result=" + String(hit.result_message || "").slice(0, 800));
   }
 }

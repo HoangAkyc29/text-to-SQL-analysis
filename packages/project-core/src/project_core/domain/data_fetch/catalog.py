@@ -25,7 +25,11 @@ FETCH_CATALOG: dict[str, str] = {
     "query_rows": (
         "Flexible SELECT with filters[] (eq/in/gte/contains/…). "
         "table from dictionary allowlist; facts require time_range. "
-        "Optional sugar: sku_ids, trans_nums, min_amount, store_ids. "
+        "Optional sugar: sku_ids, trans_nums, card_ids, min_amount, store_ids. "
+        "After resolve_products, STRANS/PMTRANS auto-pushes sku_ids unless trans_nums "
+        "(or TRANS_NUM filters) scope the query — use trans_nums / expand_bill_lines "
+        "to fetch all lines on bills that already matched the product. "
+        "CUSTOMER/CSCARD auto-pushes card_ids from bill frames when omitted. "
         "Replaces narrow fetch_sale_lines / fetch_bill_headers / fetch_lines_for_bills."
     ),
     "aggregate_rows": (
@@ -50,7 +54,7 @@ FACT_TABLES = frozenset(
     }
 )
 
-MASTER_TABLES = frozenset({"SKU_DEF", "BARCODE", "CSCARD", "SUPPLIER"})
+MASTER_TABLES = frozenset({"SKU_DEF", "BARCODE", "CSCARD", "CUSTOMER", "SUPPLIER"})
 
 # Fallback when dictionary is unavailable in unit tests.
 ALLOWED_PREVIEW_TABLES = FACT_TABLES | MASTER_TABLES | frozenset({"STK_DTL", "WEBRPT_SALES_SKU_DAILY"})

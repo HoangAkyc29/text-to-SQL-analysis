@@ -10,6 +10,7 @@ from project_core.domain.data_fetch.arg_coerce import (
     coerce_product_codes,
     coerce_table_name,
     coerce_time_range,
+    effective_time_range_from_brief,
     looks_like_prose_placeholder,
     sanitize_filter_clauses,
 )
@@ -39,6 +40,32 @@ def test_dict_time_range_kept():
     out = coerce_time_range({"start": "2026-01-01", "end": "2026-01-31", "grain": "day"})
     assert out["start"] == "2026-01-01"
     assert out["grain"] == "day"
+
+
+def test_effective_time_range_from_clarify_note():
+    brief = {
+        "time_range": {},
+        "filters": {"clarify_note": "22/7 đến nay inclusive through today"},
+        "intent": "bánh chưng từ 22/7 đến nay",
+    }
+    out = effective_time_range_from_brief(brief)
+    assert out["start"] == "2026-07-22"
+    assert out["end"]
+
+
+def test_effective_time_range_from_requirement():
+    brief = {
+        "requirements": [
+            {
+                "kind": "time",
+                "key": "time_range",
+                "value": {"start": "2026-07-22", "end": "2026-07-28"},
+            }
+        ]
+    }
+    out = effective_time_range_from_brief(brief)
+    assert out["start"] == "2026-07-22"
+    assert out["end"] == "2026-07-28"
 
 
 def test_sanitize_filters_drops_prose_and_normalizes_op():

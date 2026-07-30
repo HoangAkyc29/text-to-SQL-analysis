@@ -618,3 +618,56 @@ def test_join_uses_hdr_line_suffixes_and_filter_resolves_amount(tmp_path):
     )
     assert filtered.status == "ok"
     assert len(ws.get("ok_bills").frame()) == 1
+
+
+def test_join_rewrites_cust_id_to_card_id(tmp_path):
+    import pandas as pd
+    from project_core.domain.analysis.ops import execute_op
+    from project_core.domain.analysis.ops.working_set import DatasetWorkingSet
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    out = tmp_path / "out"
+    out.mkdir()
+    ws.save_frame(
+        "bills",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["T1", "T2"],
+                "CARD_ID_hdr": ["C1", "C2"],
+                "CUST_ID": ["", ""],
+                "SKU_ID": ["S1", "S9"],
+            }
+        ),
+        source="join",
+        role="fact",
+    )
+    ws.save_frame(
+        "customers",
+        pd.DataFrame(
+            {
+                "CUST_ID": ["X1", "X2"],
+                "CARD_ID": ["C1", "C2"],
+                "CUST_NAME": ["A", "B"],
+                "PHONE": ["1", "2"],
+            }
+        ),
+        source="query",
+        role="dim",
+    )
+    result = execute_op(
+        ws,
+        "join_datasets",
+        {
+            "left": "bills",
+            "right": "customers",
+            "how": "left",
+            "left_on": "CUST_ID",
+            "right_on": "CUST_ID",
+            "save_as": "joined",
+        },
+        out_dir=out,
+    )
+    assert result.status == "ok"
+    assert "rewrote_join_keys_to_card_id" in str(result.result.get("warning") or "")
+    df = ws.get("joined").frame()
+    assert df["CUST_NAME"].notna().sum() == 2

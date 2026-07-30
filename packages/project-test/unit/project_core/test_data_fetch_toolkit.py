@@ -228,3 +228,355 @@ def test_resolve_then_query_rows_omits_sql_from_payload(fact_catalog, tmp_path):
     assert r2["ok"] is True
     assert "sql" not in r2
     assert r2["row_count"] >= 1
+
+
+def test_query_rows_master_table_omits_tran_date():
+    sql = flex.build_query_rows(
+        table="CUSTOMER",
+        filters=[{"column": "CARD_ID", "op": "in", "value": ["A1"]}],
+        time_range={"start": "2026-07-01", "end": "2026-07-06"},
+        require_time=False,
+    )
+    assert "TRAN_DATE" not in sql
+    assert "CARD_ID" in sql
+
+
+def test_query_rows_fact_still_requires_tran_date():
+    sql = flex.build_query_rows(
+        table="STRANS",
+        time_range={"start": "2026-07-01", "end": "2026-07-06"},
+        require_time=True,
+    )
+    assert "TRAN_DATE >=" in sql
+
+
+def test_auto_sku_ids_from_resolve(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def __init__(self):
+            self.sqls: list[str] = []
+            self.last_sql = ""
+
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            self.sqls.append(sql)
+            self.last_sql = sql
+            if "TRANS_NUM" in sql and "S1" not in sql:
+                return {
+                    "columns": ["TRANS_NUM", "SKU_ID", "CARD_ID"],
+                    "rows": [
+                        {"TRANS_NUM": "T1", "SKU_ID": "S1", "CARD_ID": "C1"},
+                        {"TRANS_NUM": "T1", "SKU_ID": "S9", "CARD_ID": "C1"},
+                    ],
+                    "row_count": 2,
+                }
+            return {
+                "columns": ["TRANS_NUM", "SKU_ID", "CARD_ID"],
+                "rows": [{"TRANS_NUM": "T1", "SKU_ID": "S1", "CARD_ID": "C1"}],
+                "row_count": 1,
+            }
+
+    gw = _Gw()
+    policy = PolicyEngine(fact_catalog, allowed_tables=list(fact_catalog.tables()))
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(
+        DatasetHandle(
+            ref="resolve_products",
+            role="catalog",
+            df=pd.DataFrame([{"SKU_ID": "S1", "SKU_CODE": "0001", "FULL_NAME_U": "x"}]),
+        )
+    )
+    toolkit = DataFetchToolkit(
+        sql_gateway=gw,
+        policy=policy,
+        acl=SqlAclContext(
+            actor_id="t",
+            allowed_tables=list(fact_catalog.tables()),
+            tool_grants=["tool:*"],
+        ),
+        working_set=ws,
+        max_rows=100,
+    )
+    out = toolkit.execute(
+        "query_rows",
+        {
+            "table": "STRANS",
+            "time_range": {"start": "2026-07-01", "end": "2026-07-06"},
+            "limit": 50,
+        },
+        save_as="sale_lines",
+        brief={"time_range": {"start": "2026-07-01", "end": "2026-07-06"}},
+    )
+    assert out["ok"] is True
+    assert any("S1" in sql for sql in gw.sqls)
+    assert any("auto_sku_ids_from_resolve" in w for w in (out.get("warnings") or []))
+    assert not ws.has("sale_lines_all_bill_lines")
+
+
+def test_trans_scope_drops_auto_sku(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def __init__(self):
+            self.last_sql = ""
+
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            self.last_sql = sql
+            return {
+                "columns": ["TRANS_NUM", "SKU_ID"],
+                "rows": [
+                    {"TRANS_NUM": "T1", "SKU_ID": "S1"},
+                    {"TRANS_NUM": "T1", "SKU_ID": "S9"},
+                ],
+                "row_count": 2,
+            }
+
+    gw = _Gw()
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(
+        DatasetHandle(
+            ref="resolve_products",
+            role="catalog",
+            df=pd.DataFrame([{"SKU_ID": "S1", "SKU_CODE": "0001"}]),
+        )
+    )
+    toolkit = DataFetchToolkit(
+        sql_gateway=gw,
+        policy=PolicyEngine(fact_catalog, allowed_tables=list(fact_catalog.tables())),
+        acl=SqlAclContext(
+            actor_id="t",
+            allowed_tables=list(fact_catalog.tables()),
+            tool_grants=["tool:*"],
+        ),
+        working_set=ws,
+        max_rows=100,
+    )
+    out = toolkit.execute(
+        "query_rows",
+        {
+            "table": "STRANS",
+            "time_range": {"start": "2026-07-01", "end": "2026-07-06"},
+            "trans_nums": ["T1"],
+            "limit": 50,
+        },
+        brief={"time_range": {"start": "2026-07-01", "end": "2026-07-06"}},
+    )
+    assert out["ok"] is True
+    assert "T1" in gw.last_sql
+    assert "SKU_ID" not in gw.last_sql.upper()
+    assert not any("auto_sku_ids_from_resolve" in w for w in (out.get("warnings") or []))
+
+
+def test_auto_card_ids_from_bill_frames(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def __init__(self):
+            self.last_sql = ""
+
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            self.last_sql = sql
+            return {
+                "columns": ["CARD_ID", "CUST_NAME", "PHONE"],
+                "rows": [{"CARD_ID": "C1", "CUST_NAME": "A", "PHONE": "1"}],
+                "row_count": 1,
+            }
+
+    gw = _Gw()
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(
+        DatasetHandle(
+            ref="strans_lines",
+            role="fact",
+            df=pd.DataFrame([{"TRANS_NUM": "T1", "SKU_ID": "S1", "CARD_ID": "C1"}]),
+        )
+    )
+    allowed = list(fact_catalog.tables()) + ["CUSTOMER", "CSCARD"]
+    toolkit = DataFetchToolkit(
+        sql_gateway=gw,
+        policy=PolicyEngine(fact_catalog, allowed_tables=allowed),
+        acl=SqlAclContext(actor_id="t", allowed_tables=allowed, tool_grants=["tool:*"]),
+        working_set=ws,
+        max_rows=100,
+    )
+    out = toolkit.execute("query_rows", {"table": "CUSTOMER", "limit": 50})
+    assert out["ok"] is True
+    assert "C1" in gw.last_sql
+    assert any("auto_card_ids_from_bills" in w for w in (out.get("warnings") or []))
+
+
+def test_auto_card_ids_prefers_product_scoped_frames(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def __init__(self):
+            self.last_sql = ""
+
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            self.last_sql = sql
+            return {
+                "columns": ["CARD_ID", "CUST_NAME"],
+                "rows": [{"CARD_ID": "C_PRODUCT", "CUST_NAME": "A"}],
+                "row_count": 1,
+            }
+
+    gw = _Gw()
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(
+        DatasetHandle(
+            ref="resolve_products",
+            role="catalog",
+            df=pd.DataFrame([{"SKU_ID": "S1", "SKU_CODE": "0001"}]),
+        )
+    )
+    ws.put(
+        DatasetHandle(
+            ref="transhdr_data",
+            role="fact",
+            df=pd.DataFrame(
+                [{"TRANS_NUM": f"H{i}", "CARD_ID": f"NOISE{i}"} for i in range(1200)]
+            ),
+        )
+    )
+    ws.put(
+        DatasetHandle(
+            ref="strans_lines",
+            role="fact",
+            df=pd.DataFrame([{"TRANS_NUM": "T1", "SKU_ID": "S1", "CARD_ID": "C_PRODUCT"}]),
+        )
+    )
+    allowed = list(fact_catalog.tables()) + ["CUSTOMER", "CSCARD"]
+    toolkit = DataFetchToolkit(
+        sql_gateway=gw,
+        policy=PolicyEngine(fact_catalog, allowed_tables=allowed),
+        acl=SqlAclContext(actor_id="t", allowed_tables=allowed, tool_grants=["tool:*"]),
+        working_set=ws,
+        max_rows=100,
+    )
+    out = toolkit.execute("query_rows", {"table": "CUSTOMER", "limit": 50})
+    assert out["ok"] is True
+    assert "C_PRODUCT" in gw.last_sql
+    assert "NOISE0" not in gw.last_sql
+
+
+def test_rewrite_huge_trans_scope_to_product_bills(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def __init__(self):
+            self.last_sql = ""
+
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            self.last_sql = sql
+            return {
+                "columns": ["TRANS_NUM", "SKU_ID"],
+                "rows": [{"TRANS_NUM": "T1", "SKU_ID": "S9"}],
+                "row_count": 1,
+            }
+
+    gw = _Gw()
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(
+        DatasetHandle(
+            ref="resolve_products",
+            role="catalog",
+            df=pd.DataFrame([{"SKU_ID": "S1", "SKU_CODE": "0001"}]),
+        )
+    )
+    ws.put(
+        DatasetHandle(
+            ref="strans_lines",
+            role="fact",
+            df=pd.DataFrame([{"TRANS_NUM": "T1", "SKU_ID": "S1", "CARD_ID": "C1"}]),
+        )
+    )
+    huge = [f"H{i:04d}" for i in range(200)]
+    toolkit = DataFetchToolkit(
+        sql_gateway=gw,
+        policy=PolicyEngine(fact_catalog, allowed_tables=list(fact_catalog.tables())),
+        acl=SqlAclContext(
+            actor_id="t",
+            allowed_tables=list(fact_catalog.tables()),
+            tool_grants=["tool:*"],
+        ),
+        working_set=ws,
+        max_rows=5000,
+    )
+    out = toolkit.execute(
+        "query_rows",
+        {
+            "table": "STRANS",
+            "time_range": {"start": "2026-07-01", "end": "2026-07-06"},
+            "filters": [{"column": "TRANS_NUM", "op": "in", "value": huge}],
+            "limit": 5000,
+        },
+        brief={"time_range": {"start": "2026-07-01", "end": "2026-07-06"}},
+    )
+    assert out["ok"] is True
+    assert "T1" in gw.last_sql
+    assert "H0000" not in gw.last_sql
+    assert any("rewrote_trans_scope_to_product_bills" in w for w in (out.get("warnings") or []))
+
+
+def test_unexpanded_dataset_ref_fails_closed(tmp_path, fact_catalog):
+    import pandas as pd
+
+    from project_core.domain.analysis.ops.working_set import DatasetHandle, DatasetWorkingSet
+    from project_core.domain.contracts.sql_acl import SqlAclContext
+    from project_core.domain.data_fetch.toolkit import DataFetchToolkit
+    from project_core.domain.sql.policy_engine import PolicyEngine
+
+    class _Gw:
+        def execute_readonly(self, sql, acl, *, target_db="db2"):
+            return {"columns": ["CARD_ID"], "rows": [], "row_count": 0}
+
+    ws = DatasetWorkingSet(work_dir=tmp_path / "ws")
+    ws.put(DatasetHandle(ref="unique_bills", role="fact", df=pd.DataFrame([{"CARD_ID": "   "}])))
+    toolkit = DataFetchToolkit(
+        sql_gateway=_Gw(),
+        policy=PolicyEngine(
+            fact_catalog,
+            allowed_tables=list(fact_catalog.tables()) + ["CUSTOMER", "CSCARD"],
+        ),
+        acl=SqlAclContext(
+            actor_id="t",
+            allowed_tables=list(fact_catalog.tables()) + ["CUSTOMER", "CSCARD"],
+            tool_grants=["tool:*"],
+        ),
+        working_set=ws,
+        max_rows=100,
+    )
+    out = toolkit.execute(
+        "query_rows",
+        {
+            "table": "CSCARD",
+            "filters": [{"column": "CARD_ID", "op": "in", "value": "unique_bills.CARD_ID"}],
+        },
+    )
+    assert out["ok"] is False
+    assert "dataset_id_column_empty" in str(out.get("error") or "")

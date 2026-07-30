@@ -11,6 +11,45 @@ bill_id_columns:
   - BILL_NO
   - TRANS_ID
 
+# Customer / loyalty identity columns (for coverage + export heuristics).
+customer_id_columns:
+  - CARD_ID
+  - CUST_ID
+  - PHONE
+  - MOBI
+
+# Optional profile fields joined from customer masters (export scoring).
+customer_profile_columns:
+  - CUST_NAME
+  - CUST_NAME_U
+  - PHONE
+  - MOBI
+  - MOBI2
+
+# Store / site identity columns (brief store_ids → STK_ID filter sugar).
+store_id_columns:
+  - STK_ID
+
+# Keep these role columns when trimming wide bill exports (plus matched suffixes).
+export_keep_columns:
+  - TRANS_NUM
+  - TRAN_DATE
+  - TRAN_TIME
+  - STK_ID
+  - SKU_ID
+  - SKU_CODE
+  - FULL_NAME
+  - FULL_NAME_U
+  - QTY
+  - AMOUNT
+  - CARD_ID
+  - CUST_ID
+  - CUST_NAME
+  - CUST_NAME_U
+  - PHONE
+  - MOBI
+  - MOBI2
+
 # Working-set roles treated as product-master / catalog (no bill grain).
 catalog_roles:
   - catalog
@@ -21,6 +60,7 @@ catalog_roles:
 catalog_ref_substrings:
   - resolved_sku
   - resolved_product
+  - resolve_products
   - products
   - sku_def
 
@@ -33,3 +73,16 @@ display_name_columns:
   - NAME
   - ITEM_NAME
   - DESCRIPTION
+
+# Preferred join keys between grains (planner hints; not executable SQL).
+# Documented also in domain_definitions.md — kept here as machine-readable roles.
+join_keys:
+  bill_line_to_header:
+    - TRANS_NUM
+  bill_or_line_to_customer:
+    - CARD_ID
+  line_to_product:
+    - SKU_ID
+    - SKU_CODE
+  line_to_store:
+    - STK_ID

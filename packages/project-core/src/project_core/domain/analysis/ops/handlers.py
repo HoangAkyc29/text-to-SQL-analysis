@@ -27,10 +27,25 @@ OpHandler = Callable[[DatasetWorkingSet, dict[str, Any], Path], dict[str, Any]]
 
 
 def _require_cols(df: pd.DataFrame, cols: list[str]) -> str | None:
-    missing = [c for c in cols if c not in df.columns]
+    missing = [c for c in cols if _resolve_collided_column(df, c) is None]
     if missing:
         return f"missing_columns:{missing}"
     return None
+
+
+def _resolve_col_list(df: pd.DataFrame, cols: list[str]) -> tuple[list[str] | None, str | None]:
+    """Map bare names onto join suffixes; return resolved list or missing_columns error."""
+    resolved: list[str] = []
+    missing: list[str] = []
+    for col in cols:
+        hit = _resolve_collided_column(df, col)
+        if hit is None:
+            missing.append(col)
+        else:
+            resolved.append(hit)
+    if missing:
+        return None, f"missing_columns:{missing}"
+    return resolved, None
 
 
 def _as_col_list(value: Any) -> list[str]:
@@ -220,10 +235,16 @@ def op_assert_columns_present(ws: DatasetWorkingSet, args: dict[str, Any], out_d
 def op_select_columns(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     handle = ws.get(str(args["dataset"]))
     cols = [str(c) for c in (args.get("columns") or [])]
-    err = _require_cols(handle.frame(), cols)
-    if err:
-        return {"error": err}
-    return _save(ws, args.get("save_as"), handle.frame()[cols].copy(), source="select_columns", role=handle.role)
+    resolved, err = _resolve_col_list(handle.frame(), cols)
+    if err or resolved is None:
+        return {"error": err or "missing_columns"}
+    return _save(
+        ws,
+        args.get("save_as"),
+        handle.frame()[resolved].copy(),
+        source="select_columns",
+        role=handle.role,
+    )
 
 
 def op_rename_columns(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
@@ -274,8 +295,11 @@ def op_cast_column(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -
 
 
 def op_tcvn3_converter(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:
-    """Decode TCVN3 / legacy Vietnamese text columns to Unicode."""
-    from project_core.text.tcvn3 import tcvn3_to_unicode
+    """Decode TCVN3 / legacy Vietnamese text columns to Unicode.
+
+    Never convert ``*_U`` columns — those are already Unicode in the dictionary.
+    """
+    from project_core.text.tcvn3 import is_unicode_text_column, tcvn3_to_unicode
 
     handle = ws.get(str(args["dataset"]))
     df = handle.frame().copy()
@@ -289,8 +313,11 @@ def op_tcvn3_converter(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Pat
     missing = [c for c in cols if c not in df.columns]
     if missing:
         return {"error": f"missing_columns:{missing}"}
+    skipped = [c for c in cols if is_unicode_text_column(str(c))]
     converted: list[str] = []
     for col in cols:
+        if is_unicode_text_column(str(col)):
+            continue
         series = df[col]
         if series.dtype != object and str(series.dtype) != "string":
             continue
@@ -298,6 +325,8 @@ def op_tcvn3_converter(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Pat
         converted.append(col)
     out = _save(ws, args.get("save_as"), df, source="tcvn3_converter", role=handle.role)
     out["converted_columns"] = converted
+    if skipped:
+        out["skipped_unicode_columns"] = skipped
     return out
 
 
@@ -460,6 +489,78 @@ def _default_join_suffixes(left: pd.DataFrame, right: pd.DataFrame) -> tuple[str
     if overlap & {"AMOUNT", "TOTAL", "QTY", "TRAN_DATE", "TRAN_TIME", "STK_ID"}:
         return ("_hdr", "_line")
     return ("_x", "_y")
+
+
+def _as_key_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    return [str(value)]
+
+
+def _nonempty_str_series(s: pd.Series) -> pd.Series:
+    out = s.dropna().astype(str).str.strip()
+    return out[(out != "") & (out.str.lower() != "nan") & (out.str.lower() != "none")]
+
+
+def _join_key_match_rate(
+    left: pd.DataFrame, right: pd.DataFrame, left_key: str, right_key: str
+) -> float:
+    if left_key not in left.columns or right_key not in right.columns:
+        return 0.0
+    lv = _nonempty_str_series(left[left_key])
+    if len(lv) == 0:
+        return 0.0
+    rv = set(_nonempty_str_series(right[right_key]).tolist())
+    if not rv:
+        return 0.0
+    return float(lv.isin(rv).mean())
+
+
+def _resolve_join_key_pair(
+    left: pd.DataFrame, right: pd.DataFrame, left_on: Any, right_on: Any
+) -> tuple[Any, Any, str | None]:
+    """Resolve join suffixes and rewrite empty-overlap identity keys structurally.
+
+    When the planner joins on CUST_ID but bill rows only carry CARD_ID (common for
+    loyalty POS), rewrite to CARD_ID if that key actually matches.
+    """
+    left_keys = _as_key_list(left_on)
+    right_keys = _as_key_list(right_on)
+    if not left_keys or not right_keys or len(left_keys) != len(right_keys):
+        return left_on, right_on, None
+
+    resolved_left: list[str] = []
+    resolved_right: list[str] = []
+    for lk, rk in zip(left_keys, right_keys):
+        lres = _resolve_collided_column(left, lk) or lk
+        rres = _resolve_collided_column(right, rk) or rk
+        resolved_left.append(lres)
+        resolved_right.append(rres)
+
+    note: str | None = None
+    if len(resolved_left) == 1:
+        rate = _join_key_match_rate(left, right, resolved_left[0], resolved_right[0])
+        key_names = {
+            str(left_keys[0]).upper(),
+            str(right_keys[0]).upper(),
+            str(resolved_left[0]).upper(),
+            str(resolved_right[0]).upper(),
+        }
+        if rate < 0.05 and any(k.startswith("CUST") or k == "CUST_ID" for k in key_names):
+            alt_left = _resolve_collided_column(left, "CARD_ID")
+            alt_right = _resolve_collided_column(right, "CARD_ID")
+            if alt_left and alt_right:
+                alt_rate = _join_key_match_rate(left, right, alt_left, alt_right)
+                if alt_rate > rate + 0.2:
+                    resolved_left = [alt_left]
+                    resolved_right = [alt_right]
+                    note = f"rewrote_join_keys_to_card_id:match={alt_rate:.2f}"
+
+    if len(resolved_left) == 1:
+        return resolved_left[0], resolved_right[0], note
+    return resolved_left, resolved_right, note
 
 
 def _clause_mask(df: pd.DataFrame, clause: dict[str, Any]) -> pd.Series:
@@ -902,10 +1003,24 @@ def op_join_datasets(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path)
         suffixes = _default_join_suffixes(left, right)
     else:
         suffixes = tuple(suffixes)
+    join_note: str | None = None
     try:
         if on:
-            merged = left.merge(right, how=how, on=on, suffixes=suffixes)
+            on_keys = _as_key_list(on)
+            resolved_on: list[str] = []
+            for key in on_keys:
+                lres = _resolve_collided_column(left, key)
+                rres = _resolve_collided_column(right, key)
+                if lres and rres and lres == rres:
+                    resolved_on.append(lres)
+                elif key in left.columns and key in right.columns:
+                    resolved_on.append(key)
+                else:
+                    resolved_on.append(key)
+            on_arg: Any = resolved_on[0] if len(resolved_on) == 1 else resolved_on
+            merged = left.merge(right, how=how, on=on_arg, suffixes=suffixes)
         else:
+            left_on, right_on, join_note = _resolve_join_key_pair(left, right, left_on, right_on)
             merged = left.merge(
                 right,
                 how=how,
@@ -915,7 +1030,10 @@ def op_join_datasets(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path)
             )
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
-    return _save(ws, args.get("save_as"), merged, source="join_datasets")
+    saved = _save(ws, args.get("save_as"), merged, source="join_datasets")
+    if join_note and isinstance(saved, dict):
+        saved = {**saved, "warning": join_note}
+    return saved
 
 
 def op_concat_datasets(ws: DatasetWorkingSet, args: dict[str, Any], out_dir: Path) -> dict[str, Any]:

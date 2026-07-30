@@ -1,12 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const AUTH_COOKIE = process.env.NODE_ENV === "production" ? "__Host-agent_session" : "agent_session";
-export const PROFILE_COOKIE = process.env.NODE_ENV === "production" ? "__Host-agent_profile" : "agent_profile";
+/** Secure/__Host cookies only when COOKIE_SECURE=1 (real HTTPS). NODE_ENV=production alone is not enough — local Docker serves HTTP on :13000. */
+export const COOKIE_SECURE = process.env.COOKIE_SECURE === "1";
+export const AUTH_COOKIE = COOKIE_SECURE ? "__Host-agent_session" : "agent_session";
+export const PROFILE_COOKIE = COOKIE_SECURE ? "__Host-agent_profile" : "agent_profile";
 export const BACKEND_URL = (
   process.env.BACKEND_URL ??
   process.env.CHAT_GATEWAY_URL ??
   "http://127.0.0.1:18300"
 ).replace(/\/$/, "");
+
+export function authCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: COOKIE_SECURE,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 8,
+  };
+}
+
+export function clearSessionCookies(response: NextResponse) {
+  for (const name of [
+    AUTH_COOKIE,
+    PROFILE_COOKIE,
+    "agent_session",
+    "agent_profile",
+    "__Host-agent_session",
+    "__Host-agent_profile",
+  ]) {
+    response.cookies.delete(name);
+  }
+  return response;
+}
 
 const allowedRoots = new Set([
   "analyses",
@@ -54,8 +80,16 @@ export function backendPath(parts: string[], search = "") {
   return `${BACKEND_URL}/${parts.map(encodeURIComponent).join("/")}${search}`;
 }
 
+export function sessionToken(request: NextRequest): string | undefined {
+  return (
+    request.cookies.get(AUTH_COOKIE)?.value ||
+    request.cookies.get("agent_session")?.value ||
+    request.cookies.get("__Host-agent_session")?.value
+  );
+}
+
 export function authHeaders(request: NextRequest, extra?: HeadersInit) {
-  const token = request.cookies.get(AUTH_COOKIE)?.value;
+  const token = sessionToken(request);
   const headers = new Headers(extra);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   headers.delete("cookie");

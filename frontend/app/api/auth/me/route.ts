@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE, PROFILE_COOKIE } from "@/lib/server-bff";
+import { PROFILE_COOKIE, clearSessionCookies, sessionToken } from "@/lib/server-bff";
 
 export async function GET(request: NextRequest) {
-  const token = request.cookies.get(AUTH_COOKIE)?.value;
+  const token = sessionToken(request);
   if (!token) return NextResponse.json({ detail: "unauthenticated" }, { status: 401 });
   let profile: Record<string, unknown> = {};
   try {
-    profile = JSON.parse(Buffer.from(request.cookies.get(PROFILE_COOKIE)?.value ?? "", "base64url").toString());
+    const raw =
+      request.cookies.get(PROFILE_COOKIE)?.value ??
+      request.cookies.get("agent_profile")?.value ??
+      request.cookies.get("__Host-agent_profile")?.value ??
+      "";
+    profile = JSON.parse(Buffer.from(raw, "base64url").toString());
   } catch {
     profile = {};
   }
@@ -17,10 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ detail: "invalid_session" }, { status: 401 });
   }
   if (typeof claims.exp === "number" && claims.exp * 1000 <= Date.now()) {
-    const response = NextResponse.json({ detail: "session_expired" }, { status: 401 });
-    response.cookies.delete(AUTH_COOKIE);
-    response.cookies.delete(PROFILE_COOKIE);
-    return response;
+    return clearSessionCookies(NextResponse.json({ detail: "session_expired" }, { status: 401 }));
   }
   return NextResponse.json({
     user: {

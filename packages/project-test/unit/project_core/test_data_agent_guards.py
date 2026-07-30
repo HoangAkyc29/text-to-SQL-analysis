@@ -13,7 +13,10 @@ from project_core.domain.analysis.data_agent_guards import (
     is_blocked_name_type_guess,
     is_blocked_premature_export,
     is_nonblocking_type_clarify,
+    needs_bill_deliverable,
+    needs_customer_profile,
     prefer_export_dataset_ref,
+    ranking_targets_bills,
 )
 from project_core.domain.analysis.ops import DatasetWorkingSet, execute_op
 from project_core.domain.contracts.brief import AnalysisBrief, BriefRequirement, TimeRange
@@ -48,6 +51,55 @@ def test_infer_top_n_from_intent_and_filters():
         ],
     )
     assert infer_top_n(brief3) == 5
+
+
+def test_ranking_targets_bills_vs_products():
+    product_brief = AnalysisBrief(
+        intent="top 10 mặt hàng doanh thu cao nhất từ 22/7",
+        metrics=["revenue", "quantity"],
+    )
+    bill_brief = AnalysisBrief(intent="lay 5 bill gan nhat cho ma 30325")
+    assert ranking_targets_bills(product_brief) is False
+    assert ranking_targets_bills(bill_brief) is True
+    assert needs_bill_deliverable(product_brief) is False
+    assert needs_bill_deliverable(bill_brief) is True
+
+
+def test_needs_customer_profile_without_deliverables_field():
+    brief = AnalysisBrief(intent="top 10 mặt hàng doanh thu")
+    assert needs_customer_profile(brief) is False
+    assert needs_bill_deliverable(brief) is False
+
+
+def test_prefer_export_aggregate_over_raw_bill_lines():
+    """Product-ranking briefs must export the ranked frame, not raw STRANS probes."""
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "strans_lines",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": [f"B{i}" for i in range(100)],
+                "SKU_ID": [f"S{i % 10}" for i in range(100)],
+                "AMOUNT": [1.0] * 100,
+            }
+        ),
+        source="fetch",
+        role="fact",
+    )
+    ws.save_frame(
+        "top_10_skus_by_revenue",
+        pd.DataFrame(
+            {
+                "SKU_ID": [f"S{i}" for i in range(10)],
+                "total_revenue": [100 - i for i in range(10)],
+                "total_quantity": [10 - i for i in range(10)],
+            }
+        ),
+        source="top_n_per_group",
+        role="aggregate",
+    )
+    chosen = prefer_export_dataset_ref(ws, needs_bill=False)
+    assert chosen == "top_10_skus_by_revenue"
 
 
 def test_block_catalog_export_when_bill_checklist():
@@ -177,6 +229,43 @@ def test_prefer_export_prefers_partitioned_top_n_over_join():
         op_id="top_n_per_group",
     )
     assert prefer_export_dataset_ref(ws, needs_bill=True) == "top_5_bills_per_product"
+
+
+def test_prefer_export_skips_catalog_when_bill_frames_exist_even_without_top_n():
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        "resolve_products",
+        pd.DataFrame(
+            {"SKU_ID": ["290003050900"], "SKU_CODE": ["00030509"], "FULL_NAME_U": ["x"]}
+        ),
+        source="resolve_products",
+        role="catalog",
+    )
+    ws.save_frame(
+        "strans_lines",
+        pd.DataFrame(
+            {
+                "TRANS_NUM": ["B1", "B2"],
+                "SKU_ID": ["290003050900", "290003050900"],
+                "CARD_ID": ["C1", "C2"],
+                "QTY": [1, 2],
+            }
+        ),
+        source="query_rows",
+        role="fact",
+    )
+    chosen = prefer_export_dataset_ref(
+        ws, needs_bill=False, product_codes=["00030509"]
+    )
+    assert chosen == "strans_lines"
+    assert (
+        is_blocked_premature_export(
+            checklist={},
+            dataset="resolve_products",
+            working_set=ws,
+        )
+        == "blocked_export_product_catalog_before_bills"
+    )
 
 
 def test_rank_bill_frame_keeps_partitioned_top_n(tmp_path):
@@ -728,3 +817,39 @@ def test_coverage_flags_extra_skus_outside_brief():
     assert any(str(g).startswith("product_scope_extra_skus") for g in cov["gaps"])
 
 
+
+def test_prefer_export_prefers_expanded_bill_lines():
+    ws = DatasetWorkingSet()
+    ws.save_frame(
+        'resolve_products',
+        pd.DataFrame({'SKU_ID': ['S1'], 'SKU_CODE': ['0001']}),
+        source='resolve_products',
+        role='catalog',
+    )
+    ws.save_frame(
+        'sale_lines',
+        pd.DataFrame(
+            {
+                'TRANS_NUM': ['T1', 'T2'],
+                'SKU_ID': ['S1', 'S1'],
+                'CARD_ID': ['C1', 'C2'],
+                'CUST_NAME': ['A', 'B'],
+            }
+        ),
+        source='query_rows',
+        role='fact',
+    )
+    ws.save_frame(
+        'sale_lines_all_bill_lines',
+        pd.DataFrame(
+            {
+                'TRANS_NUM': ['T1', 'T1', 'T2'],
+                'SKU_ID': ['S1', 'S9', 'S1'],
+                'CARD_ID': ['C1', 'C1', 'C2'],
+            }
+        ),
+        source='query_rows',
+        role='fact',
+    )
+    chosen = prefer_export_dataset_ref(ws, needs_bill=True, product_codes=['0001'])
+    assert chosen == 'sale_lines_all_bill_lines'

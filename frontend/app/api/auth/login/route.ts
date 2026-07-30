@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { assertSameOrigin, AUTH_COOKIE, BACKEND_URL, PROFILE_COOKIE } from "@/lib/server-bff";
+import { assertSameOrigin, AUTH_COOKIE, BACKEND_URL, PROFILE_COOKIE, authCookieOptions } from "@/lib/server-bff";
 
 const credentialsSchema = z.object({
   username: z.string().trim().min(1).max(128),
@@ -24,13 +24,7 @@ export async function POST(request: NextRequest) {
     }
     const profile = { role: data.role ?? "analyst", display_name: data.display_name ?? credentials.username };
     const response = NextResponse.json({ user: profile });
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/",
-      maxAge: 60 * 60 * 8,
-    };
+    const cookieOptions = authCookieOptions();
     response.cookies.set(AUTH_COOKIE, data.access_token, cookieOptions);
     response.cookies.set(PROFILE_COOKIE, Buffer.from(JSON.stringify(profile)).toString("base64url"), cookieOptions);
     return response;
