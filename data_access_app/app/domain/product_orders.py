@@ -122,7 +122,7 @@ def _orders_for_skus(
             TRAN_TIME,
             LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
             LTRIM(RTRIM(TRANS_CODE)) AS TRANS_CODE,
-            {BILL_VALUE_SQL} AS line_value
+            {BILL_VALUE_SQL} AS line_total
         FROM {{table}}
         WHERE 1=1
     """
@@ -163,7 +163,7 @@ def _orders_for_skus(
                 TRAN_TIME=("TRAN_TIME", "first"),
                 CARD_ID=("CARD_ID", "first"),
                 TRANS_CODE=("TRANS_CODE", "first"),
-                bill_value=("line_value", "sum"),
+                bill_value=("line_total", "sum"),
             )
         )
         cb("Cảnh báo: không khớp TRANSHDR — bill_value tạm = tổng dòng SP seed trên STRANS")

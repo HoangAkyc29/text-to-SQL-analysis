@@ -47,7 +47,7 @@ def fetch_loyalty_customers(
             LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
             LTRIM(RTRIM(STK_ID)) AS STK_ID,
             LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
-            {BILL_VALUE_SQL} AS line_value
+            {BILL_VALUE_SQL} AS line_total
         FROM {{table}}
         WHERE 1=1
     """
@@ -63,11 +63,11 @@ def fetch_loyalty_customers(
     if lines.empty:
         return pd.DataFrame(columns=LOYALTY_METRIC_COLUMNS)
 
-    lines["line_value"] = pd.to_numeric(lines["line_value"], errors="coerce").fillna(0.0)
+    lines["line_total"] = pd.to_numeric(lines["line_total"], errors="coerce").fillna(0.0)
     agg = (
         lines.groupby("CARD_ID", as_index=False)
         .agg(
-            total_value=("line_value", "sum"),
+            total_value=("line_total", "sum"),
             bill_count=("TRANS_NUM", "nunique"),
             STK_ID=("STK_ID", "min"),
         )

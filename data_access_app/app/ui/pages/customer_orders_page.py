@@ -7,7 +7,6 @@ import flet as ft
 import pandas as pd
 
 from app import theme
-from app.config import settings
 from app.domain import customer_orders as orders_svc
 from app.domain.bill_expand import bill_keys_from_lines, fetch_bill_lines
 from app.domain.columns import F4_ORDER_LINE_COLUMNS
@@ -17,6 +16,8 @@ from app.ui import validate as v
 from app.ui import widgets as w
 from app.ui.clipboard_ids import copy_ids_button
 from app.ui.jobs import JobRunner
+from app.ui.output_path import pick_export_directory
+from app.ui.tooltips import as_tooltip, tip_for_field
 
 
 def build_customer_orders_page(page: ft.Page) -> ft.Control:
@@ -239,67 +240,83 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
             return
         date_start, date_end, card_ids, prod, lo, hi, amin, amax = checked
 
-        set_loading()
-        status.value = "Đang chạy…"
-        status.color = theme.TEXT_MUTED
-        page.update()
-
-        def job():
-            df, seed_skus = orders_svc.fetch_customer_orders(
-                date_start,
-                date_end,
-                card_ids,
-                store_ids=get_stk(),
-                product_query=prod,
-                min_bill=lo,
-                max_bill=hi,
-                gift_mode=gift.value,  # type: ignore[arg-type]
-                min_age=amin,
-                max_age=amax,
-                sex=sex.value or "any",  # type: ignore[arg-type]
-                search=get_search(),
-                progress=runner.set_message,
-            )
-            last["df"] = df
-            last["seed_skus"] = seed_skus
-            last["date_start"] = date_start
-            last["date_end"] = date_end
-            last["full"] = pd.DataFrame(columns=F4_ORDER_LINE_COLUMNS)
-            if fetch_only:
-                return df
-            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out = settings.output_dir / f"F4_don_theo_khach_{stamp}"
-            return orders_svc.export_customer_orders(
-                df,
-                out,
-                date_start=date_start,
-                date_end=date_end,
-                exclude_skus=seed_skus,
-                meta={"from": w.date_field_value(d_from), "to": w.date_field_value(d_to)},
-                sort_column=sort_state.column,
-                sort_ascending=sort_state.ascending,
-                progress=runner.set_message,
-            )
-
-        def done(state):
-            if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
-            else:
-                if fetch_only:
-                    if (preview_mode.value or "matched") == "bill":
-                        ensure_full_bills(force=True)
-                    else:
-                        render_preview()
-                        status.value = f"Preview OK — {len(matched_df())} dòng"
-                        status.color = theme.SUCCESS
-                else:
-                    render_preview()
-                    status.value = f"Đã xuất {len(state.result or [])} file → {settings.output_dir}"
-                    status.color = theme.SUCCESS
+        def start_job(*, base=None):
+            set_loading()
+            status.value = "Đang chạy…" if fetch_only else f"Đang xuất → {base}"
+            status.color = theme.TEXT_MUTED
             page.update()
 
-        runner.run(job, on_done=done)
+            def job():
+                df, seed_skus = orders_svc.fetch_customer_orders(
+                    date_start,
+                    date_end,
+                    card_ids,
+                    store_ids=get_stk(),
+                    product_query=prod,
+                    min_bill=lo,
+                    max_bill=hi,
+                    gift_mode=gift.value,  # type: ignore[arg-type]
+                    min_age=amin,
+                    max_age=amax,
+                    sex=sex.value or "any",  # type: ignore[arg-type]
+                    search=get_search(),
+                    progress=runner.set_message,
+                )
+                last["df"] = df
+                last["seed_skus"] = seed_skus
+                last["date_start"] = date_start
+                last["date_end"] = date_end
+                last["full"] = pd.DataFrame(columns=F4_ORDER_LINE_COLUMNS)
+                if fetch_only:
+                    return df
+                stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                out = base / f"F4_don_theo_khach_{stamp}"
+                return orders_svc.export_customer_orders(
+                    df,
+                    out,
+                    date_start=date_start,
+                    date_end=date_end,
+                    exclude_skus=seed_skus,
+                    meta={"from": w.date_field_value(d_from), "to": w.date_field_value(d_to)},
+                    sort_column=sort_state.column,
+                    sort_ascending=sort_state.ascending,
+                    progress=runner.set_message,
+                )
+
+            def done(state):
+                if state.error:
+                    status.value = state.error.split("\n", 1)[0]
+                    status.color = theme.DANGER
+                else:
+                    if fetch_only:
+                        if (preview_mode.value or "matched") == "bill":
+                            ensure_full_bills(force=True)
+                        else:
+                            render_preview()
+                            status.value = f"Preview OK — {len(matched_df())} dòng"
+                            status.color = theme.SUCCESS
+                    else:
+                        render_preview()
+                        status.value = f"Đã xuất {len(state.result or [])} file → {base}"
+                        status.color = theme.SUCCESS
+                page.update()
+
+            runner.run(job, on_done=done)
+
+        if fetch_only:
+            start_job()
+            return
+
+        async def _pick_then_export():
+            base = await pick_export_directory(page)
+            if base is None:
+                status.value = "Đã hủy — chưa chọn thư mục xuất"
+                status.color = theme.TEXT_MUTED
+                page.update()
+                return
+            start_job(base=base)
+
+        page.run_task(_pick_then_export)
 
     filters = fk.section(
         "Bộ lọc",
@@ -357,9 +374,15 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
     )
     right = ft.Column(
         [
-            ft.Text("Kết quả", size=13, weight=ft.FontWeight.W_700, color=theme.TEXT),
-            preview_mode,
-            sort_bar,
+            ft.Text("Kết quả", size=13, weight=ft.FontWeight.W_700, color=theme.TEXT, tooltip=as_tooltip(tip_for_field("Kết quả"))),
+            ft.Row(
+                [
+                    ft.Container(content=preview_mode, expand=True),
+                    ft.Container(content=sort_bar, expand=True),
+                ],
+                spacing=10,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
             ft.Container(content=preview, expand=True),
         ],
         spacing=8,

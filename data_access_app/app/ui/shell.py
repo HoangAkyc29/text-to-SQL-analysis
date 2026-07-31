@@ -4,6 +4,7 @@ from __future__ import annotations
 import flet as ft
 
 from app import theme
+from app.ui.tooltips import tip_for_field
 
 NAV = [
     ("home", "Tổng quan", ft.Icons.HOME_ROUNDED),
@@ -113,6 +114,7 @@ def build_home(on_open) -> ft.Control:
                 bgcolor=theme.BG_CARD,
                 border=border,
                 ink=True,
+                tooltip=blurb,
                 on_click=lambda e, k=key: on_open(k),
             )
         )
@@ -206,7 +208,14 @@ def build_shell(page: ft.Page) -> ft.Control:
         selected_label_text_style=ft.TextStyle(color=theme.ACCENT_DIM, weight=ft.FontWeight.W_700, size=14),
         unselected_label_text_style=ft.TextStyle(color=theme.TEXT, size=14),
         destinations=[
-            ft.NavigationRailDestination(icon=icon, selected_icon=icon, label=label)
+            ft.NavigationRailDestination(
+                icon=icon,
+                selected_icon=icon,
+                label=label,
+                # Plain str only — ft.Tooltip objects on rail destinations
+                # have triggered native reconnect loops on Windows.
+                tooltip=tip_for_field(label) or label,
+            )
             for _, label, icon in NAV
         ],
         on_change=on_rail_change,

@@ -25,7 +25,7 @@ def _header(title: str, meta: dict[str, str] | None = None) -> list[str]:
         "=" * 70,
         title,
         f"Generated: {datetime.now().isoformat(timespec='seconds')}",
-        "Giá trị dòng = AMOUNT + SURPLUS + VAT_AMT (line_value)",
+        "Giá trị dòng = AMOUNT + SURPLUS + VAT_AMT (line_total)",
         "=" * 70,
     ]
     for k, v in (meta or {}).items():
@@ -35,14 +35,14 @@ def _header(title: str, meta: dict[str, str] | None = None) -> list[str]:
 
 
 def bill_totals(bill_lines: pd.DataFrame) -> pd.DataFrame:
-    """One row per (STK_ID, TRANS_NUM) with bill_total = sum(line_value)."""
+    """One row per (STK_ID, TRANS_NUM) with bill_total = sum(line_total)."""
     empty_cols = ["STK_ID", "TRANS_NUM", "CARD_ID", "TRAN_DATE", "TRAN_TIME", "bill_total", "NAME_U"]
     if bill_lines is None or bill_lines.empty:
         return pd.DataFrame(columns=empty_cols)
     df = bill_lines.copy()
-    df["line_value"] = pd.to_numeric(df.get("line_value"), errors="coerce").fillna(0.0)
+    df["line_total"] = pd.to_numeric(df.get("line_total"), errors="coerce").fillna(0.0)
     aggs: dict = {
-        "bill_total": ("line_value", "sum"),
+        "bill_total": ("line_total", "sum"),
         "CARD_ID": ("CARD_ID", "first"),
         "TRAN_DATE": ("TRAN_DATE", "first"),
         "TRAN_TIME": ("TRAN_TIME", "first"),
@@ -96,7 +96,7 @@ def format_store_summary_table(summary: pd.DataFrame) -> list[str]:
     lines.append("")
     lines.append("Trong đó:")
     lines.append("- SO_GIAO_DICH = số (STK_ID, TRANS_NUM) unique tại siêu thị")
-    lines.append("- TONG_GIA_TRI = tổng line_value mọi dòng full bill tại siêu thị")
+    lines.append("- TONG_GIA_TRI = tổng line_total mọi dòng full bill tại siêu thị")
     lines.append("- TB_GIA_TRI   = TONG_GIA_TRI / SO_GIAO_DICH")
     lines.append("")
     return lines
@@ -161,7 +161,7 @@ def format_sku_frequency_table(
 def format_line_items_table(lines_df: pd.DataFrame) -> list[str]:
     out = [
         "+-----+--------------+------------------------------------------+------------+",
-        "| STT | SKU_ID       | FULL_NAME_U                              | line_value |",
+        "| STT | SKU_ID       | FULL_NAME_U                              | line_total |",
         "+-----+--------------+------------------------------------------+------------+",
     ]
     if lines_df is None or lines_df.empty:
@@ -171,7 +171,7 @@ def format_line_items_table(lines_df: pd.DataFrame) -> list[str]:
         for i, row in view.iterrows():
             sku = str(row.get("SKU_ID", "") or "")[:12]
             name = str(row.get("FULL_NAME_U", "") or "(không có tên)")[:40]
-            val = _fmt_num(row.get("line_value", 0))
+            val = _fmt_num(row.get("line_total", 0))
             out.append(f"| {int(i) + 1:>3} | {sku:<12} | {name:<40} | {val:>10} |")
     out.append("+-----+--------------+------------------------------------------+------------+")
     return out
@@ -225,7 +225,7 @@ def format_bill_blocks(
             out.append(f"Tên khách hàng           : {name}")
         out.append(f"Mã giao dịch (TRANS_NUM) : {trans}")
         out.append(f"STK_ID                   : {stk}")
-        out.append(f"Tổng giá trị đơn (sum line_value): {_fmt_num(total)}")
+        out.append(f"Tổng giá trị đơn (sum line_total): {_fmt_num(total)}")
         out.append("Danh sách mặt hàng trong đơn (full STRANS):")
         item_df = df.loc[
             (df["STK_ID"].astype(str) == stk) & (df["TRANS_NUM"].astype(str) == trans)

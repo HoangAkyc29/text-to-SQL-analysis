@@ -100,8 +100,7 @@ def fetch_customer_orders(
             LTRIM(RTRIM(SKU_ID)) AS SKU_ID,
             QTY,
             UNIT_SYMB,
-            AMOUNT,
-            {BILL_VALUE_SQL} AS line_value
+            {BILL_VALUE_SQL} AS line_total
         FROM {{table}}
         WHERE 1=1
     """
@@ -150,7 +149,7 @@ def fetch_customer_orders(
         bill_vals = (
             lines.groupby(["STK_ID", "TRANS_NUM"], as_index=False)
             .agg(
-                bill_value=("line_value", "sum"),
+                bill_value=("line_total", "sum"),
                 CARD_ID=("CARD_ID", "first"),
                 TRAN_DATE=("TRAN_DATE", "first"),
                 TRAN_TIME=("TRAN_TIME", "first"),

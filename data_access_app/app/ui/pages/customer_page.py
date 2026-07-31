@@ -5,7 +5,6 @@ import flet as ft
 import pandas as pd
 
 from app import theme
-from app.config import settings
 from app.domain import customer as customer_svc
 from app.export.excel import write_excel
 from app.ui import form_kit as fk
@@ -13,6 +12,7 @@ from app.ui import validate as v
 from app.ui import widgets as w
 from app.ui.clipboard_ids import copy_ids_button
 from app.ui.jobs import JobRunner
+from app.ui.output_path import pick_export_directory
 
 
 def build_customer_page(page: ft.Page) -> ft.Control:
@@ -123,11 +123,20 @@ def build_customer_page(page: ft.Page) -> ft.Control:
         runner.run(job, on_done=done)
 
     def export(_):
-        path = settings.output_dir / "khach_hang_search.xlsx"
-        write_excel(sort_state.apply(last["df"]), path)
-        status.value = f"Đã ghi {path}"
-        status.color = theme.SUCCESS
-        page.update()
+        async def _go():
+            base = await pick_export_directory(page)
+            if base is None:
+                status.value = "Đã hủy — chưa chọn thư mục xuất"
+                status.color = theme.TEXT_MUTED
+                page.update()
+                return
+            path = base / "khach_hang_search.xlsx"
+            write_excel(sort_state.apply(last["df"]), path)
+            status.value = f"Đã ghi {path}"
+            status.color = theme.SUCCESS
+            page.update()
+
+        page.run_task(_go)
 
     return ft.Column(
         [

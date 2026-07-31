@@ -204,7 +204,7 @@ def fetch_bill_lines(
 ) -> pd.DataFrame:
     """
     Fetch every STRANS line for the given (STK_ID, TRANS_NUM) pairs.
-    Value column: line_value = AMOUNT+SURPLUS+VAT.
+    Value column: line_total = AMOUNT+SURPLUS+VAT (raw AMOUNT is not exported).
     """
     cb = progress or (lambda _: None)
     keys = bill_keys_from_lines(bill_keys)
@@ -223,8 +223,7 @@ def fetch_bill_lines(
             LTRIM(RTRIM(SKU_ID)) AS SKU_ID,
             QTY,
             UNIT_SYMB,
-            AMOUNT,
-            {BILL_VALUE_SQL} AS line_value
+            {BILL_VALUE_SQL} AS line_total
         FROM {{table}}
         WHERE 1=1
     """
@@ -254,7 +253,7 @@ def fetch_bill_lines(
     if not frames:
         return pd.DataFrame(columns=ORDER_LINE_COLUMNS)
     raw = pd.concat(frames, ignore_index=True)
-    raw["line_value"] = pd.to_numeric(raw.get("line_value"), errors="coerce").fillna(0.0)
+    raw["line_total"] = pd.to_numeric(raw.get("line_total"), errors="coerce").fillna(0.0)
     cb("Đang gắn tên SKU / thẻ cho full bill…")
     return enrich_order_lines(raw, with_cards=with_cards)
 
@@ -286,8 +285,7 @@ def fetch_card_period_lines(
             LTRIM(RTRIM(SKU_ID)) AS SKU_ID,
             QTY,
             UNIT_SYMB,
-            AMOUNT,
-            {BILL_VALUE_SQL} AS line_value
+            {BILL_VALUE_SQL} AS line_total
         FROM {{table}}
         WHERE 1=1
     """
@@ -317,5 +315,5 @@ def fetch_card_period_lines(
     if not frames:
         return pd.DataFrame(columns=ORDER_LINE_COLUMNS)
     raw = pd.concat(frames, ignore_index=True)
-    raw["line_value"] = pd.to_numeric(raw.get("line_value"), errors="coerce").fillna(0.0)
+    raw["line_total"] = pd.to_numeric(raw.get("line_total"), errors="coerce").fillna(0.0)
     return enrich_order_lines(raw, with_cards=with_cards)

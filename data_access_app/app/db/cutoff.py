@@ -5,9 +5,18 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 
+def _ref(now: datetime | None = None) -> datetime:
+    """Session TRANSHDR as-of when now is omitted; else explicit override (tests)."""
+    if now is not None:
+        return now
+    from app.db.session_clock import session_now
+
+    return session_now()
+
+
 def rolling_cutoff(now: datetime | None = None) -> date:
-    """First day of the previous calendar month."""
-    ref = now or datetime.now()
+    """First day of the previous calendar month (relative to session/as-of)."""
+    ref = _ref(now)
     year, month = ref.year, ref.month
     if month == 1:
         return date(year - 1, 12, 1)

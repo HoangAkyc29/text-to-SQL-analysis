@@ -22,6 +22,50 @@ SUCCESS = "#059669"
 
 FONT_FAMILY = "Segoe UI"
 
+# Tooltip bubble — high contrast card on light UI (dark slate + teal rim)
+TIP_BG = "#0B1220"
+TIP_FG = "#FFFFFF"
+TIP_BORDER = "#14B8A6"
+TIP_MAX_WIDTH = 400
+
+
+def _tip_text_style() -> ft.TextStyle:
+    return ft.TextStyle(
+        color=TIP_FG,
+        size=15,
+        weight=ft.FontWeight.W_600,
+        font_family=FONT_FAMILY,
+        height=1.45,
+    )
+
+
+def tooltip_theme() -> ft.TooltipTheme:
+    """Global Material tooltip — large type, dark card, teal rim (no shadows: crash-safe on desktop)."""
+    return ft.TooltipTheme(
+        text_style=_tip_text_style(),
+        padding=ft.Padding.symmetric(horizontal=16, vertical=13),
+        margin=ft.Margin.all(10),
+        vertical_offset=16,
+        prefer_below=True,
+        wait_duration=80,
+        show_duration=14_000,
+        exit_duration=120,
+        text_align=ft.TextAlign.LEFT,
+        size_constraints=ft.BoxConstraints(min_width=200, max_width=TIP_MAX_WIDTH),
+        # Plain fill + border only — BoxShadow inside TooltipTheme has caused
+        # native FLET_APP reconnect loops (spinner forever) on some Windows hosts.
+        decoration=ft.BoxDecoration(
+            bgcolor=TIP_BG,
+            border_radius=12,
+            border=ft.Border.all(2, TIP_BORDER),
+        ),
+    )
+
+
+def rich_tooltip(message: str) -> str:
+    """Return plain tip text; visual style comes from page TooltipTheme (stable on desktop)."""
+    return message
+
 
 def page_defaults(page: ft.Page) -> None:
     page.title = "Data Access — Supermarket"
@@ -34,6 +78,7 @@ def page_defaults(page: ft.Page) -> None:
         color_scheme_seed=ACCENT,
         font_family=FONT_FAMILY,
         visual_density=ft.VisualDensity.COMFORTABLE,
+        tooltip_theme=tooltip_theme(),
     )
 
 
@@ -57,9 +102,28 @@ def card(*, content: ft.Control, expand: bool = False, padding: int = 20) -> ft.
 
 
 def section_title(text: str, subtitle: str = "") -> ft.Control:
-    controls: list[ft.Control] = [
-        ft.Text(text, size=24, weight=ft.FontWeight.W_700, color=TEXT),
-    ]
+    from app.ui.tooltips import as_tooltip, tip_for_field
+
+    tip_msg = tip_for_field(text)
+    tip = as_tooltip(tip_msg)
+    title = ft.Text(text, size=24, weight=ft.FontWeight.W_700, color=TEXT, tooltip=tip)
+    if tip_msg:
+        title = ft.Row(
+            [
+                title,
+                ft.Container(
+                    content=ft.Icon(ft.Icons.INFO_OUTLINE_ROUNDED, size=18, color=ACCENT),
+                    padding=ft.Padding.only(left=2, top=2),
+                    tooltip=tip,
+                    ink=True,
+                    border_radius=12,
+                ),
+            ],
+            spacing=8,
+            tight=True,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+    controls: list[ft.Control] = [title]
     if subtitle:
         controls.append(ft.Text(subtitle, size=13, color=TEXT_MUTED))
     return ft.Column(controls, spacing=4)

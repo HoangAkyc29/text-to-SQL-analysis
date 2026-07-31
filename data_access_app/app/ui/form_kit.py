@@ -8,17 +8,55 @@ import pandas as pd
 
 from app import theme
 from app.domain.frame_sort import ResultSort
+from app.ui.tooltips import as_tooltip, tip_for_field, tip_for_stk
 
 
-def label(text: str) -> ft.Text:
-    return ft.Text(text, size=13, weight=ft.FontWeight.W_700, color=theme.TEXT_MUTED)
+def tip_badge(message: str | None) -> ft.Control | None:
+    """Small ⓘ cue so users notice a field has an explanation."""
+    tip = as_tooltip(message)
+    if tip is None:
+        return None
+    return ft.Container(
+        content=ft.Icon(ft.Icons.INFO_OUTLINE_ROUNDED, size=15, color=theme.ACCENT),
+        padding=ft.Padding.only(left=2, top=1),
+        tooltip=tip,
+        ink=True,
+        border_radius=10,
+    )
 
 
-def field_block(caption: str, *controls: ft.Control, hint: str = "") -> ft.Control:
+def label(text: str, *, tooltip: str | None = None) -> ft.Control:
+    tip_msg = tip_for_field(text) if tooltip is None else tooltip
+    tip = as_tooltip(tip_msg)
+    title = ft.Text(
+        text,
+        size=13,
+        weight=ft.FontWeight.W_700,
+        color=theme.TEXT_MUTED,
+        tooltip=tip,
+    )
+    badge = tip_badge(tip_msg)
+    if badge is None:
+        return title
+    return ft.Row(
+        [title, badge],
+        spacing=4,
+        tight=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+
+
+def field_block(
+    caption: str,
+    *controls: ft.Control,
+    hint: str = "",
+    tooltip: str | None = None,
+) -> ft.Control:
     """One caption + one row of equal-width controls, vertically centered."""
-    head: list[ft.Control] = [label(caption)]
+    tip = tip_for_field(caption) if tooltip is None else tooltip
+    head: list[ft.Control] = [label(caption, tooltip=tip)]
     if hint:
-        head.append(ft.Text(hint, size=10, color=theme.TEXT_MUTED))
+        head.append(ft.Text(hint, size=10, color=theme.TEXT_MUTED, tooltip=as_tooltip(tip)))
     cells: list[ft.Control] = []
     for c in controls:
         if hasattr(c, "width"):
@@ -45,8 +83,19 @@ def field_block(caption: str, *controls: ft.Control, hint: str = "") -> ft.Contr
     )
 
 
-def section(title: str, body: ft.Control, *, hint: str = "") -> ft.Container:
-    head = [ft.Text(title, size=13, weight=ft.FontWeight.W_700, color=theme.TEXT)]
+def section(title: str, body: ft.Control, *, hint: str = "", tooltip: str | None = None) -> ft.Container:
+    tip_msg = tip_for_field(title) if tooltip is None else tooltip
+    tip = as_tooltip(tip_msg)
+    title_row = ft.Row(
+        [
+            ft.Text(title, size=13, weight=ft.FontWeight.W_700, color=theme.TEXT, tooltip=tip),
+            *([tip_badge(tip_msg)] if tip_msg else []),
+        ],
+        spacing=6,
+        tight=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    head: list[ft.Control] = [title_row]
     if hint:
         head.append(ft.Text(hint, size=11, color=theme.TEXT_MUTED))
     return ft.Container(
@@ -66,7 +115,13 @@ def section(title: str, body: ft.Control, *, hint: str = "") -> ft.Container:
     )
 
 
-def chip_toggle(text: str, *, selected: bool = True, on_click=None) -> ft.Container:
+def chip_toggle(
+    text: str,
+    *,
+    selected: bool = True,
+    on_click=None,
+    tooltip: str | None = None,
+) -> ft.Container:
     state = {"on": selected}
     box = ft.Container(
         content=ft.Text(
@@ -81,6 +136,7 @@ def chip_toggle(text: str, *, selected: bool = True, on_click=None) -> ft.Contai
         bgcolor=theme.ACCENT if selected else theme.BG_ELEVATED,
         border=ft.Border.all(1, theme.ACCENT if selected else theme.BORDER_STRONG),
         alignment=ft.Alignment.CENTER,
+        tooltip=as_tooltip(tooltip),
     )
 
     def _toggle(_):
@@ -101,7 +157,7 @@ def chip_toggle(text: str, *, selected: bool = True, on_click=None) -> ft.Contai
 def stk_chips(*, show_label: bool = False):
     from app.domain.columns import STK_PRESETS
 
-    chips = {s: chip_toggle(s, selected=True) for s in STK_PRESETS}
+    chips = {s: chip_toggle(s, selected=True, tooltip=tip_for_stk(s)) for s in STK_PRESETS}
     extra = ft.TextField(
         hint_text="Thêm mã siêu thị (phẩy)",
         height=40,
@@ -109,6 +165,7 @@ def stk_chips(*, show_label: bool = False):
         content_padding=10,
         border_width=1.5,
         expand=True,
+        tooltip=as_tooltip(tip_for_field("Thêm mã siêu thị (phẩy)")),
         **theme.field_style(),
     )
 
@@ -143,8 +200,16 @@ def search_opts_bar():
     """Default-ON: không phân biệt hoa/thường + tìm gần đúng (LIKE %…%)."""
     from app.domain.search_opts import SearchOpts
 
-    case_cb = ft.Checkbox(label="Không phân biệt hoa/thường", value=True)
-    fuzzy_cb = ft.Checkbox(label="Tìm gần đúng (chứa chuỗi; tiền tố = bắt đầu bằng)", value=True)
+    case_cb = ft.Checkbox(
+        label="Không phân biệt hoa/thường",
+        value=True,
+        tooltip=as_tooltip(tip_for_field("Không phân biệt hoa/thường")),
+    )
+    fuzzy_cb = ft.Checkbox(
+        label="Tìm gần đúng (chứa chuỗi; tiền tố = bắt đầu bằng)",
+        value=True,
+        tooltip=as_tooltip(tip_for_field("Tìm gần đúng (chứa chuỗi; tiền tố = bắt đầu bằng)")),
+    )
     for cb in (case_cb, fuzzy_cb):
         cb.fill_color = theme.ACCENT
         cb.check_color = "#FFFFFF"
@@ -186,6 +251,10 @@ def check_grid(items: dict[str, ft.Checkbox], *, cols: int = 2) -> ft.Control:
         cb.label_style = ft.TextStyle(size=13, color=theme.TEXT, weight=ft.FontWeight.W_500)
         cb.height = 32
         cb.scale = 1.0
+        if not getattr(cb, "tooltip", None):
+            tip = tip_for_field(getattr(cb, "label", None))
+            if tip:
+                cb.tooltip = as_tooltip(tip)
 
     rows: list[ft.Control] = []
     for i in range(0, len(boxes), cols):
@@ -212,7 +281,15 @@ def check_grid(items: dict[str, ft.Checkbox], *, cols: int = 2) -> ft.Control:
     return ft.Column(rows, spacing=4, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
 
 
-def dropdown(label_text: str, value: str, options: list[tuple[str, str]], *, width: int | None = None) -> ft.Dropdown:
+def dropdown(
+    label_text: str,
+    value: str,
+    options: list[tuple[str, str]],
+    *,
+    width: int | None = None,
+    tooltip: str | None = None,
+) -> ft.Dropdown:
+    tip = tip_for_field(label_text) if tooltip is None else tooltip
     return ft.Dropdown(
         label=label_text,
         value=value,
@@ -223,6 +300,7 @@ def dropdown(label_text: str, value: str, options: list[tuple[str, str]], *, wid
         content_padding=10,
         border_width=1.5,
         dense=True,
+        tooltip=as_tooltip(tip),
         **theme.dropdown_style(),
     )
 
@@ -264,6 +342,7 @@ def card_prefix_field(
         content_padding=10,
         border_width=1.5,
         dense=True,
+        tooltip=as_tooltip(tip_for_field(label)),
         error_style=ft.TextStyle(color=theme.DANGER, size=11),
         **theme.dropdown_style(),
     )
@@ -293,10 +372,12 @@ def column_sort_bar(
         label="Sắp xếp theo cột",
         value=lead,
         options=[ft.dropdown.Option(lead, lead)],
+        height=44,
         text_size=13,
         content_padding=10,
         border_width=1.5,
         dense=True,
+        tooltip=as_tooltip(tip_for_field("Sắp xếp theo cột")),
         **theme.dropdown_style(),
     )
     dir_label = ft.Text("↑ tăng dần", size=12, color=theme.TEXT_MUTED)
@@ -322,7 +403,7 @@ def column_sort_bar(
     dir_btn = ft.TextButton(
         content=dir_label,
         on_click=_toggle_dir,
-        tooltip="Đổi chiều sắp xếp",
+        tooltip=as_tooltip("Đổi chiều sắp xếp"),
         style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=8, vertical=4)),
     )
 
@@ -348,10 +429,21 @@ def column_sort_bar(
     return bar, sort, refresh
 
 
-def page_header(title: str, subtitle: str) -> ft.Control:
+def page_header(title: str, subtitle: str, *, tooltip: str | None = None) -> ft.Control:
+    tip_msg = tip_for_field(title) if tooltip is None else tooltip
+    tip = as_tooltip(tip_msg)
+    title_row = ft.Row(
+        [
+            ft.Text(title, size=20, weight=ft.FontWeight.W_800, color=theme.TEXT, tooltip=tip),
+            *([tip_badge(tip_msg)] if tip_msg else []),
+        ],
+        spacing=8,
+        tight=True,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
     return ft.Column(
         [
-            ft.Text(title, size=20, weight=ft.FontWeight.W_800, color=theme.TEXT),
+            title_row,
             ft.Text(subtitle, size=12, color=theme.TEXT_MUTED),
         ],
         spacing=2,

@@ -76,16 +76,14 @@ ORDER_LINE_COLUMNS = [
     "FULL_NAME_U",
     "QTY",
     "UNIT_SYMB",
-    "AMOUNT",
-    "line_value",
+    # line_total = AMOUNT+SURPLUS+VAT on the STRANS row (not raw AMOUNT)
+    "line_total",
     "bill_value",
     "TRANS_CODE",
 ]
 
-# F4 export/preview — không IDX, không QTY
+# F4/F5 export/preview — không IDX, QTY (AMOUNT cũng không xuất)
 F4_ORDER_LINE_COLUMNS = [c for c in ORDER_LINE_COLUMNS if c not in {"IDX", "QTY"}]
-
-# F5 export/preview — không IDX, không QTY
 F5_ORDER_LINE_COLUMNS = [c for c in ORDER_LINE_COLUMNS if c not in {"IDX", "QTY"}]
 
 TEXT_DECODE_COLUMNS = {

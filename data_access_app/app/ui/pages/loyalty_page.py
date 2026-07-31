@@ -7,7 +7,6 @@ import flet as ft
 import pandas as pd
 
 from app import theme
-from app.config import settings
 from app.domain import loyalty_customers as loyalty_svc
 from app.export.splitters import parse_point_buckets
 from app.ui import form_kit as fk
@@ -15,6 +14,7 @@ from app.ui import validate as v
 from app.ui import widgets as w
 from app.ui.clipboard_ids import copy_ids_button
 from app.ui.jobs import JobRunner
+from app.ui.output_path import pick_export_directory
 
 
 def build_loyalty_page(page: ft.Page) -> ft.Control:
@@ -150,61 +150,71 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
             return
         date_start, date_end, pref, lo, hi = checked
 
-        set_loading()
-        status.value = "Đang xuất…"
-        status.color = theme.TEXT_MUTED
-        page.update()
+        async def _after_pick():
+            base = await pick_export_directory(page)
+            if base is None:
+                status.value = "Đã hủy — chưa chọn thư mục xuất"
+                status.color = theme.TEXT_MUTED
+                page.update()
+                return
 
-        def job():
-            df = last["df"]
-            if df is None or df.empty:
-                df = loyalty_svc.fetch_loyalty_customers(
-                    date_start,
-                    date_end,
-                    card_prefix=pref,
-                    store_ids=get_stk(),
-                    filter_mode=filter_mode.value,  # type: ignore[arg-type]
-                    min_metric=lo,
-                    max_metric=hi,
-                    search=get_search(),
-                    progress=runner.set_message,
-                )
-                last["df"] = df
-            df = sort_state.apply(df)
-            bkt = parse_point_buckets(buckets.value or "")
-            opts = [k for k, cb in txt_opts.items() if cb.value]
-            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            out = settings.output_dir / f"F3_KH_mua_hang_{stamp}"
-            return loyalty_svc.export_loyalty(
-                df,
-                out,
-                date_start=date_start,
-                date_end=date_end,
-                store_ids=get_stk(),
-                buckets=bkt or None,
-                txt_options=opts,
-                meta={
-                    "from": w.date_field_value(d_from),
-                    "to": w.date_field_value(d_to),
-                    "prefix": pref,
-                    "stores": ",".join(get_stk()),
-                },
-                progress=runner.set_message,
-            )
-
-        def done(state):
-            if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
-            else:
-                paths = state.result or []
-                status.value = f"Đã xuất {len(paths)} file → {settings.output_dir}"
-                status.color = theme.SUCCESS
-                if last["df"] is not None and not last["df"].empty:
-                    render_preview()
+            set_loading()
+            status.value = f"Đang xuất → {base}"
+            status.color = theme.TEXT_MUTED
             page.update()
 
-        runner.run(job, on_done=done)
+            def job():
+                df = last["df"]
+                if df is None or df.empty:
+                    df = loyalty_svc.fetch_loyalty_customers(
+                        date_start,
+                        date_end,
+                        card_prefix=pref,
+                        store_ids=get_stk(),
+                        filter_mode=filter_mode.value,  # type: ignore[arg-type]
+                        min_metric=lo,
+                        max_metric=hi,
+                        search=get_search(),
+                        progress=runner.set_message,
+                    )
+                    last["df"] = df
+                df = sort_state.apply(df)
+                bkt = parse_point_buckets(buckets.value or "")
+                opts = [k for k, cb in txt_opts.items() if cb.value]
+                stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                out = base / f"F3_KH_mua_hang_{stamp}"
+                return loyalty_svc.export_loyalty(
+                    df,
+                    out,
+                    date_start=date_start,
+                    date_end=date_end,
+                    store_ids=get_stk(),
+                    buckets=bkt or None,
+                    txt_options=opts,
+                    meta={
+                        "from": w.date_field_value(d_from),
+                        "to": w.date_field_value(d_to),
+                        "prefix": pref,
+                        "stores": ",".join(get_stk()),
+                    },
+                    progress=runner.set_message,
+                )
+
+            def done(state):
+                if state.error:
+                    status.value = state.error.split("\n", 1)[0]
+                    status.color = theme.DANGER
+                else:
+                    paths = state.result or []
+                    status.value = f"Đã xuất {len(paths)} file → {base}"
+                    status.color = theme.SUCCESS
+                    if last["df"] is not None and not last["df"].empty:
+                        render_preview()
+                page.update()
+
+            runner.run(job, on_done=done)
+
+        page.run_task(_after_pick)
 
     filters = fk.section(
         "Bộ lọc",

@@ -10,6 +10,7 @@ import pandas as pd
 from app import theme
 from app.domain.columns import STK_PRESETS
 from app.ui import form_kit
+from app.ui.tooltips import as_tooltip, column_header_tooltip, tip_for_field
 
 PREVIEW_MAX_ROWS = 40
 PREVIEW_MAX_COLS = 10
@@ -37,6 +38,7 @@ def df_to_datatable(
         mark = ""
         if sort_column and c == sort_column:
             mark = " ↑" if sort_ascending else " ↓"
+        tip = column_header_tooltip(c, sortable=bool(on_header_click))
         label = ft.Text(
             f"{c}{mark}",
             size=11,
@@ -44,12 +46,25 @@ def df_to_datatable(
             color=theme.ACCENT if mark else theme.ACCENT_DIM,
             no_wrap=True,
         )
+        cell_body: ft.Control = label
+        if tip is not None:
+            cell_body = ft.Row(
+                [
+                    label,
+                    ft.Icon(ft.Icons.INFO_OUTLINE_ROUNDED, size=11, color=theme.ACCENT),
+                ],
+                spacing=2,
+                tight=True,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
         box = ft.Container(
-            label,
+            cell_body,
             width=118,
             padding=ft.Padding.symmetric(horizontal=6, vertical=8),
             ink=bool(on_header_click),
-            tooltip="Bấm để sắp xếp cột này" if on_header_click else None,
+            tooltip=tip,
+            bgcolor=theme.ACCENT_SOFT if tip is not None else None,
+            border_radius=4,
         )
         if on_header_click:
 
@@ -110,8 +125,15 @@ def df_to_datatable(
 
 
 def text_field(
-    label: str, *, multiline: bool = False, width: int | None = None, value: str = "", hint: str = ""
+    label: str,
+    *,
+    multiline: bool = False,
+    width: int | None = None,
+    value: str = "",
+    hint: str = "",
+    tooltip: str | None = None,
 ) -> ft.TextField:
+    tip = tip_for_field(label) if tooltip is None else tooltip
     return ft.TextField(
         label=label,
         value=value,
@@ -125,6 +147,7 @@ def text_field(
         content_padding=10,
         border_width=1.5,
         dense=True,
+        tooltip=as_tooltip(tip),
         error_style=ft.TextStyle(color=theme.DANGER, size=11),
         **theme.field_style(),
     )
@@ -164,9 +187,16 @@ def _dismiss_date_calendars(page: ft.Page | None) -> None:
     page.overlay.extend(kept)
 
 
-def date_field(label: str, value: date | None = None, *, width: int | None = None) -> ft.TextField:
+def date_field(
+    label: str,
+    value: date | None = None,
+    *,
+    width: int | None = None,
+    tooltip: str | None = None,
+) -> ft.TextField:
     """Date text field; calendar icon opens a floating popover (overlay, dismiss on outside click)."""
     v = value or date.today()
+    tip = tip_for_field(label) if tooltip is None else tooltip
     field = ft.TextField(
         label=label,
         value=v.isoformat(),
@@ -177,6 +207,7 @@ def date_field(label: str, value: date | None = None, *, width: int | None = Non
         content_padding=10,
         border_width=1.5,
         dense=True,
+        tooltip=as_tooltip(tip),
         error_style=ft.TextStyle(color=theme.DANGER, size=11),
         **theme.field_style(),
     )
@@ -289,7 +320,7 @@ def date_field(label: str, value: date | None = None, *, width: int | None = Non
                                 icon_size=18,
                                 on_click=lambda e: _shift_month(-1),
                                 style=ft.ButtonStyle(padding=4),
-                                tooltip="Tháng trước",
+                                tooltip=as_tooltip("Tháng trước"),
                             ),
                             ft.Container(
                                 content=month_label,
@@ -302,14 +333,14 @@ def date_field(label: str, value: date | None = None, *, width: int | None = Non
                                 icon_size=18,
                                 on_click=lambda e: _shift_month(1),
                                 style=ft.ButtonStyle(padding=4),
-                                tooltip="Tháng sau",
+                                tooltip=as_tooltip("Tháng sau"),
                             ),
                             ft.IconButton(
                                 icon=ft.Icons.CLOSE_ROUNDED,
                                 icon_size=16,
                                 on_click=lambda e: _close(),
                                 style=ft.ButtonStyle(padding=4),
-                                tooltip="Đóng",
+                                tooltip=as_tooltip("Đóng"),
                             ),
                         ],
                         spacing=0,
