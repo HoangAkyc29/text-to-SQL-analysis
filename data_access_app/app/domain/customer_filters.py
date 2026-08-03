@@ -1,4 +1,4 @@
-"""Filter order/line frames by CSCARD customer attributes (age, sex, card prefix)."""
+"""Filter order/line frames by CSCARD customer attributes (age, sex, birth month, card prefix)."""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -18,12 +18,14 @@ def customer_filters_active(
     min_age: float | None = None,
     max_age: float | None = None,
     sex: SexFilter = "any",
+    birth_month: int | None = None,
     card_prefix: str = "",
 ) -> bool:
     return (
         min_age is not None
         or max_age is not None
         or (sex and sex != "any")
+        or birth_month is not None
         or bool((card_prefix or "").strip())
     )
 
@@ -38,12 +40,22 @@ def _normalize_sex_token(val) -> str:
     return s
 
 
+def _birthday_month(val) -> int | None:
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return None
+    ts = pd.to_datetime(val, errors="coerce")
+    if pd.isna(ts):
+        return None
+    return int(ts.month)
+
+
 def filter_frame_by_customer(
     df: pd.DataFrame,
     *,
     min_age: float | None = None,
     max_age: float | None = None,
     sex: SexFilter = "any",
+    birth_month: int | None = None,
     card_prefix: str = "",
     as_of: date | None = None,
     search: SearchOpts = DEFAULT_SEARCH,
@@ -55,7 +67,11 @@ def filter_frame_by_customer(
     if df is None or df.empty:
         return df
     if not customer_filters_active(
-        min_age=min_age, max_age=max_age, sex=sex, card_prefix=card_prefix
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
     ):
         return df
     if "CARD_ID" not in df.columns:
@@ -77,7 +93,12 @@ def filter_frame_by_customer(
         if work.empty:
             return work.drop(columns=["_card"], errors="ignore")
 
-    need_profile = min_age is not None or max_age is not None or (sex and sex != "any")
+    need_profile = (
+        min_age is not None
+        or max_age is not None
+        or (sex and sex != "any")
+        or birth_month is not None
+    )
     if need_profile:
         cards = lookup_cards(work["_card"].unique().tolist())
         if cards.empty:
@@ -87,8 +108,10 @@ def filter_frame_by_customer(
         if "BIRTHDAY" in prof.columns:
             ref = datetime.combine(as_of or date.today(), datetime.min.time())
             prof["_age"] = prof["BIRTHDAY"].map(lambda b: age_years(b, as_of=ref))
+            prof["_bmonth"] = prof["BIRTHDAY"].map(_birthday_month)
         else:
             prof["_age"] = None
+            prof["_bmonth"] = None
         if "SEX" in prof.columns:
             prof["_sex"] = prof["SEX"].map(_normalize_sex_token)
         else:
@@ -101,6 +124,11 @@ def filter_frame_by_customer(
             mask &= prof["_age"].notna() & (prof["_age"] <= float(max_age))
         if sex and sex != "any":
             mask &= prof["_sex"] == sex.upper()
+        if birth_month is not None:
+            m = int(birth_month)
+            if m < 1 or m > 12:
+                raise ValueError("Tháng sinh phải từ 1–12")
+            mask &= prof["_bmonth"].notna() & (prof["_bmonth"] == m)
         ok_ids = set(prof.loc[mask, "CARD_ID"].tolist())
         work = work.loc[work["_card"].isin(ok_ids)]
 

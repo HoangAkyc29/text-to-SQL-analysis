@@ -11,6 +11,7 @@ from app.db.dual_query import query_strans
 from app.domain.bill_expand import fetch_card_period_lines
 from app.domain.columns import BILL_VALUE_SQL, LOYALTY_METRIC_COLUMNS, ORDER_LINE_COLUMNS, POINTS_DIVISOR
 from app.domain.customer import lookup_cards
+from app.domain.customer_filters import SexFilter, customer_filters_active, filter_frame_by_customer
 from app.domain.search_opts import DEFAULT_SEARCH, SearchOpts, expand_prefix_params, match_prefix_column
 from app.export.excel import project_columns, sanitize_filename, write_excel
 from app.export.rich_report import build_loyalty_rich_report, write_rich_lines
@@ -28,6 +29,10 @@ def fetch_loyalty_customers(
     filter_mode: Literal["points", "value"] = "points",
     min_metric: float | None = None,
     max_metric: float | None = None,
+    min_age: float | None = None,
+    max_age: float | None = None,
+    sex: SexFilter = "any",
+    birth_month: int | None = None,
     search: SearchOpts = DEFAULT_SEARCH,
     progress: ProgressCb | None = None,
 ) -> pd.DataFrame:
@@ -79,6 +84,24 @@ def fetch_loyalty_customers(
         agg = agg.loc[agg[metric_col] >= float(min_metric)]
     if max_metric is not None:
         agg = agg.loc[agg[metric_col] <= float(max_metric)]
+
+    # Age/sex/birth month via CSCARD (prefix already applied in SQL — same pattern as F5).
+    if customer_filters_active(
+        min_age=min_age, max_age=max_age, sex=sex, birth_month=birth_month
+    ):
+        cb("Đang lọc theo tuổi / giới tính / tháng sinh…")
+        agg = filter_frame_by_customer(
+            agg,
+            min_age=min_age,
+            max_age=max_age,
+            sex=sex,
+            birth_month=birth_month,
+            card_prefix="",
+            as_of=date_end,
+            search=search,
+        )
+        if agg.empty:
+            return pd.DataFrame(columns=LOYALTY_METRIC_COLUMNS)
 
     cb("Đang gắn hồ sơ thẻ (CSCARD)…")
     cards = lookup_cards(agg["CARD_ID"].astype(str).tolist())

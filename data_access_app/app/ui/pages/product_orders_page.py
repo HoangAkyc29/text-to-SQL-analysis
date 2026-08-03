@@ -29,6 +29,11 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
     max_b = w.text_field("Giá trị đến", value="", hint="để trống = không giới hạn")
     age_from = w.text_field("Tuổi từ", value="", hint="vd 30")
     age_to = w.text_field("Tuổi đến", value="", hint="vd 50")
+    birth_month = fk.dropdown(
+        "Tháng sinh",
+        "any",
+        [("any", "Tất cả")] + [(str(i), f"Tháng {i}") for i in range(1, 13)],
+    )
     card_prefix = fk.card_prefix_field()
     sex = fk.dropdown(
         "Giới tính",
@@ -258,7 +263,18 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
     preview_mode.on_change = on_preview_mode_change
 
     def validate_form() -> (
-        tuple[date, date, list[str], float | None, float | None, float | None, float | None, str] | None
+        tuple[
+            date,
+            date,
+            list[str],
+            float | None,
+            float | None,
+            float | None,
+            float | None,
+            str,
+            int | None,
+        ]
+        | None
     ):
         v.clear_errors(d_from, d_to, tokens, min_b, max_b, age_from, age_to, card_prefix)
         dates = v.validate_date_range(d_from, d_to)
@@ -266,17 +282,29 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
         ok_rng, lo, hi = v.validate_number_range(min_b, max_b, label="Giá trị đơn")
         ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
         pref = v.validate_card_prefix(card_prefix)
+        month_raw = (birth_month.value or "any").strip()
+        bmonth: int | None = None
+        if month_raw != "any":
+            try:
+                bmonth = int(month_raw)
+                if bmonth < 1 or bmonth > 12:
+                    raise ValueError
+            except ValueError:
+                status.value = "Tháng sinh không hợp lệ"
+                status.color = theme.DANGER
+                page.update()
+                return None
         page.update()
         if dates is None or token_list is None or not ok_rng or not ok_age or pref is None:
             v.fail_status(status, page)
             return None
-        return dates[0], dates[1], token_list, lo, hi, amin, amax, pref
+        return dates[0], dates[1], token_list, lo, hi, amin, amax, pref, bmonth
 
     def run(export: bool):
         checked = validate_form()
         if checked is None:
             return
-        date_start, date_end, token_list, lo, hi, amin, amax, pref = checked
+        date_start, date_end, token_list, lo, hi, amin, amax, pref, bmonth = checked
 
         def start_job(*, base=None):
             set_loading()
@@ -297,6 +325,7 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
                     min_age=amin,
                     max_age=amax,
                     sex=sex.value or "any",  # type: ignore[arg-type]
+                    birth_month=bmonth,
                     card_prefix=pref,
                     search=get_search(),
                     progress=runner.set_message,
@@ -321,7 +350,13 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
                     include_aggregate=len(per) > 1,
                     include_card_list=bool(opts["include_cards"].value),
                     split_by=None if split_col == "none" else split_col,
-                    meta={"from": w.date_field_value(d_from), "to": w.date_field_value(d_to)},
+                    meta={
+                        "from": w.date_field_value(d_from),
+                        "to": w.date_field_value(d_to),
+                        "birth_month": str(bmonth or "any"),
+                        "sex": sex.value or "any",
+                        "prefix": pref,
+                    },
                     sort_column=sort_state.column,
                     sort_ascending=sort_state.ascending,
                     progress=runner.set_message,
@@ -375,11 +410,12 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
                 ft.Container(height=4),
                 fk.label("ĐIỀU KIỆN KHÁCH HÀNG"),
                 ft.Text(
-                    "Lọc thêm theo tuổi (CSCARD.BIRTHDAY), giới tính, tiền tố thẻ — bật tuổi/GT sẽ chỉ lấy đơn có thẻ",
+                    "Lọc thêm theo tháng sinh, tuổi, giới tính, tiền tố thẻ — "
+                    "bật tháng sinh/tuổi/GT sẽ chỉ lấy đơn có thẻ",
                     size=11,
                     color=theme.TEXT_MUTED,
                 ),
-                fk.field_block("Độ tuổi", age_from, age_to),
+                fk.field_block("Tháng sinh & độ tuổi", birth_month, age_from, age_to),
                 fk.field_block("Giới tính & tiền tố", sex, card_prefix),
                 ft.Container(height=4),
                 fk.label("SIÊU THỊ"),

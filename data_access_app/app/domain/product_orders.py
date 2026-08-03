@@ -76,6 +76,7 @@ def _orders_for_skus(
     min_age: float | None = None,
     max_age: float | None = None,
     sex: SexFilter = "any",
+    birth_month: int | None = None,
     card_prefix: str = "",
     search: SearchOpts = DEFAULT_SEARCH,
 ) -> pd.DataFrame:
@@ -88,7 +89,11 @@ def _orders_for_skus(
     cb = progress or (lambda _: None)
     stores = [s.strip() for s in (store_ids or []) if s and str(s).strip()]
     cust_on = customer_filters_active(
-        min_age=min_age, max_age=max_age, sex=sex, card_prefix=card_prefix
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
     )
     if cust_on:
         require_card = True
@@ -178,12 +183,13 @@ def _orders_for_skus(
 
     orders = enrich_order_headers(orders)
     if cust_on:
-        cb("Đang lọc theo điều kiện khách (tuổi / giới tính / tiền tố)…")
+        cb("Đang lọc theo điều kiện khách (tuổi / giới tính / tháng sinh / tiền tố)…")
         orders = filter_frame_by_customer(
             orders,
             min_age=min_age,
             max_age=max_age,
             sex=sex,
+            birth_month=birth_month,
             card_prefix="",  # already applied in SQL when set
             as_of=date_end,
             search=search,
@@ -205,6 +211,7 @@ def fetch_product_orders(
     min_age: float | None = None,
     max_age: float | None = None,
     sex: SexFilter = "any",
+    birth_month: int | None = None,
     card_prefix: str = "",
     search: SearchOpts = DEFAULT_SEARCH,
     progress: ProgressCb | None = None,
@@ -239,6 +246,7 @@ def fetch_product_orders(
             min_age=min_age,
             max_age=max_age,
             sex=sex,
+            birth_month=birth_month,
             card_prefix=card_prefix,
             search=search,
         )

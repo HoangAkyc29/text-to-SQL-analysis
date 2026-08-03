@@ -115,8 +115,8 @@ FIELD_TIPS: dict[str, str] = {
     "Sản phẩm cần tìm": "Mỗi dòng một mã hoặc tên hàng; hệ thống tìm các hóa đơn có chứa hàng đó.",
     "Mã hoặc tên sản phẩm (mỗi dòng một mục)": "Mỗi dòng một mặt hàng cần tìm.",
     "ĐIỀU KIỆN KHÁCH HÀNG": (
-        "Lọc theo tuổi, giới tính hoặc tiền tố thẻ. "
-        "Nếu bật tuổi hoặc giới tính, chỉ lấy hóa đơn gắn thẻ khách."
+        "Lọc theo tháng sinh, tuổi, giới tính hoặc tiền tố thẻ. "
+        "Nếu bật tháng sinh/tuổi/giới tính, chỉ lấy hóa đơn gắn thẻ khách."
     ),
     "Chỉ đơn có thẻ": "Bỏ qua giao dịch khách vãng lai (không quẹt thẻ).",
     "Kèm danh sách thẻ đã mua": "Khi xuất file, thêm danh sách thẻ đã mua mặt hàng đang tìm.",
@@ -148,8 +148,8 @@ FIELD_TIPS: dict[str, str] = {
     "Tổng quan": "Chọn chức năng cần làm.",
     # Page titles (full headers)
     "Khách hàng theo kỳ": (
-        "Tìm khách mua trong khoảng ngày chọn: lọc theo điểm hoặc tổng tiền, "
-        "chia Excel theo mức điểm, xuất thống kê TXT."
+        "Tìm khách mua trong khoảng ngày: lọc điểm/giá trị, tháng sinh, tuổi, giới tính, tiền tố thẻ, "
+        "siêu thị; chia Excel theo mức điểm; xuất thống kê TXT."
     ),
     "Đơn hàng theo khách": (
         "Nhập danh sách thẻ → lấy hóa đơn của từng thẻ; có thể lọc sản phẩm trong đơn, "

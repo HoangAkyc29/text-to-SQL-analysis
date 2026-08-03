@@ -22,6 +22,18 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
     d_from = w.date_field("Từ ngày", start_d)
     d_to = w.date_field("Đến ngày", end_d)
     prefix = fk.card_prefix_field()
+    birth_month = fk.dropdown(
+        "Tháng sinh",
+        "any",
+        [("any", "Tất cả")] + [(str(i), f"Tháng {i}") for i in range(1, 13)],
+    )
+    age_from = w.text_field("Tuổi từ", value="", hint="vd 30")
+    age_to = w.text_field("Tuổi đến", value="", hint="vd 50")
+    sex = fk.dropdown(
+        "Giới tính",
+        "any",
+        [("any", "Tất cả"), ("M", "Nam"), ("F", "Nữ")],
+    )
     filter_mode = fk.dropdown(
         "Tiêu chí",
         "points",
@@ -95,23 +107,41 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         holder.controls.append(w.loading_row("Đang truy vấn db1/db2…"))
         holder.update()
 
-    def validate_form(*, for_export: bool) -> tuple[date, date, str, float | None, float | None] | None:
-        v.clear_errors(d_from, d_to, prefix, min_m, max_m, buckets)
+    def validate_form(
+        *, for_export: bool
+    ) -> (
+        tuple[date, date, str, float | None, float | None, float | None, float | None, int | None]
+        | None
+    ):
+        v.clear_errors(d_from, d_to, prefix, min_m, max_m, buckets, age_from, age_to)
         dates = v.validate_date_range(d_from, d_to)
         pref = v.validate_card_prefix(prefix)
         ok_rng, lo, hi = v.validate_number_range(min_m, max_m, label="Khoảng điểm/giá trị")
+        ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
         buckets_ok = v.validate_point_buckets(buckets) if for_export else True
+        month_raw = (birth_month.value or "any").strip()
+        bmonth: int | None = None
+        if month_raw != "any":
+            try:
+                bmonth = int(month_raw)
+                if bmonth < 1 or bmonth > 12:
+                    raise ValueError
+            except ValueError:
+                status.value = "Tháng sinh không hợp lệ"
+                status.color = theme.DANGER
+                page.update()
+                return None
         page.update()
-        if dates is None or pref is None or not ok_rng or not buckets_ok:
+        if dates is None or pref is None or not ok_rng or not ok_age or not buckets_ok:
             v.fail_status(status, page)
             return None
-        return dates[0], dates[1], pref, lo, hi
+        return dates[0], dates[1], pref, lo, hi, amin, amax, bmonth
 
     def preview_click(_):
         checked = validate_form(for_export=False)
         if checked is None:
             return
-        date_start, date_end, pref, lo, hi = checked
+        date_start, date_end, pref, lo, hi, amin, amax, bmonth = checked
 
         set_loading()
         status.value = "Đang chạy…"
@@ -127,6 +157,10 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                 filter_mode=filter_mode.value,  # type: ignore[arg-type]
                 min_metric=lo,
                 max_metric=hi,
+                min_age=amin,
+                max_age=amax,
+                sex=sex.value or "any",  # type: ignore[arg-type]
+                birth_month=bmonth,
                 search=get_search(),
                 progress=runner.set_message,
             )
@@ -148,7 +182,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         checked = validate_form(for_export=True)
         if checked is None:
             return
-        date_start, date_end, pref, lo, hi = checked
+        date_start, date_end, pref, lo, hi, amin, amax, bmonth = checked
 
         async def _after_pick():
             base = await pick_export_directory(page)
@@ -174,6 +208,10 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                         filter_mode=filter_mode.value,  # type: ignore[arg-type]
                         min_metric=lo,
                         max_metric=hi,
+                        min_age=amin,
+                        max_age=amax,
+                        sex=sex.value or "any",  # type: ignore[arg-type]
+                        birth_month=bmonth,
                         search=get_search(),
                         progress=runner.set_message,
                     )
@@ -195,6 +233,9 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                         "from": w.date_field_value(d_from),
                         "to": w.date_field_value(d_to),
                         "prefix": pref,
+                        "age": f"{amin or ''}–{amax or ''}",
+                        "sex": sex.value or "any",
+                        "birth_month": str(bmonth or "any"),
                         "stores": ",".join(get_stk()),
                     },
                     progress=runner.set_message,
@@ -221,10 +262,18 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         ft.Column(
             [
                 fk.field_block("Khoảng ngày", d_from, d_to),
-                fk.field_block("Tiền tố thẻ", prefix),
                 search_bar,
                 fk.field_block("Tiêu chí lọc", filter_mode),
                 fk.field_block("Khoảng giá trị", min_m, max_m),
+                ft.Container(height=4),
+                fk.label("ĐIỀU KIỆN KHÁCH HÀNG"),
+                ft.Text(
+                    "Lọc thêm theo tháng sinh, tuổi, giới tính, tiền tố thẻ",
+                    size=11,
+                    color=theme.TEXT_MUTED,
+                ),
+                fk.field_block("Tháng sinh & độ tuổi", birth_month, age_from, age_to),
+                fk.field_block("Giới tính & tiền tố", sex, prefix),
                 ft.Container(height=4),
                 fk.label("SIÊU THỊ"),
                 stk_block,
@@ -241,7 +290,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
             ],
             spacing=12,
         ),
-        hint="Điểm = tổng giá trị mua / 50000",
+        hint="Điểm = tổng giá trị mua / 50000 · tuổi/GT lọc trên hồ sơ thẻ",
     )
     actions = ft.Container(
         content=fk.actions_bar(
@@ -283,7 +332,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         [
             fk.page_header(
                 "Khách hàng theo kỳ",
-                "Chọn khoảng ngày mua hàng · lọc theo điểm hoặc giá trị · sắp xếp trên kết quả · xuất Excel",
+                "Khoảng ngày · điểm/giá trị · tuổi/giới tính/tiền tố thẻ · siêu thị · xuất Excel + TXT",
             ),
             fk.workspace_split(left, right, filter_width=400),
         ],
