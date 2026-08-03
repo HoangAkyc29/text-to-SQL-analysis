@@ -9,15 +9,27 @@ import pandas as pd
 
 from app.db.dual_query import query_strans
 from app.domain.bill_expand import fetch_card_period_lines
-from app.domain.columns import BILL_VALUE_SQL, LOYALTY_METRIC_COLUMNS, ORDER_LINE_COLUMNS, points_from_value
+from app.domain.columns import (
+    BILL_VALUE_SQL,
+    LOYALTY_METRIC_COLUMNS,
+    ORDER_LINE_COLUMNS,
+    points_from_value,
+)
 from app.domain.customer import lookup_cards
 from app.domain.customer_filters import SexFilter, customer_filters_active, filter_frame_by_customer
-from app.domain.search_opts import DEFAULT_SEARCH, SearchOpts, expand_prefix_params, match_prefix_column
+from app.domain.search_opts import (
+    DEFAULT_SEARCH,
+    SearchOpts,
+    expand_prefix_params,
+    match_prefix_column_fact,
+)
 from app.export.excel import project_columns, sanitize_filename, write_excel
 from app.export.rich_report import build_loyalty_rich_report, write_rich_lines
 from app.export.splitters import PointBucket, split_by_point_buckets
 
 ProgressCb = Callable[[str], None]
+
+_GROUP_BY_CARD = "GROUP BY LTRIM(RTRIM(CARD_ID))"
 
 
 def fetch_loyalty_customers(
@@ -45,35 +57,41 @@ def fetch_loyalty_customers(
         extra.append(f"LTRIM(RTRIM(STK_ID)) IN ({placeholders})")
         params.extend(stores)
     if card_prefix.strip():
-        extra.append(match_prefix_column("CARD_ID", search))
+        extra.append(match_prefix_column_fact("CARD_ID", search))
         params.extend(expand_prefix_params(card_prefix, 1, search))
+
+    # Aggregate per card in SQL — avoid streaming every STRANS line to the client.
+    # bill_count uses STK|TRANS so cross-store TRANS_NUM collisions do not merge.
     body = f"""
         SELECT
             LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
-            LTRIM(RTRIM(STK_ID)) AS STK_ID,
-            LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
-            {BILL_VALUE_SQL} AS line_total
+            MIN(LTRIM(RTRIM(STK_ID))) AS STK_ID,
+            SUM({BILL_VALUE_SQL}) AS total_value,
+            COUNT(DISTINCT LTRIM(RTRIM(STK_ID)) + N'|' + LTRIM(RTRIM(TRANS_NUM))) AS bill_count
         FROM {{table}}
         WHERE 1=1
     """
-    cb("Đang lấy dòng bán (dual db1/db2)…")
-    lines = query_strans(
+    cb("Đang tổng hợp theo thẻ (SQL GROUP BY, dual db1/db2)…")
+    shard_agg = query_strans(
         date_start,
         date_end,
         body,
         extra_where=" AND ".join(extra),
         extra_params=params,
+        sql_suffix=_GROUP_BY_CARD,
         progress=progress,
     )
-    if lines.empty:
+    if shard_agg is None or shard_agg.empty:
         return pd.DataFrame(columns=LOYALTY_METRIC_COLUMNS)
 
-    lines["line_total"] = pd.to_numeric(lines["line_total"], errors="coerce").fillna(0.0)
+    shard_agg["total_value"] = pd.to_numeric(shard_agg["total_value"], errors="coerce").fillna(0.0)
+    shard_agg["bill_count"] = pd.to_numeric(shard_agg["bill_count"], errors="coerce").fillna(0).astype(int)
+    # Re-merge across shards / targets for the same CARD_ID
     agg = (
-        lines.groupby("CARD_ID", as_index=False)
+        shard_agg.groupby("CARD_ID", as_index=False)
         .agg(
-            total_value=("line_total", "sum"),
-            bill_count=("TRANS_NUM", "nunique"),
+            total_value=("total_value", "sum"),
+            bill_count=("bill_count", "sum"),
             STK_ID=("STK_ID", "min"),
         )
     )
@@ -113,7 +131,6 @@ def fetch_loyalty_customers(
             if c not in merged.columns:
                 merged[c] = None
 
-    # Sort is applied in UI / export on final frames (not here).
     return project_columns(merged, LOYALTY_METRIC_COLUMNS)
 
 

@@ -123,20 +123,20 @@ def test_enrich_order_lines_sku_and_card(monkeypatch, card_profiles):
         assert c in out.columns
 
 
-def test_fetch_bill_lines_chunks_or_clauses(monkeypatch, range_ab):
+def test_fetch_bill_lines_chunks_by_trans_num(monkeypatch, range_ab):
     cap = QueryCapture()
-    calls_params = []
+    calls_where = []
 
     def fake_strans(*a, extra_where="", extra_params=None, **k):
-        calls_params.append(list(extra_params or []))
-        # one line per requested key pair
+        calls_where.append((extra_where, list(extra_params or [])))
         rows = []
-        params = list(extra_params or [])
-        for i in range(0, len(params), 2):
+        for tn in extra_params or []:
+            # Return a matching STK for each TRANS_NUM (S{i} / T{i})
+            idx = str(tn).lstrip("T")
             rows.append(
                 {
-                    "STK_ID": params[i],
-                    "TRANS_NUM": params[i + 1],
+                    "STK_ID": f"S{idx}",
+                    "TRANS_NUM": tn,
                     "TRAN_DATE": date(2026, 7, 1),
                     "TRAN_TIME": "10",
                     "CARD_ID": "E1",
@@ -162,10 +162,10 @@ def test_fetch_bill_lines_chunks_or_clauses(monkeypatch, range_ab):
         }
     )
     out = fetch_bill_lines(*range_ab, keys)
-    # chunk size 40 → 2 calls
-    assert len(calls_params) == 2
-    assert len(calls_params[0]) == 80  # 40 pairs × 2
-    assert len(calls_params[1]) == 10  # 5 pairs × 2
+    # TRANS_NUM IN chunks of 200 → one call for 45 keys
+    assert len(calls_where) == 1
+    assert "TRANS_NUM IN" in calls_where[0][0].upper()
+    assert len(calls_where[0][1]) == 45
     assert len(out) == 45
 
 

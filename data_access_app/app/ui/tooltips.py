@@ -112,7 +112,7 @@ FIELD_TIPS: dict[str, str] = {
     "Dòng đơn khớp": "Các dòng hàng đã thỏa bộ lọc (không gồm thứ tự dòng / số lượng).",
     "Chi tiết full bill (mọi SP trong đơn)": "Mọi mặt hàng trong các hóa đơn đã giữ lại — kể cả hàng không nằm trong bộ lọc.",
     # Orders by product
-    "Sản phẩm cần tìm": "Mỗi dòng một mã hoặc tên hàng; hệ thống tìm các hóa đơn có chứa hàng đó.",
+    "Sản phẩm cần tìm": "Mỗi dòng một mã hoặc tên hàng. Để trống = lấy tất cả đơn trong khoảng ngày (vẫn áp dụng siêu thị / thẻ / giá trị / quà).",
     "Mã hoặc tên sản phẩm (mỗi dòng một mục)": "Mỗi dòng một mặt hàng cần tìm.",
     "ĐIỀU KIỆN KHÁCH HÀNG": (
         "Lọc theo tháng sinh, tuổi, giới tính hoặc tiền tố thẻ. "
@@ -142,7 +142,7 @@ FIELD_TIPS: dict[str, str] = {
     "Tìm khách": "Tra cứu thẻ khách theo mã thẻ, tên hoặc SĐT.",
     "KH theo kỳ": "Danh sách khách trong một kỳ mua, lọc điểm/tiền, xuất Excel và thống kê.",
     "Đơn theo khách": "Lấy hóa đơn theo danh sách thẻ; có thể lọc thêm hàng, giá trị đơn, quà/trả tiền.",
-    "Đơn theo SP": "Tìm hóa đơn có chứa sản phẩm chỉ định; xuất tóm tắt đơn và chi tiết dòng.",
+    "Đơn theo SP": "Tìm hóa đơn có chứa sản phẩm chỉ định (hoặc tất cả đơn nếu để trống danh sách SP); xuất tóm tắt đơn và chi tiết dòng.",
     "SP theo nhóm": "Tra cứu mặt hàng theo mã hoặc tên nhóm.",
     "Cài đặt": "Kết nối dữ liệu và thư mục lưu kết quả.",
     "Tổng quan": "Chọn chức năng cần làm.",

@@ -13,7 +13,9 @@ from pathlib import Path
 from typing import Any
 
 # Resolve APP_ROOT without importing app.config (keeps this module light / early-safe)
-_APP_ROOT = Path(__file__).resolve().parents[1]
+from app.paths import app_root as _app_root_fn
+
+_APP_ROOT = _app_root_fn()
 _MUTEX_NAME = "Local\\MonorepoTradingAgent_DataAccessApp"
 _LOCK_PATH = _APP_ROOT / "output" / ".data_access_app.lock"
 _ERROR_ALREADY_EXISTS = 183

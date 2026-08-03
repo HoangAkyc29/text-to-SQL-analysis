@@ -83,10 +83,10 @@ class JobRunner:
                             _finish()
 
                         pg.run_task(_async_finish)
-                        return
                     except Exception:  # noqa: BLE001
-                        pass
-                _finish()
+                        _finish()
+                else:
+                    _finish()
 
         if pg is not None and hasattr(pg, "run_thread"):
             pg.run_thread(_wrap)

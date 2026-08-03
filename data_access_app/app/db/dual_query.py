@@ -1,7 +1,8 @@
 """Dual-DB fact queries: db2 bare + db1 shards, merge in pandas."""
 from __future__ import annotations
 
-from datetime import date
+from calendar import monthrange
+from datetime import date, timedelta
 from typing import Any, Callable
 
 import pandas as pd
@@ -20,8 +21,31 @@ def _noop(_: str) -> None:
 
 
 def _date_clause(alias: str = "") -> str:
+    """Sargable half-open range: col >= start AND col < end_exclusive.
+
+    Avoids CAST(TRAN_DATE AS date) which blocks index range seeks.
+    """
     col = f"{alias}TRAN_DATE" if alias else "TRAN_DATE"
-    return f"CAST({col} AS date) >= ? AND CAST({col} AS date) <= ?"
+    return f"{col} >= ? AND {col} < ?"
+
+
+def _date_params(start: date, end: date) -> list[date]:
+    """Inclusive calendar end → exclusive upper bound (end + 1 day)."""
+    return [start, end + timedelta(days=1)]
+
+
+def _clip_month(ym: str, start: date, end: date) -> tuple[date, date] | None:
+    """Clip [start, end] to calendar month of ``YYYYMM`` shard; None if no overlap."""
+    if len(ym) != 6 or not ym.isdigit():
+        return start, end
+    year, month = int(ym[:4]), int(ym[4:6])
+    month_start = date(year, month, 1)
+    month_end = date(year, month, monthrange(year, month)[1])
+    lo = max(start, month_start)
+    hi = min(end, month_end)
+    if lo > hi:
+        return None
+    return lo, hi
 
 
 def run_selects(
@@ -65,34 +89,45 @@ def plan_strans_parts(
     *,
     extra_where: str = "",
     extra_params: list[Any] | None = None,
+    sql_suffix: str = "",
 ) -> list[tuple[str, str, list[Any]]]:
     """
     select_sql_body example:
       SELECT STK_ID, TRANS_NUM, ... FROM {table} WHERE 1=1
     Placeholders {table} replaced per physical table.
-    Date filter appended automatically.
+    Date filter appended automatically (sargable half-open range).
+    db1 shard date params are clipped to that month.
+    ``sql_suffix`` is appended after WHERE (e.g. `` GROUP BY ...``).
     """
     extra_params = list(extra_params or [])
     parts: list[tuple[str, str, list[Any]]] = []
     where_extra = f" AND ({extra_where})" if extra_where.strip() else ""
+    suffix = f" {sql_suffix.strip()}" if sql_suffix and sql_suffix.strip() else ""
 
     if split.needs_db2 and split.db2_start and split.db2_end:
         sql = (
             select_sql_body.format(table="STRANS")
             + f" AND {_date_clause()}"
             + where_extra
+            + suffix
         )
-        params = [split.db2_start, split.db2_end, *extra_params]
+        params = [*_date_params(split.db2_start, split.db2_end), *extra_params]
         parts.append(("db2", sql, params))
 
     if split.needs_db1 and split.db1_start and split.db1_end:
         for phys in split.strans_shards:
+            ym = phys.rsplit("_", 1)[-1] if "_" in phys else ""
+            clipped = _clip_month(ym, split.db1_start, split.db1_end)
+            if clipped is None:
+                continue
+            lo, hi = clipped
             sql = (
                 select_sql_body.format(table=phys)
                 + f" AND {_date_clause()}"
                 + where_extra
+                + suffix
             )
-            params = [split.db1_start, split.db1_end, *extra_params]
+            params = [*_date_params(lo, hi), *extra_params]
             parts.append(("db1", sql, params))
     return parts
 
@@ -103,18 +138,21 @@ def plan_transhdr_parts(
     *,
     extra_where: str = "",
     extra_params: list[Any] | None = None,
+    sql_suffix: str = "",
 ) -> list[tuple[str, str, list[Any]]]:
     extra_params = list(extra_params or [])
     parts: list[tuple[str, str, list[Any]]] = []
     where_extra = f" AND ({extra_where})" if extra_where.strip() else ""
+    suffix = f" {sql_suffix.strip()}" if sql_suffix and sql_suffix.strip() else ""
 
     if split.needs_db2 and split.db2_start and split.db2_end:
         sql = (
             select_sql_body.format(table="TRANSHDR")
             + f" AND {_date_clause()}"
             + where_extra
+            + suffix
         )
-        params = [split.db2_start, split.db2_end, *extra_params]
+        params = [*_date_params(split.db2_start, split.db2_end), *extra_params]
         parts.append(("db2", sql, params))
 
     if split.needs_db1 and split.db1_start and split.db1_end:
@@ -122,8 +160,9 @@ def plan_transhdr_parts(
             select_sql_body.format(table="TRANSHDR_ARC")
             + f" AND {_date_clause()}"
             + where_extra
+            + suffix
         )
-        params = [split.db1_start, split.db1_end, *extra_params]
+        params = [*_date_params(split.db1_start, split.db1_end), *extra_params]
         parts.append(("db1", sql, params))
     return parts
 
@@ -135,11 +174,16 @@ def query_strans(
     *,
     extra_where: str = "",
     extra_params: list[Any] | None = None,
+    sql_suffix: str = "",
     progress: ProgressCb | None = None,
 ) -> pd.DataFrame:
     split = split_date_range(date_start, date_end)
     parts = plan_strans_parts(
-        split, select_sql_body, extra_where=extra_where, extra_params=extra_params
+        split,
+        select_sql_body,
+        extra_where=extra_where,
+        extra_params=extra_params,
+        sql_suffix=sql_suffix,
     )
     return run_selects(parts, progress=progress)
 
@@ -151,11 +195,16 @@ def query_transhdr(
     *,
     extra_where: str = "",
     extra_params: list[Any] | None = None,
+    sql_suffix: str = "",
     progress: ProgressCb | None = None,
 ) -> pd.DataFrame:
     split = split_date_range(date_start, date_end)
     parts = plan_transhdr_parts(
-        split, select_sql_body, extra_where=extra_where, extra_params=extra_params
+        split,
+        select_sql_body,
+        extra_where=extra_where,
+        extra_params=extra_params,
+        sql_suffix=sql_suffix,
     )
     return run_selects(parts, progress=progress)
 

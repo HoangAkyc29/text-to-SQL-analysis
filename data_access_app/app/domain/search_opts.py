@@ -60,6 +60,17 @@ def match_prefix_column(column_sql: str, opts: SearchOpts) -> str:
     return f"{left} {op} ?"
 
 
+def match_prefix_column_fact(column_sql: str, opts: SearchOpts) -> str:
+    """Fact-table prefix: avoid LOWER(CAST(...)) so indexes can still help.
+
+    Relies on SQL Server CI collation for case; still trims CHAR padding.
+    Use with ``bind_prefix`` (same as match_prefix_column).
+    """
+    left = f"LTRIM(RTRIM({column_sql}))"
+    op = "LIKE" if opts.fuzzy else "="
+    return f"{left} {op} ?"
+
+
 def match_any(columns: list[str], opts: SearchOpts) -> str:
     """OR of match_column for each column — same bind value repeated len(columns) times."""
     parts = [match_column(c, opts) for c in columns]

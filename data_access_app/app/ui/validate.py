@@ -144,6 +144,35 @@ def validate_date_range(
     return a, b
 
 
+# Without store chips, wide windows can scan huge STRANS/TRANSHDR sets.
+MAX_OPEN_FACT_DAYS = 31
+
+
+def validate_fact_scope(
+    d_from: ft.Control,
+    d_to: ft.Control,
+    *,
+    date_start: date,
+    date_end: date,
+    store_ids: list[str] | None,
+    max_days: int = MAX_OPEN_FACT_DAYS,
+) -> bool:
+    """Require store filter when the inclusive date span exceeds ``max_days``."""
+    stores = [s for s in (store_ids or []) if s and str(s).strip()]
+    if stores:
+        return True
+    days = (date_end - date_start).days + 1
+    if days <= max_days:
+        return True
+    msg = (
+        f"Chưa chọn siêu thị — khoảng ngày tối đa {max_days} ngày "
+        f"(hiện {days}). Chọn STK hoặc thu hẹp ngày."
+    )
+    set_error(d_from, msg)
+    set_error(d_to, msg)
+    return False
+
+
 def validate_optional_number(
     field: ft.TextField,
     *,
@@ -242,12 +271,17 @@ def validate_product_token_list(
     *,
     required: bool = True,
 ) -> list[str] | None:
-    """F5 — mỗi dòng một SP; chặn dòng chứa nhiều mã thẻ."""
+    """F5 — mỗi dòng một SP; chặn dòng chứa nhiều mã thẻ.
+
+    ``required=False`` cho phép danh sách trống (= tất cả SP trong kỳ ở domain).
+    """
     raw = field.value or ""
     lines = [ln.strip() for ln in raw.replace(",", "\n").splitlines() if ln.strip()]
     if required and not lines:
         set_error(field, "Nhập ít nhất một mã hoặc tên SP (mỗi dòng một mục)")
         return None
+    if not lines:
+        return []
     bad_lines = [ln for ln in lines if line_looks_like_card_list(ln)]
     if bad_lines:
         set_error(

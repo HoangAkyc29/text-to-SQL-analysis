@@ -24,7 +24,11 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
     start_d, end_d = w.default_range()
     d_from = w.date_field("Từ ngày", start_d)
     d_to = w.date_field("Đến ngày", end_d)
-    tokens = w.text_field("Mã hoặc tên sản phẩm (mỗi dòng một mục)", multiline=True)
+    tokens = w.text_field(
+        "Mã hoặc tên sản phẩm (mỗi dòng một mục)",
+        multiline=True,
+        hint="Để trống = tất cả SP trong khoảng ngày",
+    )
     min_b = w.text_field("Giá trị từ", value="")
     max_b = w.text_field("Giá trị đến", value="", hint="để trống = không giới hạn")
     age_from = w.text_field("Tuổi từ", value="", hint="vd 30")
@@ -277,7 +281,7 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
     ):
         v.clear_errors(d_from, d_to, tokens, min_b, max_b, age_from, age_to, card_prefix)
         dates = v.validate_date_range(d_from, d_to)
-        token_list = v.validate_product_token_list(tokens, required=True)
+        token_list = v.validate_product_token_list(tokens, required=False)
         ok_rng, lo, hi = v.validate_number_range(min_b, max_b, label="Giá trị đơn")
         ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
         pref = v.validate_card_prefix(card_prefix)
@@ -290,6 +294,12 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
             return None
         page.update()
         if dates is None or token_list is None or not ok_rng or not ok_age or pref is None:
+            v.fail_status(status, page)
+            return None
+        # Empty product list scans all bills — require store or short window.
+        if not token_list and not v.validate_fact_scope(
+            d_from, d_to, date_start=dates[0], date_end=dates[1], store_ids=get_stk()
+        ):
             v.fail_status(status, page)
             return None
         return dates[0], dates[1], token_list, lo, hi, amin, amax, pref, bmonth

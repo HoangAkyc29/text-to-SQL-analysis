@@ -71,6 +71,7 @@ def test_connection(target: str) -> str:
 
 def read_sql(target: str, sql: str, params: list[Any] | tuple[Any, ...] | None = None) -> pd.DataFrame:
     import time
+    import warnings
 
     from app.db.query_log import log_sql
 
@@ -78,7 +79,14 @@ def read_sql(target: str, sql: str, params: list[Any] | tuple[Any, ...] | None =
     log_sql(target=target, sql=sql, params=params, phase="start")
     try:
         with connection(target) as conn:
-            df = pd.read_sql(sql, conn, params=params or [])
+            # pandas warns that pyodbc is an untested DBAPI2; we use it intentionally.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"pandas only supports SQLAlchemy connectable.*",
+                    category=UserWarning,
+                )
+                df = pd.read_sql(sql, conn, params=params or [])
         elapsed = (time.perf_counter() - t0) * 1000
         log_sql(
             target=target,

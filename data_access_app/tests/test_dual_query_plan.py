@@ -83,10 +83,16 @@ def test_plan_strans_cross_cutoff_tables_and_params():
     assert re.search(r"FROM\s+STRANS\b", db2[1])
     assert not re.search(r"FROM\s+STRANS_\d+", db2[1])
     assert db2[2][0] == date(2026, 6, 1)
-    assert db2[2][1] == date(2026, 7, 15)
+    assert db2[2][1] == date(2026, 7, 16)  # exclusive end = last day + 1
+    assert "CAST(" not in db2[1].upper()
+    assert "TRAN_DATE >=" in db2[1].replace(" ", "") or "TRAN_DATE>=" in db2[1].replace(" ", "")
     db1_parts = [p for p in parts if p[0] == "db1"]
     assert any("STRANS_202605" in p[1] for p in db1_parts)
     assert all("STRANS_202606" not in p[1] for p in db1_parts)
+    # May shard dates clipped to month
+    may = next(p for p in db1_parts if "STRANS_202605" in p[1])
+    assert may[2][0] == date(2026, 5, 1)
+    assert may[2][1] == date(2026, 6, 1)  # exclusive end of May
 
 
 def test_plan_transhdr_uses_arc_not_monthly():

@@ -32,7 +32,21 @@ copy .env.example .env
 
 App luôn ép `Server=` → `DESKTOP-AUQEDC5` (hoặc giá trị `DATA_ACCESS_SQL_SERVER`) khi load DSN từ monorepo `.env`.
 
-## Chạy
+## Build EXE (Windows)
+
+```powershell
+cd data_access_app
+# Ensure packaging\flet_view\flet.exe exists (copy from %USERPROFILE%\.flet\client\...\flet once)
+powershell -ExecutionPolicy Bypass -File scripts\build_exe.ps1
+```
+
+Output: `dist/DataAccessApp/DataAccessApp.exe` (onedir — keep the whole folder).
+
+- `.env` is written next to the exe (DSN merged from app + monorepo `.env`)
+- Flet desktop client is bundled under `_internal\flet_view\` (no first-run download)
+- Rebuild: same script (uses monorepo `.venv` + PyInstaller)
+
+## Chạy (dev)
 
 ```powershell
 cd data_access_app

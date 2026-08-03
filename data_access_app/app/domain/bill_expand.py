@@ -13,9 +13,9 @@ from app.export.excel import project_columns
 
 ProgressCb = Callable[[str], None]
 
-# Pair OR-clause chunk size (2 params each)
-_KEY_CHUNK = 40
-_TRANS_NUM_CHUNK = 80
+# Pair OR-clause chunk size (legacy); prefer TRANS_NUM IN chunks below
+_KEY_CHUNK = 80
+_TRANS_NUM_CHUNK = 200
 
 
 def bill_keys_from_lines(df: pd.DataFrame) -> pd.DataFrame:
@@ -86,7 +86,7 @@ def fetch_transhdr_for_keys(
             date_start,
             date_end,
             hdr_body,
-            extra_where=f"LTRIM(RTRIM(TRANS_NUM)) IN ({ph})",
+            extra_where=f"TRANS_NUM IN ({ph})",
             extra_params=list(chunk),
             progress=None,
         )
@@ -205,6 +205,9 @@ def fetch_bill_lines(
     """
     Fetch every STRANS line for the given (STK_ID, TRANS_NUM) pairs.
     Value column: line_total = AMOUNT+SURPLUS+VAT (raw AMOUNT is not exported).
+
+    Strategy: pull by TRANS_NUM IN (...) then filter (STK_ID, TRANS_NUM) in pandas —
+    fewer round-trips than OR of equality pairs, and friendlier to indexes on TRANS_NUM.
     """
     cb = progress or (lambda _: None)
     keys = bill_keys_from_lines(bill_keys)
@@ -227,28 +230,29 @@ def fetch_bill_lines(
         FROM {{table}}
         WHERE 1=1
     """
+    wanted_keys = keys[["STK_ID", "TRANS_NUM"]].drop_duplicates()
+    trans_nums = wanted_keys["TRANS_NUM"].astype(str).str.strip().unique().tolist()
     frames: list[pd.DataFrame] = []
-    rows = list(keys.itertuples(index=False, name=None))
-    total = (len(rows) + _KEY_CHUNK - 1) // _KEY_CHUNK
-    for i in range(0, len(rows), _KEY_CHUNK):
-        chunk = rows[i : i + _KEY_CHUNK]
-        cb(f"Đang bung full bill… chunk {i // _KEY_CHUNK + 1}/{total} ({len(chunk)} đơn)")
-        clauses = [
-            "(LTRIM(RTRIM(STK_ID)) = ? AND LTRIM(RTRIM(TRANS_NUM)) = ?)" for _ in chunk
-        ]
-        params: list = []
-        for stk, trans in chunk:
-            params.extend([str(stk).strip(), str(trans).strip()])
+    total = (len(trans_nums) + _TRANS_NUM_CHUNK - 1) // _TRANS_NUM_CHUNK
+    for i in range(0, len(trans_nums), _TRANS_NUM_CHUNK):
+        chunk = trans_nums[i : i + _TRANS_NUM_CHUNK]
+        cb(f"Đang bung full bill… chunk {i // _TRANS_NUM_CHUNK + 1}/{total} ({len(chunk)} TRANS_NUM)")
+        ph = ",".join("?" for _ in chunk)
         part = query_strans(
             date_start,
             date_end,
             body,
-            extra_where=" OR ".join(clauses),
-            extra_params=params,
+            extra_where=f"TRANS_NUM IN ({ph})",
+            extra_params=list(chunk),
             progress=None,
         )
         if part is not None and not part.empty:
-            frames.append(part)
+            part = part.copy()
+            part["STK_ID"] = part["STK_ID"].astype(str).str.strip()
+            part["TRANS_NUM"] = part["TRANS_NUM"].astype(str).str.strip()
+            part = part.merge(wanted_keys, on=["STK_ID", "TRANS_NUM"], how="inner")
+            if not part.empty:
+                frames.append(part)
 
     if not frames:
         return pd.DataFrame(columns=ORDER_LINE_COLUMNS)

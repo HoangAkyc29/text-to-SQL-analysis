@@ -130,6 +130,11 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         if dates is None or pref is None or not ok_rng or not ok_age or not buckets_ok:
             v.fail_status(status, page)
             return None
+        if not v.validate_fact_scope(
+            d_from, d_to, date_start=dates[0], date_end=dates[1], store_ids=get_stk()
+        ):
+            v.fail_status(status, page)
+            return None
         return dates[0], dates[1], pref, lo, hi, amin, amax, bmonth
 
     def preview_click(_):

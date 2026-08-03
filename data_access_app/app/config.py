@@ -8,7 +8,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-APP_ROOT = Path(__file__).resolve().parents[1]
+from app.paths import app_root
+
+APP_ROOT = app_root()
 
 
 def rewrite_docker_host_for_native(dsn: str) -> str:
@@ -36,13 +38,16 @@ class Settings:
     search_limit: int = 500_000
 
     def reload(self, env_path: Path | None = None) -> None:
+        from app.paths import is_frozen
+
         path = env_path or (APP_ROOT / ".env")
         if path.exists():
             load_dotenv(path, override=True)
-        # Fall back to monorepo root .env (Docker-oriented DSNs) then rewrite host.
-        root_env = APP_ROOT.parent / ".env"
-        if root_env.exists():
-            load_dotenv(root_env, override=False)
+        # Dev: fall back to monorepo root .env. Packaged exe only uses APP_ROOT/.env.
+        if not is_frozen():
+            root_env = APP_ROOT.parent / ".env"
+            if root_env.exists():
+                load_dotenv(root_env, override=False)
 
         raw1 = os.getenv("ANALYTICS_DB_DSN", "").strip()
         raw2 = os.getenv("ANALYTICS_DB_DSN_2", "").strip()

@@ -115,6 +115,7 @@ class QueryCapture:
         *,
         extra_where: str = "",
         extra_params: list | None = None,
+        sql_suffix: str = "",
         progress=None,
     ) -> pd.DataFrame:
         self.strans_calls.append(
@@ -124,6 +125,7 @@ class QueryCapture:
                 "body": select_sql_body,
                 "extra_where": extra_where or "",
                 "extra_params": list(extra_params or []),
+                "sql_suffix": sql_suffix or "",
             }
         )
         if self._strans_fn is None:
@@ -134,6 +136,7 @@ class QueryCapture:
             select_sql_body,
             extra_where=extra_where,
             extra_params=extra_params,
+            sql_suffix=sql_suffix,
         )
 
     def query_transhdr(
@@ -144,6 +147,7 @@ class QueryCapture:
         *,
         extra_where: str = "",
         extra_params: list | None = None,
+        sql_suffix: str = "",
         progress=None,
     ) -> pd.DataFrame:
         self.transhdr_calls.append(
@@ -153,6 +157,7 @@ class QueryCapture:
                 "body": select_sql_body,
                 "extra_where": extra_where or "",
                 "extra_params": list(extra_params or []),
+                "sql_suffix": sql_suffix or "",
             }
         )
         if self._transhdr_fn is None:
@@ -163,6 +168,7 @@ class QueryCapture:
             select_sql_body,
             extra_where=extra_where,
             extra_params=extra_params,
+            sql_suffix=sql_suffix,
         )
 
     def master_select(self, sql: str, params: list | None = None) -> pd.DataFrame:

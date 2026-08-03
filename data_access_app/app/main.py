@@ -13,7 +13,12 @@ if str(_ROOT) not in sys.path:
 
 def _run() -> None:
     # 1) Single-instance BEFORE importing Flet — second launch must not open a window.
+    from app.paths import is_frozen
     from app.single_instance import acquire_or_exit
+
+    # Packaged desktop exe defaults to native window (not browser).
+    if is_frozen() and not os.getenv("DATA_ACCESS_FLET_VIEW"):
+        os.environ["DATA_ACCESS_FLET_VIEW"] = "desktop"
 
     view_name = os.getenv("DATA_ACCESS_FLET_VIEW", "web").strip().lower()
     default_port = "13059" if view_name == "desktop" else "13050"

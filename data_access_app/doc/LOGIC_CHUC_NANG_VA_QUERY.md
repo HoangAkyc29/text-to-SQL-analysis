@@ -48,7 +48,7 @@ Ví dụ hôm nay 2026-07-30 → cutoff = `2026-06-01`.
 Luôn append:
 
 ```sql
-AND CAST(TRAN_DATE AS date) >= ? AND CAST(TRAN_DATE AS date) <= ?
+AND TRAN_DATE >= ? AND TRAN_DATE < ?
 ```
 
 Params: khoảng con của nhánh (db1 hoặc db2), không phải luôn nguyên `date_start`/`date_end` toàn bộ.
@@ -167,47 +167,45 @@ Sau đọc: ưu tiên `NAME_U` → ghi vào `NAME`; nếu `NAME_U` trống thì 
 ## 8. F3 — Khách hàng theo kỳ
 
 **File:** `domain/loyalty_customers.py`  
-**Fact:** dual `query_strans` (không TOP)
+**Fact:** dual `query_strans` + `GROUP BY CARD_ID` (không TOP; không stream từng dòng)
 
-### 8.1 SQL dòng
+### 8.1 SQL tổng hợp
 
 Template body ( `{table}` = `STRANS` hoặc `STRANS_YYYYMM` ):
 
 ```sql
 SELECT
   LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
-  LTRIM(RTRIM(STK_ID)) AS STK_ID,
-  LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
-  (ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) AS line_value
+  MIN(LTRIM(RTRIM(STK_ID))) AS STK_ID,
+  SUM(ISNULL(AMOUNT,0)+ISNULL(SURPLUS,0)+ISNULL(VAT_AMT,0)) AS total_value,
+  COUNT(DISTINCT LTRIM(RTRIM(STK_ID)) + N'|' + LTRIM(RTRIM(TRANS_NUM))) AS bill_count
 FROM {table}
 WHERE 1=1
-  AND CAST(TRAN_DATE AS date) >= ? AND CAST(TRAN_DATE AS date) <= ?
+  AND TRAN_DATE >= ? AND TRAN_DATE < ?
   AND CARD_ID IS NOT NULL AND LTRIM(RTRIM(CARD_ID)) <> ''
   [AND LTRIM(RTRIM(STK_ID)) IN (...)]
-  [AND <prefix match on CARD_ID>]
+  [AND LTRIM(RTRIM(CARD_ID)) LIKE ?]  -- fact prefix (không LOWER/CAST)
+GROUP BY LTRIM(RTRIM(CARD_ID))
 ```
 
 ### 8.2 Pandas sau query
 
-1. `groupby(CARD_ID)`:
-   - `total_value = sum(line_value)`
-   - `bill_count = nunique(TRANS_NUM)`
-   - `STK_ID = min(STK_ID)` ← **một STK đại diện, không phải multi-store breakdown**
-2. `points = floor(total_value / 50000)` (làm tròn xuống)
-3. Lọc min/max trên `points` hoặc `total_value` (theo UI)
+1. Cộng lại các shard/target cùng `CARD_ID` (`sum` value + bills, `min` STK)
+2. `points = floor(total_value / 50000)`
+3. Lọc min/max trên `points` hoặc `total_value`
 4. `lookup_cards` → merge hồ sơ
-5. Sort: theo điểm hoặc theo `STK_ID`
+5. Sort: UI / export
 
 ### 8.3 Export
 
-- Excel: một file hoặc **nhiều file theo bucket điểm** (`split_by_point_buckets` trên cột `points`)
-- TXT: báo cáo giàu (`export/rich_report.py`) — bảng STK SO/TÔNG/TB từ **STRANS thật** (không dùng STK_ID=min trên card), histogram điểm, tuổi, top SP cohort, giờ/tháng; chi tiết từng thẻ trong TXT nếu ≤ 80 KH
+- Excel: một file hoặc **nhiều file theo bucket điểm**
+- TXT: `export/rich_report.py` từ cohort STRANS (cache UI nếu đã fetch)
 - Excel thêm `giao_dich_chi_tiet.xlsx` (full dòng cohort trong kỳ)
 
 ### Điểm cần review
 
-- `bill_count` / metric vẫn dựa aggregate fetch; `STK_ID` trên sheet khách vẫn `min` (để sort) — **báo cáo TXT theo siêu thị** dùng giao dịch thật.
-- Prefix dùng `match_prefix` (starts-with), không substring.
+- `STK_ID` trên sheet khách vẫn `min` (đại diện) — TXT theo siêu thị dùng giao dịch thật.
+- Prefix fact: `match_prefix_column_fact` (starts-with, không `LOWER(CAST…)`).
 
 ---
 
@@ -267,9 +265,12 @@ Lọc min/max `bill_value`; inner join bill keys từ dòng matched.
 
 `resolve_product_tokens` → per-token matched lines + `seed_skus_by_token`.
 
+**Danh sách SP trống:** không resolve — một bucket `(tất cả SP)`:
+`SELECT DISTINCT (STK_ID, TRANS_NUM, TRANS_CODE)` trên STRANS (STK đúng; không dump mọi dòng tiền) → TRANSHDR lấy `bill_value` (vẫn lọc siêu thị / thẻ / gift / giá trị / điều kiện khách).
+
 ### 10.2 Mỗi token → `_orders_for_skus`
 
-1. STRANS tìm `(STK_ID, TRANS_NUM)` có SKU seed (+ gift/paid trên dòng seed)
+1. STRANS tìm `(STK_ID, TRANS_NUM)` có SKU seed (+ gift/paid trên dòng seed); **SKU list rỗng** → không lọc `SKU_ID`
 2. **Mode 1 / `orders`**: TRANSHDR đại diện từng giao dịch (1 dòng / đơn) — lookup theo **TRANS_NUM** (+ TRANS_CODE); **STK_ID lấy từ STRANS** vì TRANSHDR.STK_ID thường trống
 3. **Mode 2 / `bill_lines`**: `fetch_bill_lines` full STRANS mọi mặt hàng trong các đơn đó — `F5_ORDER_LINE_COLUMNS` (**không** `IDX`, **không** `QTY`)
 

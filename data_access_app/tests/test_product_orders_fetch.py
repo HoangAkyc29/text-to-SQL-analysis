@@ -244,6 +244,95 @@ def test_f5_prefix_in_sql(monkeypatch, range_ab, card_profiles):
     assert any(str(p).startswith("E") or "%" in str(p) for p in cap.strans_calls[0]["extra_params"])
 
 
+def test_f5_fetch_empty_tokens_means_all_products(monkeypatch, range_ab, card_profiles):
+    from app.domain.product_orders import ALL_PRODUCTS_LABEL
+
+    calls = {"skus": None}
+
+    def fake_orders(date_start, date_end, sku_ids, **kwargs):
+        calls["skus"] = list(sku_ids)
+        return pd.DataFrame(
+            [
+                {
+                    "TRANS_NUM": "P-ALL",
+                    "STK_ID": "10001",
+                    "TRAN_DATE": date(2026, 7, 1),
+                    "TRAN_TIME": "1",
+                    "CARD_ID": "E10000000053",
+                    "NAME_U": "Alice",
+                    "TRANS_CODE": "113",
+                    "bill_value": 1.0,
+                }
+            ]
+        )
+
+    monkeypatch.setattr("app.domain.product_orders._orders_for_skus", fake_orders)
+    resolve_calls = {"n": 0}
+
+    def fake_resolve(tokens, **kw):
+        resolve_calls["n"] += 1
+        return {}
+
+    monkeypatch.setattr("app.domain.product_orders.resolve_product_tokens", fake_resolve)
+
+    per, unresolved, seeds = fetch_product_orders(*range_ab, [], require_card=True)
+    assert resolve_calls["n"] == 0
+    assert calls["skus"] == []
+    assert unresolved == []
+    assert set(per.keys()) == {ALL_PRODUCTS_LABEL}
+    assert seeds[ALL_PRODUCTS_LABEL] == []
+    assert len(per[ALL_PRODUCTS_LABEL]) == 1
+
+    per2, _, _ = fetch_product_orders(*range_ab, ["  ", ""], require_card=True)
+    assert set(per2.keys()) == {ALL_PRODUCTS_LABEL}
+
+
+def test_f5_orders_all_products_uses_distinct_strans_then_hdr(
+    monkeypatch, range_ab, card_profiles
+):
+    """Empty SKU → DISTINCT STRANS keys (STK from lines) + TRANSHDR bill_value."""
+    cap = QueryCapture()
+    _install_orders(monkeypatch, cap, card_profiles, use_real_transhdr=True)
+    out = _orders_for_skus(
+        *range_ab,
+        [],
+        store_ids=None,
+        require_card=True,
+        min_bill=None,
+        max_bill=None,
+        gift_mode="any",
+        progress=None,
+    )
+    assert cap.strans_calls
+    body = cap.strans_calls[0]["body"].upper()
+    assert "DISTINCT" in body
+    assert "SKU_ID" not in (cap.strans_calls[0]["extra_where"] or "")
+    assert not out.empty
+    # STK must come from STRANS keys, not blank HDR
+    assert (out["STK_ID"].astype(str).str.strip() != "").all()
+    assert set(out["STK_ID"].astype(str)) <= {"10001", "10004"}
+
+
+def test_f5_orders_all_with_store_uses_distinct_strans(monkeypatch, range_ab, card_profiles):
+    cap = QueryCapture()
+    _install_orders(monkeypatch, cap, card_profiles)
+    _orders_for_skus(
+        *range_ab,
+        [],
+        store_ids=["10001"],
+        require_card=True,
+        min_bill=None,
+        max_bill=None,
+        gift_mode="any",
+        progress=None,
+    )
+    assert cap.strans_calls
+    body = cap.strans_calls[0]["body"].upper()
+    assert "DISTINCT" in body
+    assert "SKU_ID" not in (cap.strans_calls[0]["extra_where"] or "")
+    assert "10001" in cap.strans_calls[0]["extra_params"]
+
+
 def test_f5_fetch_unresolved_tokens(monkeypatch, range_ab, card_profiles):
     monkeypatch.setattr(
         "app.domain.product_orders.resolve_product_tokens",
@@ -267,33 +356,75 @@ def test_f5_fetch_multi_token_isolation(monkeypatch, range_ab, card_profiles):
         lambda tokens, **kw: {t: sku_map[t].copy() for t in tokens},
     )
 
-    calls = {"skus": []}
+    seed_calls: list[list[str]] = []
 
-    def fake_orders(date_start, date_end, sku_ids, **kwargs):
-        calls["skus"].append(list(sku_ids))
+    def fake_seed(date_start, date_end, sku_ids, **kwargs):
+        seed_calls.append(list(sku_ids))
         return pd.DataFrame(
             [
                 {
-                    "TRANS_NUM": f"T-{sku_ids[0]}",
                     "STK_ID": "10001",
+                    "TRANS_NUM": "T-1001",
                     "TRAN_DATE": date(2026, 7, 1),
                     "TRAN_TIME": "1",
                     "CARD_ID": "E10000000053",
-                    "NAME_U": "Alice",
                     "TRANS_CODE": "113",
-                    "bill_value": 1.0,
-                }
+                    "SKU_ID": "1001",
+                    "line_total": 1.0,
+                },
+                {
+                    "STK_ID": "10001",
+                    "TRANS_NUM": "T-1002",
+                    "TRAN_DATE": date(2026, 7, 1),
+                    "TRAN_TIME": "2",
+                    "CARD_ID": "E10000000053",
+                    "TRANS_CODE": "113",
+                    "SKU_ID": "1002",
+                    "line_total": 2.0,
+                },
             ]
         )
 
-    monkeypatch.setattr("app.domain.product_orders._orders_for_skus", fake_orders)
+    def fake_hdr(date_start, date_end, bill_keys, **kwargs):
+        return pd.DataFrame(
+            [
+                {
+                    "STK_ID": "10001",
+                    "TRANS_NUM": "T-1001",
+                    "TRAN_DATE": date(2026, 7, 1),
+                    "TRAN_TIME": "1",
+                    "CARD_ID": "E10000000053",
+                    "TRANS_CODE": "113",
+                    "bill_value": 10.0,
+                },
+                {
+                    "STK_ID": "10001",
+                    "TRANS_NUM": "T-1002",
+                    "TRAN_DATE": date(2026, 7, 1),
+                    "TRAN_TIME": "2",
+                    "CARD_ID": "E10000000053",
+                    "TRANS_CODE": "113",
+                    "bill_value": 20.0,
+                },
+            ]
+        )
+
+    monkeypatch.setattr("app.domain.product_orders._seed_lines_for_skus", fake_seed)
+    monkeypatch.setattr("app.domain.product_orders.fetch_transhdr_for_keys", fake_hdr)
+    monkeypatch.setattr(
+        "app.domain.product_orders.lookup_cards", make_lookup(card_profiles)
+    )
     per, unresolved, seeds = fetch_product_orders(
         *range_ab, ["SP001", "SP002"], require_card=True
     )
     assert unresolved == []
     assert seeds["SP001"] == ["1001"]
     assert seeds["SP002"] == ["1002"]
-    assert calls["skus"] == [["1001"], ["1002"]]
+    # One shared STRANS seed pull with both SKUs
+    assert len(seed_calls) == 1
+    assert set(seed_calls[0]) == {"1001", "1002"}
     assert set(per.keys()) == {"SP001", "SP002"}
+    assert set(per["SP001"]["TRANS_NUM"].astype(str)) == {"T-1001"}
+    assert set(per["SP002"]["TRANS_NUM"].astype(str)) == {"T-1002"}
     for col in ORDER_COLUMNS:
         assert col in per["SP001"].columns

@@ -2,6 +2,9 @@
 
 Mode 1 (orders): TRANSHDR — one row per (STK_ID, TRANS_NUM) that contains the seed SKU.
 Mode 2 (bill_lines): full STRANS for those bills (every item in the transaction).
+
+Empty product list → all bills in the date window via STRANS DISTINCT keys
+(STK_ID correct) + TRANSHDR bill_value (same store/card/gift/value filters).
 """
 from __future__ import annotations
 
@@ -22,7 +25,12 @@ from app.domain.columns import (
 from app.domain.customer import lookup_cards
 from app.domain.customer_filters import SexFilter, customer_filters_active, filter_frame_by_customer
 from app.domain.product import resolve_product_tokens
-from app.domain.search_opts import DEFAULT_SEARCH, SearchOpts
+from app.domain.search_opts import (
+    DEFAULT_SEARCH,
+    SearchOpts,
+    expand_prefix_params,
+    match_prefix_column_fact,
+)
 from app.export.excel import project_columns, sanitize_filename, write_excel, write_excel_multi
 from app.domain.frame_sort import lead_and_sort
 from app.export.rich_report import build_orders_rich_report, write_rich_lines
@@ -30,6 +38,9 @@ from app.export.splitters import split_by_column
 
 ProgressCb = Callable[[str], None]
 GiftMode = Literal["any", "paid", "gift"]
+
+# Synthetic bucket when the product list is blank (all SKUs in A–B).
+ALL_PRODUCTS_LABEL = "(tất cả SP)"
 
 
 def enrich_order_headers(df: pd.DataFrame) -> pd.DataFrame:
@@ -62,6 +73,274 @@ def enrich_order_headers(df: pd.DataFrame) -> pd.DataFrame:
     return project_columns(kept, ORDER_COLUMNS)
 
 
+def _apply_order_post_filters(
+    orders: pd.DataFrame,
+    *,
+    date_end: date,
+    min_bill: float | None,
+    max_bill: float | None,
+    min_age: float | None,
+    max_age: float | None,
+    sex: SexFilter,
+    birth_month: int | None,
+    card_prefix: str,
+    search: SearchOpts,
+    progress: ProgressCb | None,
+) -> pd.DataFrame:
+    cb = progress or (lambda _: None)
+    if orders is None or orders.empty:
+        return pd.DataFrame(columns=ORDER_COLUMNS)
+    orders = orders.copy()
+    orders["bill_value"] = pd.to_numeric(orders.get("bill_value"), errors="coerce").fillna(0.0)
+    if min_bill is not None:
+        orders = orders.loc[orders["bill_value"] >= float(min_bill)]
+    if max_bill is not None:
+        orders = orders.loc[orders["bill_value"] <= float(max_bill)]
+    if orders.empty:
+        return pd.DataFrame(columns=ORDER_COLUMNS)
+
+    orders = enrich_order_headers(orders)
+    cust_on = customer_filters_active(
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+    )
+    if cust_on:
+        cb("Đang lọc theo điều kiện khách (tuổi / giới tính / tháng sinh / tiền tố)…")
+        orders = filter_frame_by_customer(
+            orders,
+            min_age=min_age,
+            max_age=max_age,
+            sex=sex,
+            birth_month=birth_month,
+            card_prefix="",  # already applied in SQL when set
+            as_of=date_end,
+            search=search,
+        )
+        orders = project_columns(orders, ORDER_COLUMNS)
+    return orders
+
+
+def _common_fact_filters(
+    *,
+    store_ids: list[str] | None,
+    require_card: bool,
+    gift_mode: GiftMode,
+    card_prefix: str,
+    search: SearchOpts,
+    apply_gift: bool,
+    apply_store: bool,
+) -> tuple[list[str], list]:
+    extra: list[str] = []
+    params: list = []
+    stores = [s.strip() for s in (store_ids or []) if s and str(s).strip()]
+    if apply_store and stores:
+        sph = ",".join("?" for _ in stores)
+        extra.append(f"LTRIM(RTRIM(STK_ID)) IN ({sph})")
+        params.extend(stores)
+    if require_card:
+        extra.append("CARD_ID IS NOT NULL AND LTRIM(RTRIM(CARD_ID)) <> ''")
+    if apply_gift:
+        if gift_mode == "paid":
+            extra.append("ISNULL(AMOUNT,0) > 0")
+        elif gift_mode == "gift":
+            extra.append("ISNULL(AMOUNT,0) = 0")
+    if (card_prefix or "").strip():
+        extra.append(match_prefix_column_fact("CARD_ID", search))
+        params.extend(expand_prefix_params(card_prefix, 1, search))
+    return extra, params
+
+
+def _orders_all_in_period(
+    date_start: date,
+    date_end: date,
+    *,
+    store_ids: list[str] | None,
+    require_card: bool,
+    min_bill: float | None,
+    max_bill: float | None,
+    gift_mode: GiftMode,
+    progress: ProgressCb | None,
+    min_age: float | None,
+    max_age: float | None,
+    sex: SexFilter,
+    birth_month: int | None,
+    card_prefix: str,
+    search: SearchOpts,
+) -> pd.DataFrame:
+    """All bills in A–B (empty product list).
+
+    Always discover ``(STK_ID, TRANS_NUM, TRANS_CODE)`` via ``SELECT DISTINCT`` on
+    STRANS (HDR.STK_ID is blank in this domain), then load ``bill_value`` from
+    TRANSHDR. Never stream every STRANS line amount — only distinct keys.
+    """
+    cb = progress or (lambda _: None)
+    cust_on = customer_filters_active(
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+    )
+    if cust_on:
+        require_card = True
+
+    cb("Không lọc SKU — DISTINCT khóa đơn trên STRANS (STK đúng)…")
+    extra, params = _common_fact_filters(
+        store_ids=store_ids,
+        require_card=require_card,
+        gift_mode=gift_mode,
+        card_prefix=card_prefix,
+        search=search,
+        apply_gift=True,
+        apply_store=True,
+    )
+    body = """
+        SELECT DISTINCT
+            LTRIM(RTRIM(STK_ID)) AS STK_ID,
+            LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
+            LTRIM(RTRIM(TRANS_CODE)) AS TRANS_CODE
+        FROM {table}
+        WHERE 1=1
+    """
+    keys = query_strans(
+        date_start,
+        date_end,
+        body,
+        extra_where=" AND ".join(extra) if extra else "",
+        extra_params=params,
+        progress=progress,
+    )
+    if keys is None or keys.empty:
+        return pd.DataFrame(columns=ORDER_COLUMNS)
+
+    cb("Đang lấy TRANSHDR đại diện đơn…")
+    orders = fetch_transhdr_for_keys(date_start, date_end, keys, progress=progress)
+    return _apply_order_post_filters(
+        orders,
+        date_end=date_end,
+        min_bill=min_bill,
+        max_bill=max_bill,
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+        search=search,
+        progress=progress,
+    )
+
+
+def _seed_lines_for_skus(
+    date_start: date,
+    date_end: date,
+    sku_ids: list[str],
+    *,
+    store_ids: list[str] | None,
+    require_card: bool,
+    gift_mode: GiftMode,
+    card_prefix: str,
+    search: SearchOpts,
+    progress: ProgressCb | None,
+) -> pd.DataFrame:
+    """One STRANS pull for all seed SKUs (shared by multi-token F5)."""
+    if not sku_ids:
+        return pd.DataFrame()
+    cb = progress or (lambda _: None)
+    extra, params = _common_fact_filters(
+        store_ids=store_ids,
+        require_card=require_card,
+        gift_mode=gift_mode,
+        card_prefix=card_prefix,
+        search=search,
+        apply_gift=True,
+        apply_store=True,
+    )
+    ph = ",".join("?" for _ in sku_ids)
+    extra = [f"LTRIM(RTRIM(SKU_ID)) IN ({ph})", *extra]
+    params = [*sku_ids, *params]
+    body = f"""
+        SELECT
+            LTRIM(RTRIM(STK_ID)) AS STK_ID,
+            LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
+            TRAN_DATE,
+            TRAN_TIME,
+            LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
+            LTRIM(RTRIM(TRANS_CODE)) AS TRANS_CODE,
+            LTRIM(RTRIM(SKU_ID)) AS SKU_ID,
+            {BILL_VALUE_SQL} AS line_total
+        FROM {{table}}
+        WHERE 1=1
+    """
+    cb(f"Đang tìm đơn có SP ({len(sku_ids)} SKU, 1 lần STRANS)…")
+    return query_strans(
+        date_start,
+        date_end,
+        body,
+        extra_where=" AND ".join(extra),
+        extra_params=params,
+        progress=progress,
+    )
+
+
+def _orders_from_seed_lines(
+    date_start: date,
+    date_end: date,
+    lines: pd.DataFrame,
+    *,
+    min_bill: float | None,
+    max_bill: float | None,
+    min_age: float | None,
+    max_age: float | None,
+    sex: SexFilter,
+    birth_month: int | None,
+    card_prefix: str,
+    search: SearchOpts,
+    progress: ProgressCb | None,
+) -> pd.DataFrame:
+    cb = progress or (lambda _: None)
+    if lines is None or lines.empty:
+        return pd.DataFrame(columns=ORDER_COLUMNS)
+
+    bill_keys = (
+        lines[["STK_ID", "TRANS_NUM", "TRANS_CODE"]]
+        .astype(str)
+        .apply(lambda s: s.str.strip())
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    cb("Đang lấy TRANSHDR đại diện đơn…")
+    headers = fetch_transhdr_for_keys(date_start, date_end, bill_keys, progress=progress)
+
+    if headers is not None and not headers.empty:
+        orders = headers.copy()
+    else:
+        orders = lines.groupby(["STK_ID", "TRANS_NUM"], as_index=False).agg(
+            TRAN_DATE=("TRAN_DATE", "first"),
+            TRAN_TIME=("TRAN_TIME", "first"),
+            CARD_ID=("CARD_ID", "first"),
+            TRANS_CODE=("TRANS_CODE", "first"),
+            bill_value=("line_total", "sum"),
+        )
+        cb("Cảnh báo: không khớp TRANSHDR — bill_value tạm = tổng dòng SP seed trên STRANS")
+
+    return _apply_order_post_filters(
+        orders,
+        date_end=date_end,
+        min_bill=min_bill,
+        max_bill=max_bill,
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+        search=search,
+        progress=progress,
+    )
+
+
 def _orders_for_skus(
     date_start: date,
     date_end: date,
@@ -82,12 +361,8 @@ def _orders_for_skus(
 ) -> pd.DataFrame:
     """
     Return TRANSHDR rows (one per bill) for bills that contain any seed SKU on STRANS.
-    Gift/paid filter applies to the seed STRANS lines used to discover bills.
+    Empty ``sku_ids`` → all bills via TRANSHDR (or DISTINCT STRANS keys when STK/gift).
     """
-    if not sku_ids:
-        return pd.DataFrame(columns=ORDER_COLUMNS)
-    cb = progress or (lambda _: None)
-    stores = [s.strip() for s in (store_ids or []) if s and str(s).strip()]
     cust_on = customer_filters_active(
         min_age=min_age,
         max_age=max_age,
@@ -97,105 +372,50 @@ def _orders_for_skus(
     )
     if cust_on:
         require_card = True
-    extra = []
-    params: list = []
-    ph = ",".join("?" for _ in sku_ids)
-    extra.append(f"LTRIM(RTRIM(SKU_ID)) IN ({ph})")
-    params.extend(sku_ids)
-    if stores:
-        sph = ",".join("?" for _ in stores)
-        extra.append(f"LTRIM(RTRIM(STK_ID)) IN ({sph})")
-        params.extend(stores)
-    if require_card:
-        extra.append("CARD_ID IS NOT NULL AND LTRIM(RTRIM(CARD_ID)) <> ''")
-    if gift_mode == "paid":
-        extra.append("ISNULL(AMOUNT,0) > 0")
-    elif gift_mode == "gift":
-        extra.append("ISNULL(AMOUNT,0) = 0")
-    if (card_prefix or "").strip():
-        from app.domain.search_opts import expand_prefix_params, match_prefix_column
 
-        extra.append(match_prefix_column("CARD_ID", search))
-        params.extend(expand_prefix_params(card_prefix, 1, search))
-
-    # Discover bills via STRANS seed lines (keep header fields for fallback)
-    body = f"""
-        SELECT
-            LTRIM(RTRIM(STK_ID)) AS STK_ID,
-            LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
-            TRAN_DATE,
-            TRAN_TIME,
-            LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
-            LTRIM(RTRIM(TRANS_CODE)) AS TRANS_CODE,
-            {BILL_VALUE_SQL} AS line_total
-        FROM {{table}}
-        WHERE 1=1
-    """
-    cb("Đang tìm đơn có SP (STRANS)…")
-    lines = query_strans(
-        date_start,
-        date_end,
-        body,
-        extra_where=" AND ".join(extra),
-        extra_params=params,
-        progress=progress,
-    )
-    if lines.empty:
-        return pd.DataFrame(columns=ORDER_COLUMNS)
-
-    bill_keys = (
-        lines[["STK_ID", "TRANS_NUM", "TRANS_CODE"]]
-        .astype(str)
-        .apply(lambda s: s.str.strip())
-        .drop_duplicates()
-        .reset_index(drop=True)
-    )
-
-    # TRANSHDR: look up by TRANS_NUM (STK_ID on header is often blank)
-    cb("Đang lấy TRANSHDR đại diện đơn…")
-    headers = fetch_transhdr_for_keys(
-        date_start, date_end, bill_keys, progress=progress
-    )
-
-    if headers is not None and not headers.empty:
-        orders = headers.copy()
-    else:
-        # Fallback from STRANS seed lines — never leave NaT / 0 stubs
-        orders = (
-            lines.groupby(["STK_ID", "TRANS_NUM"], as_index=False)
-            .agg(
-                TRAN_DATE=("TRAN_DATE", "first"),
-                TRAN_TIME=("TRAN_TIME", "first"),
-                CARD_ID=("CARD_ID", "first"),
-                TRANS_CODE=("TRANS_CODE", "first"),
-                bill_value=("line_total", "sum"),
-            )
-        )
-        cb("Cảnh báo: không khớp TRANSHDR — bill_value tạm = tổng dòng SP seed trên STRANS")
-
-    orders["bill_value"] = pd.to_numeric(orders["bill_value"], errors="coerce").fillna(0.0)
-    if min_bill is not None:
-        orders = orders.loc[orders["bill_value"] >= float(min_bill)]
-    if max_bill is not None:
-        orders = orders.loc[orders["bill_value"] <= float(max_bill)]
-    if orders.empty:
-        return pd.DataFrame(columns=ORDER_COLUMNS)
-
-    orders = enrich_order_headers(orders)
-    if cust_on:
-        cb("Đang lọc theo điều kiện khách (tuổi / giới tính / tháng sinh / tiền tố)…")
-        orders = filter_frame_by_customer(
-            orders,
+    if not sku_ids:
+        return _orders_all_in_period(
+            date_start,
+            date_end,
+            store_ids=store_ids,
+            require_card=require_card,
+            min_bill=min_bill,
+            max_bill=max_bill,
+            gift_mode=gift_mode,
+            progress=progress,
             min_age=min_age,
             max_age=max_age,
             sex=sex,
             birth_month=birth_month,
-            card_prefix="",  # already applied in SQL when set
-            as_of=date_end,
+            card_prefix=card_prefix,
             search=search,
         )
-        orders = project_columns(orders, ORDER_COLUMNS)
-    return orders
+
+    lines = _seed_lines_for_skus(
+        date_start,
+        date_end,
+        sku_ids,
+        store_ids=store_ids,
+        require_card=require_card,
+        gift_mode=gift_mode,
+        card_prefix=card_prefix,
+        search=search,
+        progress=progress,
+    )
+    return _orders_from_seed_lines(
+        date_start,
+        date_end,
+        lines,
+        min_bill=min_bill,
+        max_bill=max_bill,
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+        search=search,
+        progress=progress,
+    )
 
 
 def fetch_product_orders(
@@ -218,25 +438,18 @@ def fetch_product_orders(
 ) -> tuple[dict[str, pd.DataFrame], list[str], dict[str, list[str]]]:
     """
     Returns (token -> TRANSHDR orders, unresolved_tokens, token -> seed SKU_IDs).
+
+    Empty ``tokens`` → one bucket ``ALL_PRODUCTS_LABEL`` for every bill in A–B.
+    Multiple tokens share a single STRANS seed pull.
     """
     cb = progress or (lambda _: None)
-    cb("Đang resolve mã/tên mặt hàng…")
-    resolved = resolve_product_tokens(tokens, search=search)
-    unresolved = [t for t, df in resolved.items() if df.empty]
-    per_token: dict[str, pd.DataFrame] = {}
-    seed_skus: dict[str, list[str]] = {}
-    for token, sku_df in resolved.items():
-        if sku_df.empty:
-            per_token[token] = pd.DataFrame(columns=ORDER_COLUMNS)
-            seed_skus[token] = []
-            continue
-        sku_ids = sku_df["SKU_ID"].astype(str).str.strip().tolist()
-        seed_skus[token] = sku_ids
-        cb(f"Đơn chứa SP token={token!r} ({len(sku_ids)} SKU)…")
-        per_token[token] = _orders_for_skus(
+    cleaned = [str(t).strip() for t in (tokens or []) if t is not None and str(t).strip()]
+    if not cleaned:
+        cb("Danh sách SP trống — lấy tất cả đơn trong khoảng ngày…")
+        orders = _orders_for_skus(
             date_start,
             date_end,
-            sku_ids,
+            [],
             store_ids=store_ids,
             require_card=require_card,
             min_bill=min_bill,
@@ -249,6 +462,112 @@ def fetch_product_orders(
             birth_month=birth_month,
             card_prefix=card_prefix,
             search=search,
+        )
+        return {ALL_PRODUCTS_LABEL: orders}, [], {ALL_PRODUCTS_LABEL: []}
+
+    cb("Đang resolve mã/tên mặt hàng…")
+    resolved = resolve_product_tokens(cleaned, search=search)
+    unresolved = [t for t, df in resolved.items() if df.empty]
+    per_token: dict[str, pd.DataFrame] = {}
+    seed_skus: dict[str, list[str]] = {}
+
+    cust_on = customer_filters_active(
+        min_age=min_age,
+        max_age=max_age,
+        sex=sex,
+        birth_month=birth_month,
+        card_prefix=card_prefix,
+    )
+    req_card = True if cust_on else require_card
+
+    # One STRANS seed for all resolved SKUs, then split bills per token.
+    all_skus: list[str] = []
+    seen_sku: set[str] = set()
+    for token, sku_df in resolved.items():
+        if sku_df.empty:
+            per_token[token] = pd.DataFrame(columns=ORDER_COLUMNS)
+            seed_skus[token] = []
+            continue
+        ids = sku_df["SKU_ID"].astype(str).str.strip().tolist()
+        seed_skus[token] = ids
+        for sid in ids:
+            if sid not in seen_sku:
+                seen_sku.add(sid)
+                all_skus.append(sid)
+
+    if not all_skus:
+        return per_token, unresolved, seed_skus
+
+    lines = _seed_lines_for_skus(
+        date_start,
+        date_end,
+        all_skus,
+        store_ids=store_ids,
+        require_card=req_card,
+        gift_mode=gift_mode,
+        card_prefix=card_prefix,
+        search=search,
+        progress=progress,
+    )
+    if lines is None or lines.empty:
+        for token, ids in seed_skus.items():
+            if ids:
+                per_token[token] = pd.DataFrame(columns=ORDER_COLUMNS)
+        return per_token, unresolved, seed_skus
+
+    lines = lines.copy()
+    lines["SKU_ID"] = lines["SKU_ID"].astype(str).str.strip()
+
+    # One TRANSHDR rematch for all discovered bills, then slice per token.
+    all_bill_keys = (
+        lines[["STK_ID", "TRANS_NUM", "TRANS_CODE"]]
+        .astype(str)
+        .apply(lambda s: s.str.strip())
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    cb(f"Đang lấy TRANSHDR đại diện đơn ({len(all_bill_keys)} khóa)…")
+    headers = fetch_transhdr_for_keys(
+        date_start, date_end, all_bill_keys, progress=progress
+    )
+
+    for token, ids in seed_skus.items():
+        if not ids:
+            continue
+        id_set = set(ids)
+        tok_lines = lines.loc[lines["SKU_ID"].isin(id_set)]
+        cb(f"Đơn chứa SP token={token!r} ({len(ids)} SKU)…")
+        if tok_lines.empty:
+            per_token[token] = pd.DataFrame(columns=ORDER_COLUMNS)
+            continue
+        tok_keys = (
+            tok_lines[["STK_ID", "TRANS_NUM"]]
+            .astype(str)
+            .apply(lambda s: s.str.strip())
+            .drop_duplicates()
+        )
+        if headers is not None and not headers.empty:
+            orders = headers.merge(tok_keys, on=["STK_ID", "TRANS_NUM"], how="inner")
+        else:
+            orders = tok_lines.groupby(["STK_ID", "TRANS_NUM"], as_index=False).agg(
+                TRAN_DATE=("TRAN_DATE", "first"),
+                TRAN_TIME=("TRAN_TIME", "first"),
+                CARD_ID=("CARD_ID", "first"),
+                TRANS_CODE=("TRANS_CODE", "first"),
+                bill_value=("line_total", "sum"),
+            )
+        per_token[token] = _apply_order_post_filters(
+            orders,
+            date_end=date_end,
+            min_bill=min_bill,
+            max_bill=max_bill,
+            min_age=min_age,
+            max_age=max_age,
+            sex=sex,
+            birth_month=birth_month,
+            card_prefix=card_prefix,
+            search=search,
+            progress=progress,
         )
     return per_token, unresolved, seed_skus
 
@@ -348,7 +667,7 @@ def export_product_orders(
             exclude_skus=excl,
             exclude_label="SKU đang tìm",
             include_per_bill_detail=True,
-            per_card_limit=None,  # thống kê luôn đầy đủ
+            per_card_limit=None,
         )
         rpath = out_dir / f"don_chua_SP__{safe}_report.txt"
         write_rich_lines(rpath, report)
@@ -359,7 +678,6 @@ def export_product_orders(
         if full is not None and not full.empty:
             full_ok.append(full)
 
-        # Split always partitions mode-2 (bill_lines)
         if split_col and full is not None and not full.empty and split_col in full.columns:
             parts = split_by_column(full, split_col)
             split_dir = out_dir / f"split_{safe}_by_{split_col}"
