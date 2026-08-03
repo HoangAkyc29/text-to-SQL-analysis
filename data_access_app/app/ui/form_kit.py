@@ -293,7 +293,7 @@ def dropdown(
     return ft.Dropdown(
         label=label_text,
         value=value,
-        options=[ft.dropdown.Option(k, v) for k, v in options],
+        options=[ft.dropdown.Option(key=k, text=v) for k, v in options],
         width=width,
         height=44,
         text_size=13,
@@ -320,6 +320,8 @@ def card_prefix_field(
     width: int | None = None,
 ) -> ft.Dropdown:
     """Dropdown presets + editable free text (gõ tay thêm tiền tố khác)."""
+    import re
+
     raw = (value or "").strip()
     opts = [ft.dropdown.Option(key="__none__", text="(không lọc)")]
     seen = {"__none__"}
@@ -347,13 +349,31 @@ def card_prefix_field(
         **theme.dropdown_style(),
     )
 
+    _ok = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,7}$")
+    _labels = {"(không lọc)", "__none__"}
+
     def on_text_change(e: ft.ControlEvent):
-        # Keep .value in sync with typed text so validate/copy read correctly.
+        """Sync typed prefix → .value, but never absorb adjacent-dropdown leakage.
+
+        Flet editable+filter dropdowns can expose stale .text (e.g. digit '2' from
+        birth-month option key). Digits-only / option labels must not become CARD_ID prefix.
+        """
         typed = (getattr(e.control, "text", None) or e.data or "").strip()
-        if typed and typed != "__none__":
-            e.control.value = typed
+        if not typed or typed in _labels:
+            e.control.value = "__none__"
+            return
+        if typed.isdigit() or not _ok.match(typed):
+            # Leave prior .value alone if junk; clearing already handled above.
+            return
+        e.control.value = typed
+
+    def on_change(e: ft.ControlEvent):
+        val = (e.control.value or "").strip()
+        if not val or val in _labels:
+            e.control.value = "__none__"
 
     dd.on_text_change = on_text_change
+    dd.on_change = on_change
     return dd
 
 
@@ -371,7 +391,7 @@ def column_sort_bar(
     dd = ft.Dropdown(
         label="Sắp xếp theo cột",
         value=lead,
-        options=[ft.dropdown.Option(lead, lead)],
+        options=[ft.dropdown.Option(key=lead, text=lead)],
         height=44,
         text_size=13,
         content_padding=10,
@@ -409,14 +429,14 @@ def column_sort_bar(
 
     def refresh(df: pd.DataFrame | None) -> None:
         if df is None or df.empty:
-            dd.options = [ft.dropdown.Option(sort.lead, sort.lead)]
+            dd.options = [ft.dropdown.Option(key=sort.lead, text=sort.lead)]
             dd.value = sort.lead
             sort.column = sort.lead
             _sync_dir_label()
             return
         cols = [str(c) for c in df.columns]
         sort.sync_column_if_needed(df)
-        dd.options = [ft.dropdown.Option(c, c) for c in cols]
+        dd.options = [ft.dropdown.Option(key=c, text=c) for c in cols]
         dd.value = sort.column if sort.column in cols else (sort.lead if sort.lead in cols else cols[0])
         sort.column = dd.value
         _sync_dir_label()

@@ -86,11 +86,13 @@ def refresh_from_transhdr() -> SessionClockStatus:
         _bootstrapped = True
         print(f"DATA_ACCESS_AS_OF={_as_of.isoformat()} source=transhdr", flush=True)
     except Exception as exc:  # noqa: BLE001
+        from app.db.errors import classify_db_failure
+
         _as_of = datetime.now()
         _source = "wall"
-        _detail = f"Fallback đồng hồ máy (không lấy được TRANSHDR): {exc}"
+        _detail = f"Fallback đồng hồ máy: {classify_db_failure(exc, target='db2')}"
         _bootstrapped = True
-        print(f"DATA_ACCESS_AS_OF={_as_of.isoformat()} source=wall err={exc}", flush=True)
+        print(f"DATA_ACCESS_AS_OF={_as_of.isoformat()} source=wall err={_detail}", flush=True)
     return status()
 
 

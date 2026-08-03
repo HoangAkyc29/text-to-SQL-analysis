@@ -153,12 +153,12 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
                         on_header_click=on_header_sort,
                     )
                 )
-        holder.update()
+        page.update()
 
     def set_loading(msg: str = "Đang truy vấn…"):
         holder.controls.clear()
         holder.controls.append(w.loading_row(msg))
-        holder.update()
+        page.update()
 
     def ensure_full_bills(*, force: bool = False):
         if not force and not full_df().empty:
@@ -192,8 +192,7 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
 
         def done(state):
             if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
+                w.apply_job_error(status, state)
             else:
                 last["full"] = state.result if isinstance(state.result, pd.DataFrame) else pd.DataFrame()
                 render_preview()
@@ -241,37 +240,51 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
         date_start, date_end, card_ids, prod, lo, hi, amin, amax = checked
 
         def start_job(*, base=None):
-            set_loading()
+            set_loading("Đang xuất…" if not fetch_only else "Đang truy vấn…")
             status.value = "Đang chạy…" if fetch_only else f"Đang xuất → {base}"
             status.color = theme.TEXT_MUTED
             page.update()
 
             def job():
-                df, seed_skus = orders_svc.fetch_customer_orders(
-                    date_start,
-                    date_end,
-                    card_ids,
-                    store_ids=get_stk(),
-                    product_query=prod,
-                    min_bill=lo,
-                    max_bill=hi,
-                    gift_mode=gift.value,  # type: ignore[arg-type]
-                    min_age=amin,
-                    max_age=amax,
-                    sex=sex.value or "any",  # type: ignore[arg-type]
-                    search=get_search(),
-                    progress=runner.set_message,
+                need_fetch = fetch_only or last["df"] is None or (
+                    isinstance(last["df"], pd.DataFrame) and last["df"].empty
                 )
-                last["df"] = df
-                last["seed_skus"] = seed_skus
-                last["date_start"] = date_start
-                last["date_end"] = date_end
-                last["full"] = pd.DataFrame(columns=F4_ORDER_LINE_COLUMNS)
+                if need_fetch:
+                    df, seed_skus = orders_svc.fetch_customer_orders(
+                        date_start,
+                        date_end,
+                        card_ids,
+                        store_ids=get_stk(),
+                        product_query=prod,
+                        min_bill=lo,
+                        max_bill=hi,
+                        gift_mode=(gift.value or "any"),  # type: ignore[arg-type]
+                        min_age=amin,
+                        max_age=amax,
+                        sex=sex.value or "any",  # type: ignore[arg-type]
+                        search=get_search(),
+                        progress=runner.set_message,
+                    )
+                    last["df"] = df
+                    last["seed_skus"] = seed_skus
+                    last["date_start"] = date_start
+                    last["date_end"] = date_end
+                    last["full"] = pd.DataFrame(columns=F4_ORDER_LINE_COLUMNS)
+                else:
+                    df = last["df"]
+                    seed_skus = last.get("seed_skus") or []
+                    runner.set_message("Dùng kết quả Preview — bỏ qua truy vấn lại…")
                 if fetch_only:
                     return df
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 out = base / f"F4_don_theo_khach_{stamp}"
-                return orders_svc.export_customer_orders(
+                cached_full = last.get("full")
+                bill_cache = (
+                    cached_full
+                    if isinstance(cached_full, pd.DataFrame) and not cached_full.empty
+                    else None
+                )
+                paths = orders_svc.export_customer_orders(
                     df,
                     out,
                     date_start=date_start,
@@ -281,12 +294,13 @@ def build_customer_orders_page(page: ft.Page) -> ft.Control:
                     sort_column=sort_state.column,
                     sort_ascending=sort_state.ascending,
                     progress=runner.set_message,
+                    bill_lines=bill_cache,
                 )
+                return paths
 
             def done(state):
                 if state.error:
-                    status.value = state.error.split("\n", 1)[0]
-                    status.color = theme.DANGER
+                    w.apply_job_error(status, state)
                 else:
                     if fetch_only:
                         if (preview_mode.value or "matched") == "bill":

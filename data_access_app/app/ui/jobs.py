@@ -1,9 +1,12 @@
 """Background job runner for Flet — UI callbacks on page thread."""
 from __future__ import annotations
 
+import sys
 import traceback
 from dataclasses import dataclass
 from typing import Any, Callable
+
+from app.db.errors import user_facing_error
 
 
 @dataclass
@@ -11,7 +14,8 @@ class JobState:
     running: bool = False
     cancelled: bool = False
     message: str = ""
-    error: str = ""
+    error: str = ""  # short, user-facing (status bar)
+    error_detail: str = ""  # full traceback (logs only)
     result: Any = None
 
 
@@ -49,23 +53,32 @@ class JobRunner:
                 self.state.result = fn()
                 self.state.message = "Hoàn tất"
             except Exception as exc:  # noqa: BLE001
-                self.state.error = f"{exc}\n{traceback.format_exc()}"
+                self.state.error = user_facing_error(exc)
+                self.state.error_detail = traceback.format_exc()
                 self.state.message = "Lỗi"
+                print(
+                    f"DATA_ACCESS_JOB_ERROR: {self.state.error}\n{self.state.error_detail}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             finally:
                 self.state.running = False
                 self._lock_running = False
 
                 def _finish() -> None:
-                    if on_done:
-                        on_done(self.state)
-
-                # Prefer UI-thread finish when page is available
-                if pg is not None and hasattr(pg, "run_thread"):
-                    # on_done must touch controls on the session thread;
-                    # schedule via a no-op run_task pattern when possible.
                     try:
-                        import asyncio
+                        if on_done:
+                            on_done(self.state)
+                    except Exception as ui_exc:  # noqa: BLE001
+                        # Never let a UI callback crash the worker/session thread.
+                        print(
+                            f"DATA_ACCESS_UI_CALLBACK_ERROR: {ui_exc}\n{traceback.format_exc()}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
 
+                if pg is not None and hasattr(pg, "run_thread"):
+                    try:
                         async def _async_finish():
                             _finish()
 

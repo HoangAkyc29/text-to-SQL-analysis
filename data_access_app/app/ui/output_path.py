@@ -30,11 +30,12 @@ def remember_output_dir(path: Path) -> Path:
     settings.output_dir = path
     os.environ["DATA_ACCESS_OUTPUT_DIR"] = str(path)
     env_path = APP_ROOT / ".env"
+    # Use a callable replacement — Windows paths contain backslashes that break re.sub repl.
     line = f"DATA_ACCESS_OUTPUT_DIR={path}"
     if env_path.exists():
         text = env_path.read_text(encoding="utf-8")
         if re.search(r"(?m)^DATA_ACCESS_OUTPUT_DIR=", text):
-            text = re.sub(r"(?m)^DATA_ACCESS_OUTPUT_DIR=.*$", line, text)
+            text = re.sub(r"(?m)^DATA_ACCESS_OUTPUT_DIR=.*$", lambda _m: line, text)
         else:
             text = text.rstrip() + "\n" + line + "\n"
         env_path.write_text(text, encoding="utf-8")
@@ -63,4 +64,12 @@ async def pick_export_directory(
     chosen = await picker.get_directory_path(dialog_title=title, initial_directory=start_s)
     if not chosen:
         return None
-    return remember_output_dir(Path(chosen))
+    try:
+        return remember_output_dir(Path(chosen))
+    except OSError:
+        # Still allow export even if remembering .env fails (disk/permission).
+        path = Path(chosen).expanduser().resolve()
+        path.mkdir(parents=True, exist_ok=True)
+        settings.output_dir = path
+        os.environ["DATA_ACCESS_OUTPUT_DIR"] = str(path)
+        return path

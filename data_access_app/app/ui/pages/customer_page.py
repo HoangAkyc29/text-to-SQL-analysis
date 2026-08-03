@@ -36,18 +36,21 @@ def build_customer_page(page: ft.Page) -> ft.Control:
     )
     preview = theme.card(content=holder, expand=True)
     runner = JobRunner(page)
-    last: dict[str, pd.DataFrame] = {"df": pd.DataFrame()}
+    last: dict[str, object] = {"df": pd.DataFrame(), "searched": False}
 
     def render_preview():
         raw = last.get("df")
-        if raw is None or raw.empty:
+        if raw is None or getattr(raw, "empty", True):
             holder.controls.clear()
-            holder.controls.append(
-                ft.Text("Chưa có dữ liệu — nhập điều kiện rồi bấm Tìm", color=theme.TEXT_MUTED, size=13)
+            msg = (
+                "Không có khách khớp điều kiện"
+                if last.get("searched")
+                else "Chưa có dữ liệu — nhập điều kiện rồi bấm Tìm"
             )
-            holder.update()
+            holder.controls.append(ft.Text(msg, color=theme.TEXT_MUTED, size=13))
+            page.update()
             return
-        view = sort_state.apply(raw)
+        view = sort_state.apply(raw)  # type: ignore[arg-type]
         refresh_sort(view)
         holder.controls.clear()
         holder.controls.append(
@@ -58,16 +61,20 @@ def build_customer_page(page: ft.Page) -> ft.Control:
                 on_header_click=on_header_sort,
             )
         )
-        holder.update()
+        page.update()
 
     def on_sort_change():
-        if last.get("df") is not None and not last["df"].empty:
+        df = last.get("df")
+        if isinstance(df, pd.DataFrame) and not df.empty:
             render_preview()
             page.update()
 
     def on_header_sort(col: str):
+        df = last.get("df")
+        if not isinstance(df, pd.DataFrame):
+            return
         sort_state.toggle_column(col)
-        refresh_sort(sort_state.apply(last["df"]))
+        refresh_sort(sort_state.apply(df))
         render_preview()
         page.update()
 
@@ -76,21 +83,19 @@ def build_customer_page(page: ft.Page) -> ft.Control:
     def run_search(_):
         v.clear_errors(card, name, phone, age_from, age_to, prefix)
         ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
+        pref = v.validate_card_prefix(prefix)
         page.update()
-        if not ok_age:
+        if not ok_age or pref is None:
             v.fail_status(status, page)
             return
 
-        month_raw = (birth_month.value or "any").strip()
-        bmonth: int | None = None
-        if month_raw not in {"", "any"}:
-            try:
-                bmonth = int(month_raw)
-            except ValueError:
-                status.value = "Tháng sinh không hợp lệ"
-                status.color = theme.DANGER
-                page.update()
-                return
+        try:
+            bmonth = v.parse_birth_month(birth_month.value)
+        except ValueError as exc:
+            status.value = str(exc)
+            status.color = theme.DANGER
+            page.update()
+            return
 
         holder.controls.clear()
         holder.controls.append(w.loading_row("Đang tìm khách…"))
@@ -101,7 +106,7 @@ def build_customer_page(page: ft.Page) -> ft.Control:
         def job():
             return customer_svc.search_customers(
                 card_id=card.value or "",
-                card_prefix=v.card_prefix_value(prefix),
+                card_prefix=pref,
                 name=name.value or "",
                 phone=phone.value or "",
                 birth_month=bmonth,
@@ -112,10 +117,10 @@ def build_customer_page(page: ft.Page) -> ft.Control:
 
         def done(state):
             if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
+                w.apply_job_error(status, state)
             else:
                 last["df"] = state.result
+                last["searched"] = True
                 render_preview()
                 w.apply_search_result_status(status, state.result, noun="khách")
             page.update()

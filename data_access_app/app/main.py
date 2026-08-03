@@ -30,11 +30,38 @@ def _run() -> None:
     from app.ui.shell import build_shell
 
     def main(page: ft.Page) -> None:
-        theme.page_defaults(page)
-        settings.reload()
-        bootstrap_session_clock()
-        page.add(build_shell(page))
-        print("DATA_ACCESS_READY", flush=True)
+        try:
+            theme.page_defaults(page)
+            settings.reload()
+            st = bootstrap_session_clock()
+            page.add(build_shell(page))
+            if st.source == "wall":
+                # Soft banner via console; Settings page shows details.
+                print(f"DATA_ACCESS_CLOCK_WARN: {st.detail}", flush=True)
+            print("DATA_ACCESS_READY", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            # Keep Flet session alive with a visible error instead of crashing the process.
+            import traceback
+
+            print(f"DATA_ACCESS_BOOT_ERROR: {exc}\n{traceback.format_exc()}", flush=True)
+            page.bgcolor = "#F3F5F8"
+            page.add(
+                ft.Container(
+                    content=ft.Column(
+                        [
+                            ft.Text("Không khởi động được Data Access", size=22, weight=ft.FontWeight.BOLD),
+                            ft.Text(str(exc), size=14, color="#DC2626"),
+                            ft.Text(
+                                "Kiểm tra DSN / SQL Server (có thể đang restore). "
+                                "Sửa .env rồi mở lại app.",
+                                size=13,
+                            ),
+                        ],
+                        spacing=12,
+                    ),
+                    padding=32,
+                )
+            )
 
     view = ft.AppView.FLET_APP if view_name == "desktop" else ft.AppView.WEB_BROWSER
     print(f"DATA_ACCESS_VIEW={view_name} PORT={port}", flush=True)

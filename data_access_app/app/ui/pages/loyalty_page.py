@@ -37,7 +37,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
     filter_mode = fk.dropdown(
         "Tiêu chí",
         "points",
-        [("points", "Điểm (giá trị ÷ 50000)"), ("value", "Tổng giá trị")],
+        [("points", "Điểm (floor giá trị ÷ 50000)"), ("value", "Tổng giá trị")],
     )
     min_m = w.text_field("Từ", value="")
     max_m = w.text_field("Đến", value="")
@@ -64,14 +64,14 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
     )
     preview = theme.card(content=holder, expand=True, padding=14)
     runner = JobRunner(page)
-    last: dict[str, pd.DataFrame] = {"df": pd.DataFrame()}
+    last: dict[str, pd.DataFrame | None] = {"df": pd.DataFrame(), "cohort_lines": None}
 
     def render_preview():
         raw = last.get("df")
         if raw is None or raw.empty:
             holder.controls.clear()
             holder.controls.append(ft.Text("Không có dữ liệu", color=theme.TEXT_MUTED))
-            holder.update()
+            page.update()
             return
         view = sort_state.apply(raw)
         refresh_sort(view)
@@ -87,7 +87,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                 on_header_click=on_header_sort,
             )
         )
-        holder.update()
+        page.update()
 
     def on_sort_change():
         if last.get("df") is not None and not last["df"].empty:
@@ -102,10 +102,10 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
 
     sort_bar, sort_state, refresh_sort = fk.column_sort_bar(lead="CARD_ID", on_change=on_sort_change)
 
-    def set_loading():
+    def set_loading(msg: str = "Đang truy vấn db1/db2…"):
         holder.controls.clear()
-        holder.controls.append(w.loading_row("Đang truy vấn db1/db2…"))
-        holder.update()
+        holder.controls.append(w.loading_row(msg))
+        page.update()
 
     def validate_form(
         *, for_export: bool
@@ -119,18 +119,13 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         ok_rng, lo, hi = v.validate_number_range(min_m, max_m, label="Khoảng điểm/giá trị")
         ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
         buckets_ok = v.validate_point_buckets(buckets) if for_export else True
-        month_raw = (birth_month.value or "any").strip()
-        bmonth: int | None = None
-        if month_raw != "any":
-            try:
-                bmonth = int(month_raw)
-                if bmonth < 1 or bmonth > 12:
-                    raise ValueError
-            except ValueError:
-                status.value = "Tháng sinh không hợp lệ"
-                status.color = theme.DANGER
-                page.update()
-                return None
+        try:
+            bmonth = v.parse_birth_month(birth_month.value)
+        except ValueError as exc:
+            status.value = str(exc)
+            status.color = theme.DANGER
+            page.update()
+            return None
         page.update()
         if dates is None or pref is None or not ok_rng or not ok_age or not buckets_ok:
             v.fail_status(status, page)
@@ -154,7 +149,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                 date_end,
                 card_prefix=pref,
                 store_ids=get_stk(),
-                filter_mode=filter_mode.value,  # type: ignore[arg-type]
+                filter_mode=(filter_mode.value or "points"),  # type: ignore[arg-type]
                 min_metric=lo,
                 max_metric=hi,
                 min_age=amin,
@@ -167,10 +162,10 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
 
         def done(state):
             if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
+                w.apply_job_error(status, state)
             else:
                 last["df"] = state.result
+                last["cohort_lines"] = None
                 render_preview()
                 status.value = f"Preview OK — {len(state.result)} khách"
                 status.color = theme.SUCCESS
@@ -185,27 +180,37 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
         date_start, date_end, pref, lo, hi, amin, amax, bmonth = checked
 
         async def _after_pick():
-            base = await pick_export_directory(page)
+            try:
+                base = await pick_export_directory(page)
+            except Exception as exc:  # noqa: BLE001
+                from app.db.errors import user_facing_error
+
+                status.value = f"Không chọn được thư mục xuất: {user_facing_error(exc)}"
+                status.color = theme.DANGER
+                page.update()
+                return
             if base is None:
                 status.value = "Đã hủy — chưa chọn thư mục xuất"
                 status.color = theme.TEXT_MUTED
                 page.update()
                 return
 
-            set_loading()
+            set_loading("Đang xuất…")
             status.value = f"Đang xuất → {base}"
             status.color = theme.TEXT_MUTED
             page.update()
 
             def job():
+                from app.domain.bill_expand import fetch_card_period_lines
+
                 df = last["df"]
-                if df is None or df.empty:
+                if df is None or (isinstance(df, pd.DataFrame) and df.empty):
                     df = loyalty_svc.fetch_loyalty_customers(
                         date_start,
                         date_end,
                         card_prefix=pref,
                         store_ids=get_stk(),
-                        filter_mode=filter_mode.value,  # type: ignore[arg-type]
+                        filter_mode=(filter_mode.value or "points"),  # type: ignore[arg-type]
                         min_metric=lo,
                         max_metric=hi,
                         min_age=amin,
@@ -216,11 +221,29 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                         progress=runner.set_message,
                     )
                     last["df"] = df
+                    last["cohort_lines"] = None
                 df = sort_state.apply(df)
                 bkt = parse_point_buckets(buckets.value or "")
                 opts = [k for k, cb in txt_opts.items() if cb.value]
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 out = base / f"F3_KH_mua_hang_{stamp}"
+                cohort = last.get("cohort_lines")
+                if cohort is None:
+                    card_ids = (
+                        df["CARD_ID"].astype(str).str.strip().tolist()
+                        if df is not None and not df.empty and "CARD_ID" in df.columns
+                        else []
+                    )
+                    runner.set_message(f"Đang lấy chi tiết giao dịch cohort ({len(card_ids)} thẻ)…")
+                    cohort = fetch_card_period_lines(
+                        date_start,
+                        date_end,
+                        card_ids,
+                        store_ids=get_stk(),
+                        progress=runner.set_message,
+                        with_cards=True,
+                    )
+                    last["cohort_lines"] = cohort
                 return loyalty_svc.export_loyalty(
                     df,
                     out,
@@ -239,12 +262,12 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
                         "stores": ",".join(get_stk()),
                     },
                     progress=runner.set_message,
+                    cohort_lines=cohort,
                 )
 
             def done(state):
                 if state.error:
-                    status.value = state.error.split("\n", 1)[0]
-                    status.color = theme.DANGER
+                    w.apply_job_error(status, state)
                 else:
                     paths = state.result or []
                     status.value = f"Đã xuất {len(paths)} file → {base}"
@@ -290,7 +313,7 @@ def build_loyalty_page(page: ft.Page) -> ft.Control:
             ],
             spacing=12,
         ),
-        hint="Điểm = tổng giá trị mua / 50000 · tuổi/GT lọc trên hồ sơ thẻ",
+        hint="Điểm = floor(tổng giá trị / 50000) · tuổi/GT lọc trên hồ sơ thẻ",
     )
     actions = ft.Container(
         content=fk.actions_bar(

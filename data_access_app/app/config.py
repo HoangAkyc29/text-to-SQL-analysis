@@ -21,7 +21,7 @@ def rewrite_docker_host_for_native(dsn: str) -> str:
         return dsn
     override = os.getenv("DATA_ACCESS_SQL_SERVER", "").strip() or "DESKTOP-AUQEDC5"
     if re.search(r"(?i)Server=", dsn):
-        return re.sub(r"(?i)Server=[^;]+", f"Server={override}", dsn, count=1)
+        return re.sub(r"(?i)Server=[^;]+", lambda _m: f"Server={override}", dsn, count=1)
     return f"Server={override};{dsn}"
 
 

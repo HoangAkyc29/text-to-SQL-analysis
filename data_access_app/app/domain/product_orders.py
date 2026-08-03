@@ -300,11 +300,13 @@ def export_product_orders(
     sort_column: str | None = "TRANS_NUM",
     sort_ascending: bool = True,
     progress: ProgressCb | None = None,
+    full_by_token: dict[str, pd.DataFrame] | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     cb = progress or (lambda _: None)
     seeds = seed_skus_by_token or {}
+    cached_full = full_by_token or {}
     frames_ok: list[pd.DataFrame] = []
     full_ok: list[pd.DataFrame] = []
     all_seed: list[str] = []
@@ -324,9 +326,14 @@ def export_product_orders(
     for token, df in per_token.items():
         safe = sanitize_filename(token) or "token"
         orders = _sorted(project_columns(df, ORDER_COLUMNS))
-        keys = bill_keys_from_lines(orders)
-        cb(f"Bung full STRANS token={token!r} ({len(keys)} đơn)…")
-        full = _sorted(fetch_bill_lines(date_start, date_end, keys, progress=progress))
+        cached = cached_full.get(token)
+        if cached is not None and not cached.empty:
+            cb(f"Dùng cache full STRANS token={token!r}…")
+            full = _sorted(cached)
+        else:
+            keys = bill_keys_from_lines(orders)
+            cb(f"Bung full STRANS token={token!r} ({len(keys)} đơn)…")
+            full = _sorted(fetch_bill_lines(date_start, date_end, keys, progress=progress))
         path = out_dir / f"don_chua_SP__{safe}.xlsx"
         _write_order_workbook(orders, full, path)
         written.append(path)

@@ -45,7 +45,7 @@ COLUMN_TIPS: dict[str, str] = {
     "bill_value": "Tổng thành tiền cả hóa đơn (cùng công thức: tiền hàng + phụ phí + thuế).",
     # Loyalty metrics
     "total_value": "Tổng tiền mua của thẻ trong kỳ đang chọn.",
-    "points": "Điểm tích lũy ≈ tổng tiền mua chia 50.000.",
+    "points": "Điểm tích lũy = floor(tổng tiền mua ÷ 50.000) — luôn làm tròn xuống.",
     "bill_count": "Số hóa đơn (số lần mua) của thẻ trong kỳ.",
 }
 

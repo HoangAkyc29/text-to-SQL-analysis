@@ -79,12 +79,19 @@ def build_settings_page(page: ft.Page) -> ft.Control:
         return _go
 
     def refresh_as_of(_):
-        settings.dsn_db1 = dsn1.value or ""
-        settings.dsn_db2 = dsn2.value or ""
-        st = clock.refresh_from_transhdr()
-        _refresh_clock_label()
-        status.value = "Đã lấy lại mốc từ TRANSHDR" if st.source == "transhdr" else st.detail
-        status.color = theme.SUCCESS if st.source == "transhdr" else theme.WARN
+        try:
+            settings.dsn_db1 = dsn1.value or ""
+            settings.dsn_db2 = dsn2.value or ""
+            st = clock.refresh_from_transhdr()
+            _refresh_clock_label()
+            status.value = "Đã lấy lại mốc từ TRANSHDR" if st.source == "transhdr" else st.detail
+            status.color = theme.SUCCESS if st.source == "transhdr" else theme.WARN
+        except Exception as exc:  # noqa: BLE001
+            from app.db.errors import user_facing_error
+
+            status.value = user_facing_error(exc)
+            status.color = theme.DANGER
+            _refresh_clock_label()
         page.update()
 
     def reset_wall(_):

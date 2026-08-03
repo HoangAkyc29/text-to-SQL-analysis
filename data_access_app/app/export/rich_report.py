@@ -268,7 +268,7 @@ def build_orders_rich_report(
     include_per_bill_detail: bool = True,
     per_card_limit: int | None = PER_CARD_TXT_LIMIT,
 ) -> list[str]:
-    """Shared F4/F5 style: store summary + optional bill detail + SKU frequency."""
+    """Shared F4/F5 style: aggregates first; listing detail at the bottom."""
     lines = _header(title, meta)
     n_match = 0 if matched_lines is None or matched_lines.empty else len(matched_lines)
     n_full = 0 if bill_lines is None or bill_lines.empty else len(bill_lines)
@@ -285,6 +285,7 @@ def build_orders_rich_report(
     summary = store_summary_frame(bill_lines)
     lines.extend(format_store_summary_table(summary))
 
+    # Per-store aggregate stats only (no bill / SKU listings yet)
     if include_per_bill_detail and not summary.empty:
         for stk in summary["STK_ID"].astype(str).tolist():
             sub_bills = bills.loc[bills["STK_ID"].astype(str) == stk]
@@ -296,36 +297,7 @@ def build_orders_rich_report(
             lines.append(f"Trung bình / đơn: {_fmt_num(tb)}")
             lines.append("#" * 70)
             lines.append("")
-            lines.extend(
-                format_bill_blocks(
-                    bill_lines,
-                    stk_id=stk,
-                    max_cards=per_card_limit,
-                )
-            )
-            excl = list(exclude_skus or [])
-            freq_title = (
-                f"TẦN SUẤT MẶT HÀNG TẠI STK_ID = {stk}"
-                + (f" (loại trừ {exclude_label})" if excl else "")
-            )
-            lines.extend(
-                format_sku_frequency_table(
-                    sku_frequency(bill_lines, exclude_skus=excl, stk_id=stk),
-                    title=freq_title,
-                )
-            )
 
-    excl = list(exclude_skus or [])
-    overall_title = (
-        "TẦN SUẤT MẶT HÀNG TỔNG HỢP (TẤT CẢ SIÊU THỊ)"
-        + (f" — loại trừ {exclude_label}" if excl else "")
-    )
-    lines.extend(
-        format_sku_frequency_table(
-            sku_frequency(bill_lines, exclude_skus=excl),
-            title=overall_title,
-        )
-    )
     lines.extend(_hour_month_sections(bill_lines))
 
     lines.append("=" * 70)
@@ -337,6 +309,49 @@ def build_orders_rich_report(
             f"tổng {_fmt_num(row['TONG_GIA_TRI'])}"
         )
     lines.append("=" * 70)
+    lines.append("")
+
+    # --- Listing sections at the bottom ---
+    listing: list[str] = []
+    if include_per_bill_detail and not summary.empty:
+        listing.append("#" * 70)
+        listing.append("CHI TIẾT LIỆT KÊ THEO ĐƠN / SIÊU THỊ")
+        listing.append("#" * 70)
+        listing.append("")
+        for stk in summary["STK_ID"].astype(str).tolist():
+            listing.append(f"--- STK_ID = {stk} — chi tiết đơn ---")
+            listing.append("")
+            listing.extend(
+                format_bill_blocks(
+                    bill_lines,
+                    stk_id=stk,
+                    max_cards=per_card_limit,
+                )
+            )
+            excl = list(exclude_skus or [])
+            freq_title = (
+                f"TẦN SUẤT MẶT HÀNG TẠI STK_ID = {stk}"
+                + (f" (loại trừ {exclude_label})" if excl else "")
+            )
+            listing.extend(
+                format_sku_frequency_table(
+                    sku_frequency(bill_lines, exclude_skus=excl, stk_id=stk),
+                    title=freq_title,
+                )
+            )
+
+    excl = list(exclude_skus or [])
+    overall_title = (
+        "TẦN SUẤT MẶT HÀNG TỔNG HỢP (TẤT CẢ SIÊU THỊ)"
+        + (f" — loại trừ {exclude_label}" if excl else "")
+    )
+    listing.extend(
+        format_sku_frequency_table(
+            sku_frequency(bill_lines, exclude_skus=excl),
+            title=overall_title,
+        )
+    )
+    lines.extend(listing)
     return lines
 
 
@@ -348,7 +363,7 @@ def build_loyalty_rich_report(
     options: Iterable[str] | None = None,
     per_card_limit: int = PER_CARD_TXT_LIMIT,
 ) -> list[str]:
-    """F3: cohort summary, store from real STRANS, points/age, top SKUs, optional per-card."""
+    """F3: aggregates first; SKU / per-card listings at the bottom."""
     opts = set(options or ["count", "by_points", "by_store", "by_age", "by_cycle", "by_hour"])
     lines = _header("BÁO CÁO KHÁCH HÀNG THEO KỲ (F3)", meta)
     cust = customers if customers is not None else pd.DataFrame()
@@ -364,8 +379,8 @@ def build_loyalty_rich_report(
         lines.append(f"  TB điểm / KH: {_fmt_num(pts.mean())}")
     lines.append("")
 
+    summary = store_summary_frame(cohort_lines)
     if "by_store" in opts or "count" in opts:
-        summary = store_summary_frame(cohort_lines)
         lines.extend(format_store_summary_table(summary))
 
     if "by_points" in opts and "points" in cust.columns and not cust.empty:
@@ -390,15 +405,27 @@ def build_loyalty_rich_report(
                 lines.append(f"  {label}: {cnt}")
         lines.append("")
 
+    if "by_hour" in opts or "by_cycle" in opts:
+        lines.extend(_hour_month_sections(cohort_lines))
+
+    lines.append("=" * 70)
+    lines.append("TÓM TẮT")
+    lines.append(f"- Số khách cohort: {n}")
+    for _, row in summary.iterrows():
+        lines.append(
+            f"- STK {row['STK_ID']}: {int(row['SO_GIAO_DICH'])} đơn / "
+            f"tổng {_fmt_num(row['TONG_GIA_TRI'])}"
+        )
+    lines.append("=" * 70)
+    lines.append("")
+
+    # --- Listing sections at the bottom ---
     lines.extend(
         format_sku_frequency_table(
             sku_frequency(cohort_lines),
             title="TOP MẶT HÀNG COHORT MUA TRONG KỲ (tất cả siêu thị)",
         )
     )
-
-    if "by_hour" in opts or "by_cycle" in opts:
-        lines.extend(_hour_month_sections(cohort_lines))
 
     n_cards = (
         cohort_lines["CARD_ID"].astype(str).nunique()
@@ -410,8 +437,6 @@ def build_loyalty_rich_report(
         lines.append("CHI TIẾT TỪNG THẺ (full dòng STRANS trong kỳ)")
         lines.append("#" * 70)
         lines.append("")
-        # Group by store then cards
-        summary = store_summary_frame(cohort_lines)
         for stk in summary["STK_ID"].astype(str).tolist() if not summary.empty else []:
             lines.append(f"--- STK_ID = {stk} ---")
             lines.extend(format_bill_blocks(cohort_lines, stk_id=stk, max_cards=None))
@@ -422,16 +447,6 @@ def build_loyalty_rich_report(
         )
         lines.append("")
 
-    lines.append("=" * 70)
-    lines.append("TÓM TẮT")
-    lines.append(f"- Số khách cohort: {n}")
-    summary = store_summary_frame(cohort_lines)
-    for _, row in summary.iterrows():
-        lines.append(
-            f"- STK {row['STK_ID']}: {int(row['SO_GIAO_DICH'])} đơn / "
-            f"tổng {_fmt_num(row['TONG_GIA_TRI'])}"
-        )
-    lines.append("=" * 70)
     return lines
 
 

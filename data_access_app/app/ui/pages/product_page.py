@@ -44,7 +44,7 @@ def _build_search_page(
             holder.controls.append(
                 ft.Text("Chưa có dữ liệu — nhập điều kiện rồi bấm Tìm", color=theme.TEXT_MUTED, size=13)
             )
-            holder.update()
+            page.update()
             return
         view = sort_state.apply(raw)
         refresh_sort(view)
@@ -57,7 +57,7 @@ def _build_search_page(
                 on_header_click=on_header_sort,
             )
         )
-        holder.update()
+        page.update()
 
     def on_sort_change():
         if last.get("df") is not None and not last["df"].empty:
@@ -75,7 +75,7 @@ def _build_search_page(
     def run_search(_):
         holder.controls.clear()
         holder.controls.append(w.loading_row("Đang truy vấn…"))
-        holder.update()
+        page.update()
         status.value = "Đang tìm…"
         status.color = theme.TEXT_MUTED
         page.update()
@@ -85,8 +85,7 @@ def _build_search_page(
 
         def done(state):
             if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
+                w.apply_job_error(status, state)
                 last["df"] = pd.DataFrame()
                 render_preview()
             else:

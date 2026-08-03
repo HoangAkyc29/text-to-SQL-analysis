@@ -182,12 +182,12 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
                         on_header_click=on_header_sort,
                     )
                 )
-        holder.update()
+        page.update()
 
     def set_loading(msg: str = "Đang truy vấn…"):
         holder.controls.clear()
         holder.controls.append(w.loading_row(msg))
-        holder.update()
+        page.update()
 
     def ensure_full_bills(*, force: bool = False):
         """Lazy expand full STRANS for preview mode 2."""
@@ -234,8 +234,7 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
 
         def done(state):
             if state.error:
-                status.value = state.error.split("\n", 1)[0]
-                status.color = theme.DANGER
+                w.apply_job_error(status, state)
             else:
                 last["per_token_full"] = state.result or {}
                 render_preview()
@@ -282,18 +281,13 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
         ok_rng, lo, hi = v.validate_number_range(min_b, max_b, label="Giá trị đơn")
         ok_age, amin, amax = v.validate_number_range(age_from, age_to, label="Độ tuổi")
         pref = v.validate_card_prefix(card_prefix)
-        month_raw = (birth_month.value or "any").strip()
-        bmonth: int | None = None
-        if month_raw != "any":
-            try:
-                bmonth = int(month_raw)
-                if bmonth < 1 or bmonth > 12:
-                    raise ValueError
-            except ValueError:
-                status.value = "Tháng sinh không hợp lệ"
-                status.color = theme.DANGER
-                page.update()
-                return None
+        try:
+            bmonth = v.parse_birth_month(birth_month.value)
+        except ValueError as exc:
+            status.value = str(exc)
+            status.color = theme.DANGER
+            page.update()
+            return None
         page.update()
         if dates is None or token_list is None or not ok_rng or not ok_age or pref is None:
             v.fail_status(status, page)
@@ -307,41 +301,48 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
         date_start, date_end, token_list, lo, hi, amin, amax, pref, bmonth = checked
 
         def start_job(*, base=None):
-            set_loading()
+            set_loading("Đang xuất…" if export else "Đang truy vấn…")
             status.value = "Đang chạy…" if not export else f"Đang xuất → {base}"
             status.color = theme.TEXT_MUTED
             page.update()
 
             def job():
-                per, unresolved, seeds = po_svc.fetch_product_orders(
-                    date_start,
-                    date_end,
-                    token_list,
-                    store_ids=get_stk(),
-                    require_card=bool(opts["require_card"].value),
-                    min_bill=lo,
-                    max_bill=hi,
-                    gift_mode=gift.value,  # type: ignore[arg-type]
-                    min_age=amin,
-                    max_age=amax,
-                    sex=sex.value or "any",  # type: ignore[arg-type]
-                    birth_month=bmonth,
-                    card_prefix=pref,
-                    search=get_search(),
-                    progress=runner.set_message,
-                )
-                last["per_token"] = per
-                last["unresolved"] = unresolved
-                last["seed_skus"] = seeds
-                last["date_start"] = date_start
-                last["date_end"] = date_end
-                last["per_token_full"] = {}
+                need_fetch = (not export) or not last["per_token"]
+                if need_fetch:
+                    per, unresolved, seeds = po_svc.fetch_product_orders(
+                        date_start,
+                        date_end,
+                        token_list,
+                        store_ids=get_stk(),
+                        require_card=bool(opts["require_card"].value),
+                        min_bill=lo,
+                        max_bill=hi,
+                        gift_mode=(gift.value or "any"),  # type: ignore[arg-type]
+                        min_age=amin,
+                        max_age=amax,
+                        sex=sex.value or "any",  # type: ignore[arg-type]
+                        birth_month=bmonth,
+                        card_prefix=pref,
+                        search=get_search(),
+                        progress=runner.set_message,
+                    )
+                    last["per_token"] = per
+                    last["unresolved"] = unresolved
+                    last["seed_skus"] = seeds
+                    last["date_start"] = date_start
+                    last["date_end"] = date_end
+                    last["per_token_full"] = {}
+                else:
+                    per = last["per_token"]
+                    unresolved = last.get("unresolved") or []
+                    seeds = last.get("seed_skus") or {}
+                    runner.set_message("Dùng kết quả Preview — bỏ qua truy vấn lại…")
                 if not export:
                     return per
                 stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 out = base / f"F5_don_chua_SP_{stamp}"
                 split_col = (split_by.value or "none").strip()
-                return po_svc.export_product_orders(
+                paths = po_svc.export_product_orders(
                     per,
                     out,
                     date_start=date_start,
@@ -360,12 +361,13 @@ def build_product_orders_page(page: ft.Page) -> ft.Control:
                     sort_column=sort_state.column,
                     sort_ascending=sort_state.ascending,
                     progress=runner.set_message,
+                    full_by_token=last.get("per_token_full") or None,
                 )
+                return paths
 
             def done(state):
                 if state.error:
-                    status.value = state.error.split("\n", 1)[0]
-                    status.color = theme.DANGER
+                    w.apply_job_error(status, state)
                 else:
                     if export:
                         status.value = f"Đã xuất {len(state.result or [])} file → {base}"

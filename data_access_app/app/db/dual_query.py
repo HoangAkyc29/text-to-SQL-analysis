@@ -8,6 +8,7 @@ import pandas as pd
 
 from app.db import connection as db
 from app.db.cutoff import DateSplit, split_date_range
+from app.db.errors import DbError, is_missing_object_error, wrap_db_exception
 from app.text.tcvn3 import decode_dataframe
 
 
@@ -29,20 +30,27 @@ def run_selects(
     progress: ProgressCb | None = None,
     decode: bool = True,
 ) -> pd.DataFrame:
-    """Execute (target, sql, params) parts and concat."""
+    """Execute (target, sql, params) parts and concat.
+
+    - Missing shard table → skip (range edges).
+    - Disconnect / restore / timeout → raise DbError (do not pretend empty success).
+    """
     cb = progress or _noop
     frames: list[pd.DataFrame] = []
+    if not parts:
+        return pd.DataFrame()
+
     for i, (target, sql, params) in enumerate(parts, start=1):
         cb(f"Query {i}/{len(parts)} trên {target}…")
         try:
             df = db.read_sql(target, sql, params)
+        except DbError:
+            raise
         except Exception as exc:  # noqa: BLE001
-            # Missing shard table is common at range edges — skip empty.
-            msg = str(exc).lower()
-            if "invalid object name" in msg or "does not exist" in msg:
+            if is_missing_object_error(exc):
                 cb(f"Bỏ qua bảng không tồn tại ({target}): {exc}")
                 continue
-            raise
+            raise wrap_db_exception(exc, target=target) from exc
         if df is not None and not df.empty:
             frames.append(df)
     if not frames:
@@ -154,4 +162,9 @@ def query_transhdr(
 
 def master_select(sql: str, params: list[Any] | None = None) -> pd.DataFrame:
     """Always db2 for master tables."""
-    return decode_dataframe(db.read_sql("db2", sql, params))
+    try:
+        return decode_dataframe(db.read_sql("db2", sql, params))
+    except DbError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise wrap_db_exception(exc, target="db2") from exc

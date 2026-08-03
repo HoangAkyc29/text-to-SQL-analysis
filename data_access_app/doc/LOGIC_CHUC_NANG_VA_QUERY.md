@@ -72,7 +72,7 @@ line_value / bill_value SQL =
 
 - **Không** mặc định lọc `TRANS_CODE = 113`.
 - Khóa đơn: `(STK_ID, TRANS_NUM)`.
-- Điểm F3: `points = total_value / 50000`.
+- Điểm F3: `points = floor(total_value / 50000)` (làm tròn xuống).
 
 ---
 
@@ -193,7 +193,7 @@ WHERE 1=1
    - `total_value = sum(line_value)`
    - `bill_count = nunique(TRANS_NUM)`
    - `STK_ID = min(STK_ID)` ← **một STK đại diện, không phải multi-store breakdown**
-2. `points = total_value / 50000`
+2. `points = floor(total_value / 50000)` (làm tròn xuống)
 3. Lọc min/max trên `points` hoặc `total_value` (theo UI)
 4. `lookup_cards` → merge hồ sơ
 5. Sort: theo điểm hoặc theo `STK_ID`

@@ -7,8 +7,8 @@ from typing import Callable, Literal
 
 import pandas as pd
 
-from app.db.dual_query import query_strans, query_transhdr
-from app.domain.bill_expand import bill_keys_from_lines, enrich_order_lines, fetch_bill_lines
+from app.db.dual_query import query_strans
+from app.domain.bill_expand import bill_keys_from_lines, enrich_order_lines, fetch_bill_lines, fetch_transhdr_for_keys
 from app.domain.columns import BILL_VALUE_SQL, F4_ORDER_LINE_COLUMNS, ORDER_COLUMNS
 from app.domain.customer_filters import SexFilter, customer_filters_active, filter_frame_by_customer
 from app.domain.product import search_products
@@ -116,36 +116,23 @@ def fetch_customer_orders(
     if lines.empty:
         return pd.DataFrame(columns=F4_ORDER_LINE_COLUMNS), sku_ids
 
-    bill_keys = lines[["STK_ID", "TRANS_NUM"]].drop_duplicates()
-
-    hdr_extra = []
-    hdr_params: list = []
-    # Không lọc TRANSHDR theo STK_ID — header thường để trống STK_ID; store đã lọc ở STRANS.
-    hdr_extra.append(f"LTRIM(RTRIM(CARD_ID)) IN ({placeholders})")
-    hdr_params.extend(cards)
-
-    hdr_body = f"""
-        SELECT
-            LTRIM(RTRIM(STK_ID)) AS STK_ID,
-            LTRIM(RTRIM(TRANS_NUM)) AS TRANS_NUM,
-            TRAN_DATE,
-            TRAN_TIME,
-            LTRIM(RTRIM(CARD_ID)) AS CARD_ID,
-            LTRIM(RTRIM(TRANS_CODE)) AS TRANS_CODE,
-            {BILL_VALUE_SQL} AS bill_value
-        FROM {{table}}
-        WHERE 1=1
-    """
-    cb("Đang lấy header đơn…")
-    headers = query_transhdr(
-        date_start,
-        date_end,
-        hdr_body,
-        extra_where=" AND ".join(hdr_extra) if hdr_extra else "",
-        extra_params=hdr_params,
-        progress=progress,
+    # Prefer TRANS_CODE when present — same rematch path as F5 (blank TRANSHDR.STK_ID).
+    key_cols = ["STK_ID", "TRANS_NUM"]
+    if "TRANS_CODE" in lines.columns:
+        key_cols.append("TRANS_CODE")
+    bill_keys = (
+        lines[key_cols]
+        .astype(str)
+        .apply(lambda s: s.str.strip())
+        .drop_duplicates()
+        .reset_index(drop=True)
     )
-    if headers.empty:
+
+    cb("Đang lấy header đơn…")
+    headers = fetch_transhdr_for_keys(
+        date_start, date_end, bill_keys, progress=progress
+    )
+    if headers is None or headers.empty:
         bill_vals = (
             lines.groupby(["STK_ID", "TRANS_NUM"], as_index=False)
             .agg(
@@ -157,7 +144,7 @@ def fetch_customer_orders(
             )
         )
     else:
-        bill_vals = headers.drop_duplicates(subset=["STK_ID", "TRANS_NUM"])
+        bill_vals = headers.copy()
 
     bill_vals["bill_value"] = pd.to_numeric(bill_vals["bill_value"], errors="coerce").fillna(0.0)
     if min_bill is not None:
@@ -165,7 +152,11 @@ def fetch_customer_orders(
     if max_bill is not None:
         bill_vals = bill_vals.loc[bill_vals["bill_value"] <= float(max_bill)]
 
-    bill_vals = bill_vals.merge(bill_keys, on=["STK_ID", "TRANS_NUM"], how="inner")
+    bill_vals = bill_vals.merge(
+        bill_keys[["STK_ID", "TRANS_NUM"]].drop_duplicates(),
+        on=["STK_ID", "TRANS_NUM"],
+        how="inner",
+    )
     kept = lines.merge(
         bill_vals[["STK_ID", "TRANS_NUM", "bill_value"]],
         on=["STK_ID", "TRANS_NUM"],
@@ -199,6 +190,7 @@ def export_customer_orders(
     sort_column: str | None = "TRANS_NUM",
     sort_ascending: bool = True,
     progress: ProgressCb | None = None,
+    bill_lines: pd.DataFrame | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -221,10 +213,14 @@ def export_customer_orders(
 
     df = _sorted(df)
 
-    # Expand once for all cards
-    keys = bill_keys_from_lines(df)
-    cb(f"Bung full bill ({len(keys)} đơn)…")
-    all_full = _sorted(fetch_bill_lines(date_start, date_end, keys, progress=progress))
+    # Expand once for all cards (reuse preview cache when provided)
+    if bill_lines is not None and not bill_lines.empty:
+        cb("Dùng cache full bill…")
+        all_full = _sorted(bill_lines)
+    else:
+        keys = bill_keys_from_lines(df)
+        cb(f"Bung full bill ({len(keys)} đơn)…")
+        all_full = _sorted(fetch_bill_lines(date_start, date_end, keys, progress=progress))
 
     # Aggregate report across all cards
     agg_report = build_orders_rich_report(

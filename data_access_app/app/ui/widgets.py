@@ -442,6 +442,19 @@ def status_bar() -> ft.Text:
     return ft.Text("", color=theme.TEXT_MUTED, size=12)
 
 
+def apply_job_error(status: ft.Text, state, *, fallback: str = "Lỗi không xác định") -> None:
+    """Show a short user-facing job error (no traceback) on the status bar."""
+    from app.db.errors import user_facing_error
+    from app.ui.jobs import JobState
+
+    if isinstance(state, JobState):
+        msg = state.error or fallback
+    else:
+        msg = user_facing_error(state) or fallback
+    status.value = msg
+    status.color = theme.DANGER
+
+
 def apply_search_result_status(
     status: ft.Text,
     df: pd.DataFrame,

@@ -96,6 +96,19 @@ TEXT_DECODE_COLUMNS = {
 
 POINTS_DIVISOR = 50_000.0
 
+
+def points_from_value(total_value: float | int | None) -> float:
+    """Loyalty points = floor(total_value / 50_000). Always round down after divide."""
+    import math
+
+    try:
+        v = float(total_value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if v != v:  # NaN
+        return 0.0
+    return float(math.floor(v / POINTS_DIVISOR))
+
 STK_PRESETS = ["10001", "10004", "10005"]
 
 BILL_VALUE_SQL = (

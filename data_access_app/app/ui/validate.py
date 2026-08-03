@@ -17,16 +17,36 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 def card_prefix_value(field: ft.Dropdown | ft.TextField | None) -> str:
-    """Read prefix from TextField or editable Dropdown (maps __none__ → empty)."""
+    """Read prefix from TextField or editable Dropdown (maps __none__ → empty).
+
+    Important: do **not** fall back to Dropdown.text when value is __none__.
+    Editable dropdowns can expose stale/filter text (e.g. a digit from another
+    control) which would wrongly become CARD_ID LIKE '2%' and zero out results.
+    Typed prefixes are synced into .value via on_text_change in form_kit.
+    """
     if field is None:
         return ""
     raw = (field.value or "").strip()
     if raw in {"", "__none__"}:
-        typed = (getattr(field, "text", None) or "").strip()
-        if typed and typed not in {"", "__none__", "(không lọc)"}:
-            return typed
         return ""
     return raw
+
+
+def parse_birth_month(value: str | None) -> int | None:
+    """Parse UI month value: '2', 'Tháng 2', or None/'any' → 1..12 or None."""
+    raw = (value or "").strip()
+    if not raw or raw.lower() in {"any", "__none__"}:
+        return None
+    if raw.isdigit():
+        m = int(raw)
+    else:
+        m_match = re.search(r"(\d{1,2})", raw)
+        if not m_match:
+            raise ValueError("Tháng sinh không hợp lệ")
+        m = int(m_match.group(1))
+    if m < 1 or m > 12:
+        raise ValueError("Tháng sinh phải từ 1–12")
+    return m
 
 
 def clear_errors(*fields: ft.Control | None) -> None:
@@ -260,6 +280,16 @@ def validate_card_prefix(field: ft.TextField | ft.Dropdown) -> str | None:
         return None
     if len(raw) > 8:
         set_error(field, "Tiền tố quá dài (tối đa ~8 ký tự, vd A / E / F)")
+        return None
+    # Digit-only (e.g. "2") is almost always birth-month key leakage → silent 0 rows.
+    if raw.isdigit():
+        set_error(
+            field,
+            "Tiền tố thẻ phải bắt đầu bằng chữ (vd A, E, F) — không dùng số thuần",
+        )
+        return None
+    if not re.match(r"^[A-Za-z][A-Za-z0-9]{0,7}$", raw):
+        set_error(field, "Tiền tố không hợp lệ (vd A, E, F12)")
         return None
     return raw
 

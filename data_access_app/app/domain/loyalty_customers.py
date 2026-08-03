@@ -9,7 +9,7 @@ import pandas as pd
 
 from app.db.dual_query import query_strans
 from app.domain.bill_expand import fetch_card_period_lines
-from app.domain.columns import BILL_VALUE_SQL, LOYALTY_METRIC_COLUMNS, ORDER_LINE_COLUMNS, POINTS_DIVISOR
+from app.domain.columns import BILL_VALUE_SQL, LOYALTY_METRIC_COLUMNS, ORDER_LINE_COLUMNS, points_from_value
 from app.domain.customer import lookup_cards
 from app.domain.customer_filters import SexFilter, customer_filters_active, filter_frame_by_customer
 from app.domain.search_opts import DEFAULT_SEARCH, SearchOpts, expand_prefix_params, match_prefix_column
@@ -77,7 +77,7 @@ def fetch_loyalty_customers(
             STK_ID=("STK_ID", "min"),
         )
     )
-    agg["points"] = agg["total_value"] / POINTS_DIVISOR
+    agg["points"] = agg["total_value"].map(points_from_value)
 
     metric_col = "points" if filter_mode == "points" else "total_value"
     if min_metric is not None:
@@ -128,6 +128,7 @@ def export_loyalty(
     txt_options: list[str] | None = None,
     meta: dict[str, str] | None = None,
     progress: ProgressCb | None = None,
+    cohort_lines: pd.DataFrame | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
@@ -151,15 +152,18 @@ def export_loyalty(
         if slim is not None and not slim.empty and "CARD_ID" in slim.columns
         else []
     )
-    cb(f"Đang lấy chi tiết giao dịch cohort ({len(card_ids)} thẻ)…")
-    cohort_lines = fetch_card_period_lines(
-        date_start,
-        date_end,
-        card_ids,
-        store_ids=store_ids,
-        progress=progress,
-        with_cards=True,
-    )
+    if cohort_lines is None:
+        cb(f"Đang lấy chi tiết giao dịch cohort ({len(card_ids)} thẻ)…")
+        cohort_lines = fetch_card_period_lines(
+            date_start,
+            date_end,
+            card_ids,
+            store_ids=store_ids,
+            progress=progress,
+            with_cards=True,
+        )
+    else:
+        cb(f"Dùng cache chi tiết cohort ({len(card_ids)} thẻ)…")
     detail_path = out_dir / "giao_dich_chi_tiet.xlsx"
     write_excel(
         project_columns(cohort_lines, ORDER_LINE_COLUMNS),
